@@ -1,0 +1,2828 @@
+{
+  "scripts_list": [
+    {
+      "module_name": "basic_image_processing",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nfrom PIL import Image, ImageEnhance\n\ndef load_image",
+      "file_path": "basic_image_processing.py",
+      "functions": [
+        "图像裁剪、缩放、旋转",
+        "亮度/对比度/饱和度调整",
+        "去噪、锐化、模糊",
+        "灰度化/色彩转换"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "image_enhancement",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport math\nfrom PIL import Image, ImageFilter\n\ndef load_image",
+      "file_path": "image_enhancement.py",
+      "functions": [
+        "暗光增强（Gamma + CLAHE）",
+        "去雾、HDR增强",
+        "自动质量优化（亮度/模糊度检测）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "video_processing",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport subprocess\nimport tempfile\nimport shutil\nfrom datetime import timedelta\n\ndef get_video_info",
+      "file_path": "video_processing.py",
+      "functions": [
+        "视频剪辑、合并、转码",
+        "视频帧提取、插入",
+        "视频倍速调整",
+        "视频降噪",
+        "视频字幕叠加",
+        "视频水印添加/移除"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "image_inpainting",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nfrom typing import List, Tuple, Optional, Union\n\n# 尝试导入深度学习相关库\nHAS_DIFFUSERS = False\ntry:\n    from diffusers import StableDiffusionInpaintPipeline\n    import torch\n    HAS_DIFFUSERS = True\nexcept ImportError:\n    print(\"警告: 未安装diffusers库，将无法使用基于Diffusers的Inpainting功能\")\n\n\ndef create_mask_from_red_boxes(image: np.ndarray, threshold: int = 100) -> np.ndarray:\n    \"\"\"\n    从图像中检测并创建红框区域的掩码\n    \n    Args:\n        image: 输入图像",
+      "file_path": "image_inpainting.py",
+      "functions": [
+        "Inpainting（Lama/Diffusers）",
+        "擦除红框/遮挡物",
+        "背景替换（自动抠图）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "image_analysis",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nfrom typing import List, Dict, Any, Optional, Tuple\n\n\ndef analyze_brightness(image: np.ndarray) -> Dict[str, float]:\n    \"\"\"\n    分析图像亮度\n    \n    Args:\n        image: 输入图像",
+      "file_path": "image_analysis.py",
+      "functions": [
+        "亮度/直方图分析",
+        "模糊度检测",
+        "噪声估计",
+        "区域统计（ROI 分析）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "image_comparison",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nfrom typing import List, Dict, Any, Optional, Tuple\nimport matplotlib.pyplot as plt\nfrom matplotlib.gridspec import GridSpec\n\n\ndef ensure_cv2_available() -> bool:\n    \"\"\"\n    确保cv2可用，并配置matplotlib中文字体\n    \n    Returns:\n        是否配置成功\n    \"\"\"\n    try:\n        # 配置matplotlib中文字体\n        plt.rcParams[\"font.sans-serif\"] = [\"SimHei\"]  # 用来正常显示中文标签\n        plt.rcParams[\"axes.unicode_minus\"] = False  # 用来正常显示负号\n        return True\n    except Exception as e:\n        print(f\"警告: 配置matplotlib时出错: {str",
+      "file_path": "image_comparison.py",
+      "functions": [
+        "A/B before-after 对比",
+        "多模型结果对比（模型对比台）",
+        "差分图像高亮"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "image_duplicate_detection",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nimport shutil\nfrom typing import List, Dict, Any, Optional, Set, Tuple\nfrom collections import defaultdict, deque\nimport matplotlib.pyplot as plt\nfrom sklearn.cluster import DBSCAN\nfrom sklearn.preprocessing import StandardScaler\n\n\ndef load_image(image_path: str, target_size: Tuple[int, int] = (32, 32)) -> Optional[np.ndarray]:\n    \"\"\"\n    加载并预处理图像\n    \n    Args:\n        image_path: 图像路径\n        target_size: 调整后的目标尺寸\n    \n    Returns:\n        预处理后的图像或None\n    \"\"\"\n    try:\n        # 加载图像\n        image = cv2.imread",
+      "file_path": "image_duplicate_detection.py",
+      "functions": [
+        "pHash / aHash / dHash 计算",
+        "重复图检测",
+        "相似图聚类"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_validation_fix",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nimport shutil\nimport xml.etree.ElementTree as ET\nfrom typing import List, Dict, Any, Optional, Set, Tuple\nfrom collections import defaultdict\nimport re\n\n\ndef load_image(image_path: str) -> Optional[np.ndarray]:\n    \"\"\"\n    加载图像\n    \n    Args:\n        image_path: 图像路径\n    \n    Returns:\n        图像数组或None\n    \"\"\"\n    image = cv2.imread",
+      "file_path": "dataset_validation_fix.py",
+      "functions": [
+        "缺失标签文件检测",
+        "BBox 越界检测",
+        "Mask 破损检测",
+        "标签与图片不一致自动修复"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "image_classification",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport json\nfrom tqdm import tqdm\nfrom PIL import Image\nimport torch\nimport torchvision\nfrom torchvision import transforms\nimport tensorflow as tf\nfrom tensorflow.keras.applications import (ResNet50, VGG16, MobileNetV2,\n                                         InceptionV3, Xception)\nfrom tensorflow.keras.applications.imagenet_utils import decode_predictions\n\nclass ImageClassifier:\n    \"\"\"图像分类器类\"\"\"\n    \n    def __init__(self, model_type='resnet50', device='auto', custom_model_path=None):\n        \"\"\"\n        初始化分类器\n        \n        Args:\n            model_type: 模型类型，支持'resnet50', 'vgg16', 'mobilenetv2', 'inceptionv3', 'xception', 'custom'\n            device: 运行设备，'auto', 'cuda', 'cpu'\n            custom_model_path: 自定义模型路径\n        \"\"\"\n        self.model_type = model_type\n        self.model = None\n        self.preprocess = None\n        self.device = self._get_device",
+      "file_path": "image_classification.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "image_feature_extraction",
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport json\nfrom tqdm import tqdm\nfrom PIL import Image\nimport torch\nimport torchvision.models as models\nimport torchvision.transforms as transforms\n\nclass FeatureExtractor:\n    \"\"\"图像特征提取器类\"\"\"\n    \n    def __init__(self, device='auto'):\n        \"\"\"\n        初始化特征提取器\n        \n        Args:\n            device: 运行设备，'auto', 'cuda', 'cpu'\n        \"\"\"\n        self.device = self._get_device",
+      "file_path": "image_feature_extraction.py",
+      "functions": [
+        "传统手工特征提取（HOG、SIFT、SURF、ORB、LBP、Haar-like）",
+        "深度学习特征提取（使用预训练模型）",
+        "颜色特征提取（颜色直方图、颜色矩、颜色集）",
+        "纹理特征提取（GLCM、LBP、Gabor滤波器）",
+        "特征可视化与导出",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "image_annotation_tool",
+      "display_name": "import os\nimport json\nimport argparse\nimport cv2\nimport numpy as np\nimport time\nfrom datetime import datetime\nfrom pathlib import Path\nimport shutil\nimport xml.etree.ElementTree as ET\nfrom tqdm import tqdm\nimport matplotlib.pyplot as plt\nfrom matplotlib.patches import Rectangle, Polygon, Circle, Arrow\nfrom matplotlib.widgets import Button, TextBox, CheckButtons\nimport matplotlib\n\n# 设置matplotlib后端，避免显示问题\nmatplotlib.use('TkAgg')\n\ndef ensure_directory",
+      "file_path": "image_annotation_tool.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "file_structure_validator",
+      "display_name": "import os\nimport json\nimport argparse\nimport glob\nfrom datetime import datetime\nfrom tqdm import tqdm\nimport re\nimport xml.etree.ElementTree as ET\nfrom pathlib import Path\n\ndef ensure_directory",
+      "file_path": "file_structure_validator.py",
+      "functions": [
+        "检查目录结构是否符合预期（"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_format_converter",
+      "display_name": "import os\nimport json\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport re\nimport xml.etree.ElementTree as ET\n\ndef load_image",
+      "file_path": "dataset_format_converter.py",
+      "functions": [
+        "YOLO ↔ COCO 格式转换",
+        "bbox ↔ polygon mask 转换",
+        "RGB ↔ 单通道 转换"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "data_augmentation",
+      "display_name": "import os\nimport random\nimport numpy as np\nimport argparse\nfrom PIL import Image, ImageEnhance, ImageFilter, ImageOps\nfrom tqdm import tqdm\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport shutil\n\ndef ensure_directory",
+      "file_path": "data_augmentation.py",
+      "functions": [
+        "图像旋转、翻转、缩放、裁剪",
+        "亮度/对比度/饱和度调整",
+        "噪声添加（高斯、椒盐、泊松）",
+        "模糊（高斯、均值、运动模糊）",
+        "颜色抖动（色调、饱和度、亮度）",
+        "透视变换、仿射变换",
+        "随机擦除（Random Erase）",
+        "混合增强（MixUp、CutMix）",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "file_batch_renamer",
+      "display_name": "import os\nimport re\nimport argparse\nimport shutil\nimport datetime\nimport json\nimport logging\nfrom pathlib import Path\nfrom tqdm import tqdm\nfrom collections import defaultdict\n\n# 设置日志配置\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "file_batch_renamer.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    {
+      "module_name": "file_search_index",
+      "display_name": "import os\nimport re\nimport json\nimport time\nimport datetime\nimport hashlib\nimport shutil\nimport pickle\nimport logging\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "file_search_index.py",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    {
+      "module_name": "text_config_processing",
+      "display_name": "import os\nimport re\nimport json\nimport yaml\nimport csv\nimport argparse\nimport glob\nfrom typing import List, Dict, Any, Optional\n\n\ndef validate_json_file(file_path: str) -> Dict[str, Any]:\n    \"\"\"\n    验证JSON文件\n    \n    Args:\n        file_path: JSON文件路径\n    \n    Returns:\n        包含验证结果的字典\n    \"\"\"\n    result = {\n        \"file\": file_path,\n        \"valid\": False,\n        \"error\": None,\n        \"data\": None\n    }\n    \n    try:\n        with open(file_path, 'r', encoding='utf-8') as f:\n            data = json.load",
+      "file_path": "text_config_processing.py",
+      "functions": [
+        "JSON/YAML/CSV 校验",
+        "批量 JSON 修复（补逗号/格式错误）",
+        "编码转换（GBK ⇄ UTF-8）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "large_image_processing",
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport logging\nimport math\nimport numpy as np\nimport cv2\nfrom typing import List, Dict, Any, Tuple, Optional, Generator\nimport xml.etree.ElementTree as ET\nfrom PIL import Image\nimport tqdm\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "large_image_processing.py",
+      "functions": [
+        "超大长图平滑浏览（DeepZoom）",
+        "滑窗切割（"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_statistics",
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport logging\nfrom typing import List, Dict, Any, Tuple, Set, Optional, Union\nfrom collections import defaultdict, Counter\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport matplotlib\nmatplotlib.use('Agg')  # 使用非交互式后端\nimport cv2\nfrom PIL import Image\nimport pandas as pd\nfrom tqdm import tqdm\n\n\nclass DatasetStatisticsAnalyzer:\n    \"\"\"\n    数据集统计分析器类\n    \"\"\"\n    \n    def __init__(self, output_dir=None):\n        self.output_dir = output_dir or \"stats_output\"\n        os.makedirs(self.output_dir, exist_ok=True)\n        \n        # 统计结果存储\n        self.stats = {\n            \"dataset_info\": {\n                \"name\": None,\n                \"path\": None,\n                \"total_files\": 0,\n                \"total_size_bytes\": 0,\n                \"file_formats\": {},\n                \"directory_count\": 0\n            },\n            \"image_stats\": {\n                \"total_images\": 0,\n                \"formats\": {},\n                \"resolutions\": [],\n                \"widths\": [],\n                \"heights\": [],\n                \"aspect_ratios\": [],\n                \"sizes_bytes\": [],\n                \"channels\": {},\n                \"color_distributions\": {}\n            },\n            \"annotation_stats\": {\n                \"total_annotations\": 0,\n                \"annotation_types\": {},\n                \"class_distribution\": {},\n                \"bbox_statistics\": {},\n                \"annotations_per_file\": []\n            }\n        }\n        \n        # 支持的图像格式\n        self.image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.gif'}\n        # 支持的标注格式\n        self.annotation_extensions = {'.txt', '.xml', '.json', '.csv', '.yaml', '.yml'}\n    \n    def collect_files(self, input_path, recursive=False):\n        \"\"\"\n        收集文件列表\n        \"\"\"\n        files = []\n        directory_count = 0\n        \n        if os.path.isfile",
+      "file_path": "dataset_statistics.py",
+      "functions": [
+        "类别分布统计与可视化",
+        "图片宽高分布统计与可视化",
+        "标注数量统计（按图/按类）",
+        "异常图（极端尺寸等）检测",
+        "图像格式与大小分析",
+        "边界框统计（面积分布、宽高比等）",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "file_converter",
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport shutil\nimport logging\nfrom typing import List, Dict, Any, Tuple, Optional, Union, Set\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nfrom tqdm import tqdm\nimport numpy as np\nfrom PIL import Image, UnidentifiedImageError\nimport cv2\nimport pandas as pd\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "file_converter.py",
+      "functions": [
+        "图像格式转换（JPG/PNG/BMP/WEBP/TIFF等）",
+        "标注文件格式转换（YOLO/VOC/COCO等）",
+        "批量文件转换",
+        "格式转换参数配置",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    {
+      "module_name": "image_segmentation",
+      "display_name": "import os\nimport sys\nimport cv2\nimport numpy as np\nimport argparse\nimport logging\nimport time\nimport json\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nimport matplotlib.pyplot as plt\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "image_segmentation.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    {
+      "module_name": "object_detection",
+      "display_name": "import os\nimport sys\nimport cv2\nimport numpy as np\nimport argparse\nimport logging\nimport time\nimport json\nimport csv\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nimport matplotlib.pyplot as plt\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "object_detection.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "file_hash_duplicate_detector",
+      "display_name": "import os\nimport sys\nimport hashlib\nimport json\nimport csv\nimport shutil\nimport argparse\nimport logging\nimport time\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nfrom collections import defaultdict\nimport tempfile\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "file_hash_duplicate_detector.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_cleaner",
+      "display_name": "import os\nimport sys\nimport json\nimport csv\nimport yaml\nimport shutil\nimport logging\nimport argparse\nimport hashlib\nimport uuid\nimport cv2\nimport numpy as np\nimport pandas as pd\nfrom datetime import datetime\nfrom typing import List, Dict, Any, Optional, Tuple, Union, Callable\nfrom PIL import Image, UnidentifiedImageError\nfrom tqdm import tqdm\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "dataset_cleaner.py",
+      "functions": [
+        "数据集中无效数据检测与移除",
+        "数据格式转换（图像格式、标注格式等）",
+        "重复数据检测与处理",
+        "数据一致性验证",
+        "缺失值处理（填充、删除等）",
+        "异常值检测与处理",
+        "数据标准化/归一化",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "directory_structure_analyzer",
+      "display_name": "import os\nimport sys\nimport json\nimport time\nimport datetime\nimport argparse\nimport logging\nimport re\nimport pickle\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom collections import defaultdict, Counter\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "directory_structure_analyzer.py",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "image_processing_pipeline",
+      "display_name": "import os\nimport sys\nimport json\nimport yaml\nimport logging\nimport argparse\nimport importlib\nimport time\nimport uuid\nimport concurrent.futures\nfrom datetime import datetime\nfrom typing import List, Dict, Any, Callable, Tuple, Optional, Union\nimport networkx as nx\nimport matplotlib.pyplot as plt\nimport cv2\nimport numpy as np\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "image_processing_pipeline.py",
+      "functions": [
+        "图像处理流程构建与管理",
+        "任务调度与执行",
+        "并行处理"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_sampler",
+      "display_name": "import os\nimport sys\nimport random\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport logging\nfrom typing import List, Dict, Any, Tuple, Set, Optional, Union\nfrom collections import defaultdict, Counter\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport matplotlib\nmatplotlib.use('Agg')  # 使用非交互式后端\nimport cv2\nfrom PIL import Image\nimport pandas as pd\nfrom tqdm import tqdm\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "dataset_sampler.py",
+      "functions": [
+        "随机采样（有放回/无放回）",
+        "分层采样（按类别、按图像尺寸等）",
+        "基于图像特征的智能采样",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "dataset_splitter",
+      "display_name": "import os\nimport sys\nimport random\nimport shutil\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nfrom typing import List, Dict, Any, Tuple, Set, Optional\nimport numpy as np\nfrom collections import defaultdict, Counter\nimport logging\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "dataset_splitter.py",
+      "functions": [
+        "随机/分层拆分（train/val/test）",
+        "保持类别比例",
+        "自动生成目录"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "data_backup_restore",
+      "display_name": "import os\nimport sys\nimport time\nimport shutil\nimport json\nimport yaml\nimport argparse\nimport logging\nimport tarfile\nimport zipfile\nimport gzip\nimport bz2\nimport lzma\nimport hashlib\nimport subprocess\nimport tempfile\nimport datetime\nimport re\nimport stat\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor\nimport threading\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "data_backup_restore.py",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "file_compression_tool",
+      "display_name": "import os\nimport sys\nimport time\nimport zipfile\nimport tarfile\nimport shutil\nimport argparse\nimport logging\nimport tempfile\nfrom pathlib import Path\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "file_compression_tool.py",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    {
+      "module_name": "data_compressor",
+      "display_name": "import os\nimport sys\nimport zipfile\nimport tarfile\nimport gzip\nimport bz2\nimport shutil\nimport argparse\nimport logging\nimport time\nimport datetime\nimport tempfile\nfrom pathlib import Path\nfrom typing import List, Dict, Optional, Callable, Union\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "file_path": "data_compressor.py",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    {
+      "module_name": "file_rename_batch",
+      "display_name": "renamed_files = []\n    current_number = start_number\n    \n    # 检查输入路径是否存在\n    if not os.path.exists",
+      "file_path": "file_rename_batch.py",
+      "functions": [
+        "正则/批量重命名",
+        "自动序号",
+        "替换文件扩展名"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    }
+  ],
+  "scripts_dict": {
+    "basic_image_processing": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nfrom PIL import Image, ImageEnhance\n\ndef load_image",
+      "functions": [
+        "图像裁剪、缩放、旋转",
+        "亮度/对比度/饱和度调整",
+        "去噪、锐化、模糊",
+        "灰度化/色彩转换"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "image_enhancement": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport math\nfrom PIL import Image, ImageFilter\n\ndef load_image",
+      "functions": [
+        "暗光增强（Gamma + CLAHE）",
+        "去雾、HDR增强",
+        "自动质量优化（亮度/模糊度检测）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "video_processing": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport subprocess\nimport tempfile\nimport shutil\nfrom datetime import timedelta\n\ndef get_video_info",
+      "functions": [
+        "视频剪辑、合并、转码",
+        "视频帧提取、插入",
+        "视频倍速调整",
+        "视频降噪",
+        "视频字幕叠加",
+        "视频水印添加/移除"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "image_inpainting": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nfrom typing import List, Tuple, Optional, Union\n\n# 尝试导入深度学习相关库\nHAS_DIFFUSERS = False\ntry:\n    from diffusers import StableDiffusionInpaintPipeline\n    import torch\n    HAS_DIFFUSERS = True\nexcept ImportError:\n    print(\"警告: 未安装diffusers库，将无法使用基于Diffusers的Inpainting功能\")\n\n\ndef create_mask_from_red_boxes(image: np.ndarray, threshold: int = 100) -> np.ndarray:\n    \"\"\"\n    从图像中检测并创建红框区域的掩码\n    \n    Args:\n        image: 输入图像",
+      "functions": [
+        "Inpainting（Lama/Diffusers）",
+        "擦除红框/遮挡物",
+        "背景替换（自动抠图）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "image_analysis": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nfrom typing import List, Dict, Any, Optional, Tuple\n\n\ndef analyze_brightness(image: np.ndarray) -> Dict[str, float]:\n    \"\"\"\n    分析图像亮度\n    \n    Args:\n        image: 输入图像",
+      "functions": [
+        "亮度/直方图分析",
+        "模糊度检测",
+        "噪声估计",
+        "区域统计（ROI 分析）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "image_comparison": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nfrom typing import List, Dict, Any, Optional, Tuple\nimport matplotlib.pyplot as plt\nfrom matplotlib.gridspec import GridSpec\n\n\ndef ensure_cv2_available() -> bool:\n    \"\"\"\n    确保cv2可用，并配置matplotlib中文字体\n    \n    Returns:\n        是否配置成功\n    \"\"\"\n    try:\n        # 配置matplotlib中文字体\n        plt.rcParams[\"font.sans-serif\"] = [\"SimHei\"]  # 用来正常显示中文标签\n        plt.rcParams[\"axes.unicode_minus\"] = False  # 用来正常显示负号\n        return True\n    except Exception as e:\n        print(f\"警告: 配置matplotlib时出错: {str",
+      "functions": [
+        "A/B before-after 对比",
+        "多模型结果对比（模型对比台）",
+        "差分图像高亮"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "image_duplicate_detection": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nimport shutil\nfrom typing import List, Dict, Any, Optional, Set, Tuple\nfrom collections import defaultdict, deque\nimport matplotlib.pyplot as plt\nfrom sklearn.cluster import DBSCAN\nfrom sklearn.preprocessing import StandardScaler\n\n\ndef load_image(image_path: str, target_size: Tuple[int, int] = (32, 32)) -> Optional[np.ndarray]:\n    \"\"\"\n    加载并预处理图像\n    \n    Args:\n        image_path: 图像路径\n        target_size: 调整后的目标尺寸\n    \n    Returns:\n        预处理后的图像或None\n    \"\"\"\n    try:\n        # 加载图像\n        image = cv2.imread",
+      "functions": [
+        "pHash / aHash / dHash 计算",
+        "重复图检测",
+        "相似图聚类"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "dataset_validation_fix": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport glob\nimport json\nimport shutil\nimport xml.etree.ElementTree as ET\nfrom typing import List, Dict, Any, Optional, Set, Tuple\nfrom collections import defaultdict\nimport re\n\n\ndef load_image(image_path: str) -> Optional[np.ndarray]:\n    \"\"\"\n    加载图像\n    \n    Args:\n        image_path: 图像路径\n    \n    Returns:\n        图像数组或None\n    \"\"\"\n    image = cv2.imread",
+      "functions": [
+        "缺失标签文件检测",
+        "BBox 越界检测",
+        "Mask 破损检测",
+        "标签与图片不一致自动修复"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "image_classification": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport json\nfrom tqdm import tqdm\nfrom PIL import Image\nimport torch\nimport torchvision\nfrom torchvision import transforms\nimport tensorflow as tf\nfrom tensorflow.keras.applications import (ResNet50, VGG16, MobileNetV2,\n                                         InceptionV3, Xception)\nfrom tensorflow.keras.applications.imagenet_utils import decode_predictions\n\nclass ImageClassifier:\n    \"\"\"图像分类器类\"\"\"\n    \n    def __init__(self, model_type='resnet50', device='auto', custom_model_path=None):\n        \"\"\"\n        初始化分类器\n        \n        Args:\n            model_type: 模型类型，支持'resnet50', 'vgg16', 'mobilenetv2', 'inceptionv3', 'xception', 'custom'\n            device: 运行设备，'auto', 'cuda', 'cpu'\n            custom_model_path: 自定义模型路径\n        \"\"\"\n        self.model_type = model_type\n        self.model = None\n        self.preprocess = None\n        self.device = self._get_device",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "image_feature_extraction": {
+      "display_name": "import os\nimport cv2\nimport numpy as np\nimport argparse\nimport json\nfrom tqdm import tqdm\nfrom PIL import Image\nimport torch\nimport torchvision.models as models\nimport torchvision.transforms as transforms\n\nclass FeatureExtractor:\n    \"\"\"图像特征提取器类\"\"\"\n    \n    def __init__(self, device='auto'):\n        \"\"\"\n        初始化特征提取器\n        \n        Args:\n            device: 运行设备，'auto', 'cuda', 'cpu'\n        \"\"\"\n        self.device = self._get_device",
+      "functions": [
+        "传统手工特征提取（HOG、SIFT、SURF、ORB、LBP、Haar-like）",
+        "深度学习特征提取（使用预训练模型）",
+        "颜色特征提取（颜色直方图、颜色矩、颜色集）",
+        "纹理特征提取（GLCM、LBP、Gabor滤波器）",
+        "特征可视化与导出",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "image_annotation_tool": {
+      "display_name": "import os\nimport json\nimport argparse\nimport cv2\nimport numpy as np\nimport time\nfrom datetime import datetime\nfrom pathlib import Path\nimport shutil\nimport xml.etree.ElementTree as ET\nfrom tqdm import tqdm\nimport matplotlib.pyplot as plt\nfrom matplotlib.patches import Rectangle, Polygon, Circle, Arrow\nfrom matplotlib.widgets import Button, TextBox, CheckButtons\nimport matplotlib\n\n# 设置matplotlib后端，避免显示问题\nmatplotlib.use('TkAgg')\n\ndef ensure_directory",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "file_structure_validator": {
+      "display_name": "import os\nimport json\nimport argparse\nimport glob\nfrom datetime import datetime\nfrom tqdm import tqdm\nimport re\nimport xml.etree.ElementTree as ET\nfrom pathlib import Path\n\ndef ensure_directory",
+      "functions": [
+        "检查目录结构是否符合预期（"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "dataset_format_converter": {
+      "display_name": "import os\nimport json\nimport cv2\nimport numpy as np\nimport argparse\nfrom tqdm import tqdm\nimport re\nimport xml.etree.ElementTree as ET\n\ndef load_image",
+      "functions": [
+        "YOLO ↔ COCO 格式转换",
+        "bbox ↔ polygon mask 转换",
+        "RGB ↔ 单通道 转换"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "data_augmentation": {
+      "display_name": "import os\nimport random\nimport numpy as np\nimport argparse\nfrom PIL import Image, ImageEnhance, ImageFilter, ImageOps\nfrom tqdm import tqdm\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport shutil\n\ndef ensure_directory",
+      "functions": [
+        "图像旋转、翻转、缩放、裁剪",
+        "亮度/对比度/饱和度调整",
+        "噪声添加（高斯、椒盐、泊松）",
+        "模糊（高斯、均值、运动模糊）",
+        "颜色抖动（色调、饱和度、亮度）",
+        "透视变换、仿射变换",
+        "随机擦除（Random Erase）",
+        "混合增强（MixUp、CutMix）",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "file_batch_renamer": {
+      "display_name": "import os\nimport re\nimport argparse\nimport shutil\nimport datetime\nimport json\nimport logging\nfrom pathlib import Path\nfrom tqdm import tqdm\nfrom collections import defaultdict\n\n# 设置日志配置\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    "file_search_index": {
+      "display_name": "import os\nimport re\nimport json\nimport time\nimport datetime\nimport hashlib\nimport shutil\nimport pickle\nimport logging\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    "text_config_processing": {
+      "display_name": "import os\nimport re\nimport json\nimport yaml\nimport csv\nimport argparse\nimport glob\nfrom typing import List, Dict, Any, Optional\n\n\ndef validate_json_file(file_path: str) -> Dict[str, Any]:\n    \"\"\"\n    验证JSON文件\n    \n    Args:\n        file_path: JSON文件路径\n    \n    Returns:\n        包含验证结果的字典\n    \"\"\"\n    result = {\n        \"file\": file_path,\n        \"valid\": False,\n        \"error\": None,\n        \"data\": None\n    }\n    \n    try:\n        with open(file_path, 'r', encoding='utf-8') as f:\n            data = json.load",
+      "functions": [
+        "JSON/YAML/CSV 校验",
+        "批量 JSON 修复（补逗号/格式错误）",
+        "编码转换（GBK ⇄ UTF-8）"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "large_image_processing": {
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport logging\nimport math\nimport numpy as np\nimport cv2\nfrom typing import List, Dict, Any, Tuple, Optional, Generator\nimport xml.etree.ElementTree as ET\nfrom PIL import Image\nimport tqdm\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "超大长图平滑浏览（DeepZoom）",
+        "滑窗切割（"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "dataset_statistics": {
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport logging\nfrom typing import List, Dict, Any, Tuple, Set, Optional, Union\nfrom collections import defaultdict, Counter\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport matplotlib\nmatplotlib.use('Agg')  # 使用非交互式后端\nimport cv2\nfrom PIL import Image\nimport pandas as pd\nfrom tqdm import tqdm\n\n\nclass DatasetStatisticsAnalyzer:\n    \"\"\"\n    数据集统计分析器类\n    \"\"\"\n    \n    def __init__(self, output_dir=None):\n        self.output_dir = output_dir or \"stats_output\"\n        os.makedirs(self.output_dir, exist_ok=True)\n        \n        # 统计结果存储\n        self.stats = {\n            \"dataset_info\": {\n                \"name\": None,\n                \"path\": None,\n                \"total_files\": 0,\n                \"total_size_bytes\": 0,\n                \"file_formats\": {},\n                \"directory_count\": 0\n            },\n            \"image_stats\": {\n                \"total_images\": 0,\n                \"formats\": {},\n                \"resolutions\": [],\n                \"widths\": [],\n                \"heights\": [],\n                \"aspect_ratios\": [],\n                \"sizes_bytes\": [],\n                \"channels\": {},\n                \"color_distributions\": {}\n            },\n            \"annotation_stats\": {\n                \"total_annotations\": 0,\n                \"annotation_types\": {},\n                \"class_distribution\": {},\n                \"bbox_statistics\": {},\n                \"annotations_per_file\": []\n            }\n        }\n        \n        # 支持的图像格式\n        self.image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.gif'}\n        # 支持的标注格式\n        self.annotation_extensions = {'.txt', '.xml', '.json', '.csv', '.yaml', '.yml'}\n    \n    def collect_files(self, input_path, recursive=False):\n        \"\"\"\n        收集文件列表\n        \"\"\"\n        files = []\n        directory_count = 0\n        \n        if os.path.isfile",
+      "functions": [
+        "类别分布统计与可视化",
+        "图片宽高分布统计与可视化",
+        "标注数量统计（按图/按类）",
+        "异常图（极端尺寸等）检测",
+        "图像格式与大小分析",
+        "边界框统计（面积分布、宽高比等）",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "file_converter": {
+      "display_name": "import os\nimport sys\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport shutil\nimport logging\nfrom typing import List, Dict, Any, Tuple, Optional, Union, Set\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nfrom tqdm import tqdm\nimport numpy as np\nfrom PIL import Image, UnidentifiedImageError\nimport cv2\nimport pandas as pd\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "图像格式转换（JPG/PNG/BMP/WEBP/TIFF等）",
+        "标注文件格式转换（YOLO/VOC/COCO等）",
+        "批量文件转换",
+        "格式转换参数配置",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    "image_segmentation": {
+      "display_name": "import os\nimport sys\nimport cv2\nimport numpy as np\nimport argparse\nimport logging\nimport time\nimport json\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nimport matplotlib.pyplot as plt\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "width",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像宽度",
+          "default": 800
+        },
+        {
+          "name": "height",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像高度",
+          "default": 600
+        },
+        {
+          "name": "quality",
+          "type": "integer",
+          "required": false,
+          "help": "输出图像质量(0-100)",
+          "default": 90
+        }
+      ]
+    },
+    "object_detection": {
+      "display_name": "import os\nimport sys\nimport cv2\nimport numpy as np\nimport argparse\nimport logging\nimport time\nimport json\nimport csv\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nimport matplotlib.pyplot as plt\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "file_hash_duplicate_detector": {
+      "display_name": "import os\nimport sys\nimport hashlib\nimport json\nimport csv\nimport shutil\nimport argparse\nimport logging\nimport time\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\nfrom collections import defaultdict\nimport tempfile\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    "dataset_cleaner": {
+      "display_name": "import os\nimport sys\nimport json\nimport csv\nimport yaml\nimport shutil\nimport logging\nimport argparse\nimport hashlib\nimport uuid\nimport cv2\nimport numpy as np\nimport pandas as pd\nfrom datetime import datetime\nfrom typing import List, Dict, Any, Optional, Tuple, Union, Callable\nfrom PIL import Image, UnidentifiedImageError\nfrom tqdm import tqdm\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "数据集中无效数据检测与移除",
+        "数据格式转换（图像格式、标注格式等）",
+        "重复数据检测与处理",
+        "数据一致性验证",
+        "缺失值处理（填充、删除等）",
+        "异常值检测与处理",
+        "数据标准化/归一化",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "directory_structure_analyzer": {
+      "display_name": "import os\nimport sys\nimport json\nimport time\nimport datetime\nimport argparse\nimport logging\nimport re\nimport pickle\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom collections import defaultdict, Counter\nfrom concurrent.futures import ThreadPoolExecutor, as_completed\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "image_processing_pipeline": {
+      "display_name": "import os\nimport sys\nimport json\nimport yaml\nimport logging\nimport argparse\nimport importlib\nimport time\nimport uuid\nimport concurrent.futures\nfrom datetime import datetime\nfrom typing import List, Dict, Any, Callable, Tuple, Optional, Union\nimport networkx as nx\nimport matplotlib.pyplot as plt\nimport cv2\nimport numpy as np\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "图像处理流程构建与管理",
+        "任务调度与执行",
+        "并行处理"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        }
+      ]
+    },
+    "dataset_sampler": {
+      "display_name": "import os\nimport sys\nimport random\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nimport logging\nfrom typing import List, Dict, Any, Tuple, Set, Optional, Union\nfrom collections import defaultdict, Counter\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport matplotlib\nmatplotlib.use('Agg')  # 使用非交互式后端\nimport cv2\nfrom PIL import Image\nimport pandas as pd\nfrom tqdm import tqdm\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "随机采样（有放回/无放回）",
+        "分层采样（按类别、按图像尺寸等）",
+        "基于图像特征的智能采样",
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "dataset_splitter": {
+      "display_name": "import os\nimport sys\nimport random\nimport shutil\nimport argparse\nimport json\nimport xml.etree.ElementTree as ET\nimport glob\nfrom typing import List, Dict, Any, Tuple, Set, Optional\nimport numpy as np\nfrom collections import defaultdict, Counter\nimport logging\n\n# 设置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "随机/分层拆分（train/val/test）",
+        "保持类别比例",
+        "自动生成目录"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "data_backup_restore": {
+      "display_name": "import os\nimport sys\nimport time\nimport shutil\nimport json\nimport yaml\nimport argparse\nimport logging\nimport tarfile\nimport zipfile\nimport gzip\nimport bz2\nimport lzma\nimport hashlib\nimport subprocess\nimport tempfile\nimport datetime\nimport re\nimport stat\nfrom typing import Dict, List, Tuple, Set, Optional, Union, Any\nfrom pathlib import Path\nfrom concurrent.futures import ThreadPoolExecutor\nimport threading\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "file_compression_tool": {
+      "display_name": "import os\nimport sys\nimport time\nimport zipfile\nimport tarfile\nimport shutil\nimport argparse\nimport logging\nimport tempfile\nfrom pathlib import Path\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        ""
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    },
+    "data_compressor": {
+      "display_name": "import os\nimport sys\nimport zipfile\nimport tarfile\nimport gzip\nimport bz2\nimport shutil\nimport argparse\nimport logging\nimport time\nimport datetime\nimport tempfile\nfrom pathlib import Path\nfrom typing import List, Dict, Optional, Callable, Union\n\n# 配置日志\nlogging.basicConfig(\n    level=logging.INFO,\n    format='%",
+      "functions": [
+        "功能描述未找到"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "split_ratio",
+          "type": "float",
+          "required": false,
+          "help": "数据集分割比例",
+          "default": 0.8
+        },
+        {
+          "name": "seed",
+          "type": "integer",
+          "required": false,
+          "help": "随机种子",
+          "default": 42
+        }
+      ]
+    },
+    "file_rename_batch": {
+      "display_name": "renamed_files = []\n    current_number = start_number\n    \n    # 检查输入路径是否存在\n    if not os.path.exists",
+      "functions": [
+        "正则/批量重命名",
+        "自动序号",
+        "替换文件扩展名"
+      ],
+      "params": [
+        {
+          "name": "input_path",
+          "type": "string",
+          "required": true,
+          "help": "输入文件或目录路径",
+          "default": "./input"
+        },
+        {
+          "name": "output_path",
+          "type": "string",
+          "required": true,
+          "help": "输出文件或目录路径",
+          "default": "./output"
+        },
+        {
+          "name": "verbose",
+          "type": "boolean",
+          "required": false,
+          "help": "启用详细输出模式",
+          "default": false
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "required": false,
+          "help": "文件匹配模式",
+          "default": "*.txt"
+        },
+        {
+          "name": "recursive",
+          "type": "boolean",
+          "required": false,
+          "help": "递归处理子目录",
+          "default": true
+        }
+      ]
+    }
+  }
+}
