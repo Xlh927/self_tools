@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据集生成器 - Dataset Generator</title>
+    <meta name="description" content="从大图标注生成小型数据集，支持VOC/YOLO/JSON格式">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+                    <path d="M8 12h24M8 20h24M8 28h16" stroke="white" stroke-width="3" stroke-linecap="round" />
+                    <circle cx="30" cy="28" r="6" fill="white" opacity="0.8" />
+                    <path d="M28 28l4 4" stroke="#667eea" stroke-width="2" stroke-linecap="round" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>数据集生成器</h1>
+            </div>
+            <p class="subtitle">从大图标注智能生成小型数据集</p>
+        </header>
+
+        <main class="main-content">
+            <div class="card">
+                <form id="generatorForm">
+                    <!-- Annotation Format -->
+                    <div class="form-group">
+                        <label for="annotationFormat">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path
+                                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            标注格式
+                        </label>
+                        <select id="annotationFormat" name="annotationFormat" required>
+                            <option value="voc">VOC (XML)</option>
+                            <option value="yolo">YOLO (TXT)</option>
+                            <option value="json">JSON (COCO-like)</option>
+                        </select>
+                    </div>
+
+                    <!-- Images Directory -->
+                    <div class="form-group">
+                        <label for="imagesDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                                <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="2" />
+                                <path d="M3 13l4-4 4 4 4-6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            图片目录
+                        </label>
+                        <input type="text" id="imagesDir" name="imagesDir" placeholder="例如: /path/to/images" required>
+                    </div>
+
+                    <!-- Annotations Directory -->
+                    <div class="form-group">
+                        <label for="annotationsDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 7v10a2 2 0 002 2h10a2 2 0 002-2V7M3 7l2-4h10l2 4M3 7h14"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            标注目录
+                            <span class="format-hint" id="annotationHint">(XML文件)</span>
+                        </label>
+                        <input type="text" id="annotationsDir" name="annotationsDir"
+                            placeholder="例如: /path/to/annotations" required>
+                    </div>
+
+                    <!-- Output Directory -->
+                    <div class="form-group">
+                        <label for="outputDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 3v14M17 10H3" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            输出目录
+                        </label>
+                        <input type="text" id="outputDir" name="outputDir" placeholder="例如: /path/to/output" required>
+                    </div>
+
+                    <!-- Class Filter -->
+                    <div class="form-group">
+                        <label for="classFilter">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 4h14M3 8h14M3 12h14M3 16h14" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            类别筛选
+                            <span class="format-hint" id="classFilterHint">(类别名称，逗号分隔)</span>
+                        </label>
+                        <input type="text" id="classFilter" name="classFilter" placeholder="例如: person,car,bicycle"
+                            required>
+                        <small class="help-text" id="classFilterHelp">VOC/JSON: 输入类别名称，如 "person,car"。YOLO: 输入类别索引，如
+                            "0,1,3"</small>
+                    </div>
+
+                    <!-- Window Parameters -->
+                    <div class="params-section">
+                        <h3 class="section-title">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                            </svg>
+                            滑窗参数
+                        </h3>
+                        <div class="params-grid">
+                            <div class="form-group">
+                                <label for="windowWidth">窗口宽度 (px)</label>
+                                <input type="number" id="windowWidth" name="windowWidth" value="640" min="64" max="4096"
+                                    step="32" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="windowHeight">窗口高度 (px)</label>
+                                <input type="number" id="windowHeight" name="windowHeight" value="640" min="64"
+                                    max="4096" step="32" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="strideX">横向步长 (px)</label>
+                                <input type="number" id="strideX" name="strideX" value="320" min="32" max="4096"
+                                    step="32" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="strideY">纵向步长 (px)</label>
+                                <input type="number" id="strideY" name="strideY" value="320" min="32" max="4096"
+                                    step="32" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overlap Threshold -->
+                    <div class="form-group">
+                        <label for="overlapThreshold">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+                                <rect x="8" y="8" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            重叠度阈值
+                            <span class="format-hint" id="thresholdValue">100%</span>
+                        </label>
+                        <input type="range" id="overlapThreshold" name="overlapThreshold" min="0" max="100" value="100"
+                            step="5" class="threshold-slider">
+                        <small class="help-text">标注在窗口内的最小占比。100%表示标注必须完全在窗口内</small>
+                    </div>
+
+                    <!-- Preview Info -->
+                    <div class="preview-info" id="previewInfo">
+                        <h4>参数预览</h4>
+                        <div class="preview-grid">
+                            <div class="preview-item">
+                                <span class="preview-label">窗口:</span>
+                                <span class="preview-value" id="previewWindow">640 × 640</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">步长:</span>
+                                <span class="preview-value" id="previewStride">320 × 320</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">重叠阈值:</span>
+                                <span class="preview-value" id="previewThreshold">100%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="btn-text">开始生成</span>
+                        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </form>
+
+                <!-- Progress Section -->
+                <div class="progress-section" id="progressSection" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">生成中...</p>
+                </div>
+
+                <!-- Result Section -->
+                <div class="result-section" id="resultSection" style="display: none;">
+                    <div class="result-content" id="resultContent"></div>
+                </div>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="info-icon">🎯</div>
+                    <h3>智能筛选</h3>
+                    <p>根据类别和重叠度自动筛选有效标注</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">📐</div>
+                    <h3>精确转换</h3>
+                    <p>支持矩形框和多边形标注，精确计算重叠</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">📦</div>
+                    <h3>YOLO输出</h3>
+                    <p>统一输出为YOLO格式，可直接用于训练</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>💡 提示：重叠度阈值控制标注保留条件，100%表示标注必须完全在窗口内</p>
+        </footer>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Back to Home -->
+    <a href="/" class="back-home">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M15 10H5M9 6l-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+        返回首页
+    </a>
+
+    <script src="{{ url_for('static', filename='js/generator.js') }}"></script>
+</body>
+
+</html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图像滑窗裁剪工具 - Image Cropper</title>
+    <meta name="description" content="使用滑窗方式裁剪大图，支持自定义窗口大小和重叠度">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+                    <rect x="10" y="10" width="20" height="20" rx="2" stroke="white" stroke-width="2"
+                        stroke-dasharray="3 3" />
+                    <rect x="14" y="14" width="5" height="5" rx="1" fill="white" opacity="0.6" />
+                    <rect x="21" y="14" width="5" height="5" rx="1" fill="white" opacity="0.6" />
+                    <rect x="14" y="21" width="5" height="5" rx="1" fill="white" opacity="0.6" />
+                    <rect x="21" y="21" width="5" height="5" rx="1" fill="white" opacity="0.6" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>图像滑窗裁剪工具</h1>
+            </div>
+            <p class="subtitle">智能裁剪大图，支持批量处理</p>
+        </header>
+
+        <main class="main-content">
+            <div class="card">
+                <form id="cropperForm">
+                    <!-- Processing Mode -->
+                    <div class="form-group">
+                        <label for="processingMode">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 7v10a2 2 0 002 2h10a2 2 0 002-2V7M3 7l2-4h10l2 4M3 7h14"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            处理模式
+                        </label>
+                        <select id="processingMode" name="processingMode" required>
+                            <option value="single">单张图片</option>
+                            <option value="folder">文件夹批量</option>
+                        </select>
+                    </div>
+
+                    <!-- Input Path -->
+                    <div class="form-group">
+                        <label for="inputPath">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                                <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="2" />
+                                <path d="M3 13l4-4 4 4 4-6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <span id="inputPathLabel">图片路径</span>
+                        </label>
+                        <input type="text" id="inputPath" name="inputPath" placeholder="例如: /path/to/image.jpg"
+                            required>
+                    </div>
+
+                    <!-- Output Directory -->
+                    <div class="form-group">
+                        <label for="outputDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 3v14M17 10H3" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            输出目录
+                        </label>
+                        <input type="text" id="outputDir" name="outputDir" placeholder="例如: /path/to/output" required>
+                    </div>
+
+                    <!-- Window Size Section -->
+                    <div class="params-section">
+                        <h3 class="section-title">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                <rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                            </svg>
+                            窗口大小
+                        </h3>
+                        <div class="params-grid">
+                            <div class="form-group">
+                                <label for="windowWidth">宽度 (px)</label>
+                                <input type="number" id="windowWidth" name="windowWidth" value="1024" min="64"
+                                    max="8192" step="64" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="windowHeight">高度 (px)</label>
+                                <input type="number" id="windowHeight" name="windowHeight" value="1024" min="64"
+                                    max="8192" step="64" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overlap Section -->
+                    <div class="params-section">
+                        <h3 class="section-title">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+                                <rect x="8" y="8" width="8" height="8" rx="1" stroke="currentColor" stroke-width="2" />
+                            </svg>
+                            重叠度
+                        </h3>
+                        <div class="params-grid">
+                            <div class="form-group">
+                                <label for="overlapX">横向 (px)</label>
+                                <input type="number" id="overlapX" name="overlapX" value="512" min="0" max="4096"
+                                    step="64" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="overlapY">纵向 (px)</label>
+                                <input type="number" id="overlapY" name="overlapY" value="512" min="0" max="4096"
+                                    step="64" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Info -->
+                    <div class="preview-info" id="previewInfo">
+                        <h4>参数预览</h4>
+                        <div class="preview-grid">
+                            <div class="preview-item">
+                                <span class="preview-label">窗口:</span>
+                                <span class="preview-value" id="previewWindow">1024 × 1024</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">重叠:</span>
+                                <span class="preview-value" id="previewOverlap">512 × 512</span>
+                            </div>
+                            <div class="preview-item">
+                                <span class="preview-label">步长:</span>
+                                <span class="preview-value" id="previewStride">512 × 512</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="btn-text">开始裁剪</span>
+                        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </form>
+
+                <!-- Progress Section -->
+                <div class="progress-section" id="progressSection" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p class="progress-text" id="progressText">裁剪中...</p>
+                </div>
+
+                <!-- Result Section -->
+                <div class="result-section" id="resultSection" style="display: none;">
+                    <div class="result-content" id="resultContent"></div>
+                </div>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="info-cards">
+                <div class="info-card">
+                    <div class="info-icon">🖼️</div>
+                    <h3>滑窗裁剪</h3>
+                    <p>使用滑动窗口技术，将大图切分为小块</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">⚙️</div>
+                    <h3>灵活配置</h3>
+                    <p>自定义窗口大小和重叠度，满足不同需求</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">📦</div>
+                    <h3>批量处理</h3>
+                    <p>支持文件夹批量处理，提高工作效率</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>💡 提示：重叠度用于确保边界区域的完整性</p>
+        </footer>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Back to Home -->
+    <a href="/" class="back-home">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M15 10H5M9 6l-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+        返回首页
+    </a>
+
+    <script src="{{ url_for('static', filename='js/cropper.js') }}"></script>
+</body>
+
+</html>

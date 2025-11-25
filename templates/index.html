@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图像处理工具集 - Image Processing Tools</title>
+    <meta name="description" content="专业的图像处理工具集，包含数据集格式转换和图像裁剪功能">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>图像处理工具集</h1>
+            </div>
+            <p class="subtitle">专业、易用的图像处理解决方案</p>
+        </header>
+
+        <main class="main-content">
+            <div class="tools-grid">
+                <!-- Dataset Converter Tool -->
+                <a href="/converter" class="tool-card">
+                    <div class="tool-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect x="6" y="6" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+                            <rect x="26" y="26" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2" />
+                            <path d="M22 14h4M14 22v4M26 34h4M34 26v4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <path d="M18 18l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h2>数据集格式转换</h2>
+                    <p class="tool-description">VOC ↔ YOLO 格式互转，支持批量处理，自动检测类别</p>
+                    <div class="tool-features">
+                        <span class="feature-tag">批量转换</span>
+                        <span class="feature-tag">自动检测</span>
+                        <span class="feature-tag">双向支持</span>
+                    </div>
+                    <div class="tool-arrow">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </a>
+
+                <!-- Image Cropper Tool -->
+                <a href="/cropper" class="tool-card">
+                    <div class="tool-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect x="8" y="8" width="32" height="32" rx="2" stroke="currentColor" stroke-width="2"
+                                stroke-dasharray="4 4" />
+                            <rect x="14" y="14" width="10" height="10" rx="1" fill="currentColor" opacity="0.3" />
+                            <rect x="24" y="14" width="10" height="10" rx="1" fill="currentColor" opacity="0.3" />
+                            <rect x="14" y="24" width="10" height="10" rx="1" fill="currentColor" opacity="0.3" />
+                            <rect x="24" y="24" width="10" height="10" rx="1" fill="currentColor" opacity="0.3" />
+                        </svg>
+                    </div>
+                    <h2>图像滑窗裁剪</h2>
+                    <p class="tool-description">滑窗方式裁剪大图，可配置窗口大小和重叠度</p>
+                    <div class="tool-features">
+                        <span class="feature-tag">滑窗裁剪</span>
+                        <span class="feature-tag">批量处理</span>
+                        <span class="feature-tag">参数可调</span>
+                    </div>
+                    <div class="tool-arrow">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </a>
+
+                <!-- Dataset Generator Tool -->
+                <a href="/generator" class="tool-card">
+                    <div class="tool-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect x="6" y="6" width="36" height="36" rx="2" stroke="currentColor" stroke-width="2"
+                                stroke-dasharray="2 2" />
+                            <rect x="12" y="12" width="10" height="10" rx="1" fill="currentColor" opacity="0.4" />
+                            <rect x="26" y="12" width="10" height="10" rx="1" fill="currentColor" opacity="0.4" />
+                            <rect x="12" y="26" width="10" height="10" rx="1" fill="currentColor" opacity="0.4" />
+                            <rect x="26" y="26" width="10" height="10" rx="1" fill="currentColor" opacity="0.4" />
+                            <circle cx="38" cy="10" r="6" fill="currentColor" opacity="0.8" />
+                            <path d="M36 10h4M38 8v4" stroke="white" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h2>数据集生成器</h2>
+                    <p class="tool-description">从大图标注生成小型数据集，支持VOC/YOLO/JSON格式，智能筛选</p>
+                    <div class="tool-features">
+                        <span class="feature-tag">标注感知</span>
+                        <span class="feature-tag">智能筛选</span>
+                        <span class="feature-tag">YOLO输出</span>
+                    </div>
+                    <div class="tool-arrow">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Features Section -->
+            <div class="features-section">
+                <h3>为什么选择我们的工具？</h3>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <h4>简单易用</h4>
+                        <p>专为新手设计，只需输入路径即可使用</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">⚡</div>
+                        <h4>高效处理</h4>
+                        <p>批量处理大量文件，节省时间</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎨</div>
+                        <h4>现代界面</h4>
+                        <p>美观的设计，流畅的交互体验</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🔧</div>
+                        <h4>灵活配置</h4>
+                        <p>支持自定义参数，满足不同需求</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>💡 选择上方工具开始使用</p>
+        </footer>
+    </div>
+</body>
+
+</html>
