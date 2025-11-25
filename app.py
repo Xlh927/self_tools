@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'modules'))
 from converter import DatasetConverter
 from image_cropper import ImageCropper
 from dataset_generator import DatasetGenerator
+from dataset_splitter import DatasetSplitter
 
 app = Flask(__name__)
 
@@ -39,6 +40,12 @@ def cropper_page():
 def generator_page():
     """Serve the dataset generator page"""
     return render_template('generator.html')
+
+
+@app.route('/splitter')
+def splitter_page():
+    """Serve the dataset splitter page"""
+    return render_template('splitter.html')
 
 
 @app.route('/api/convert', methods=['POST'])
@@ -295,6 +302,57 @@ def generate():
         }), 500
 
 
+@app.route('/api/split', methods=['POST'])
+def split():
+    """
+    Handle dataset splitting requests
+    
+    Expected JSON payload:
+    {
+        "format": "voc" or "yolo",
+        "input_dir": "path/to/dataset",
+        "output_dir": "path/to/output",
+        "train_ratio": 70,
+        "val_ratio": 20,
+        "test_ratio": 10,
+        "use_background": true,
+        "random_seed": 42
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['format', 'input_dir', 'output_dir']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Validate paths
+        if not os.path.exists(data['input_dir']):
+            return jsonify({
+                'success': False,
+                'error': f'Input directory does not exist: {data["input_dir"]}'
+            }), 400
+        
+        # Create splitter
+        splitter = DatasetSplitter()
+        
+        # Perform splitting
+        result = splitter.split_dataset(data)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print('🚀 Image Processing Tools Server Starting...')
     print('📱 Open your browser and navigate to: http://localhost:5001')
@@ -302,5 +360,6 @@ if __name__ == '__main__':
     print('   - Dataset Converter: http://localhost:5001/converter')
     print('   - Image Cropper: http://localhost:5001/cropper')
     print('   - Dataset Generator: http://localhost:5001/generator')
+    print('   - Dataset Splitter: http://localhost:5001/splitter')
     print('Press Ctrl+C to stop the server')
     app.run(debug=True, host='0.0.0.0', port=5001)
