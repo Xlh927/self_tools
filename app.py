@@ -14,6 +14,7 @@ from converter import DatasetConverter
 from image_cropper import ImageCropper
 from dataset_generator import DatasetGenerator
 from dataset_splitter import DatasetSplitter
+from image_deduplicator import ImageDeduplicator
 
 app = Flask(__name__)
 
@@ -46,6 +47,12 @@ def generator_page():
 def splitter_page():
     """Serve the dataset splitter page"""
     return render_template('splitter.html')
+
+
+@app.route('/deduplicator')
+def deduplicator_page():
+    """Serve the image deduplicator page"""
+    return render_template('deduplicator.html')
 
 
 @app.route('/api/convert', methods=['POST'])
@@ -353,6 +360,142 @@ def split():
         }), 500
 
 
+@app.route('/api/find-duplicates', methods=['POST'])
+def find_duplicates():
+    """
+    Handle duplicate image detection requests
+    
+    Expected JSON payload:
+    {
+        "folder_path": "path/to/images",
+        "hash_algorithm": "average", "perceptual", "difference", or "wavelet",
+        "use_md5": false,
+        "similarity_threshold": 5
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'folder_path' not in data or not data['folder_path']:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: folder_path'
+            }), 400
+        
+        folder_path = data['folder_path']
+        hash_algorithm = data.get('hash_algorithm', 'average')
+        use_md5 = data.get('use_md5', False)
+        similarity_threshold = int(data.get('similarity_threshold', 5))
+        
+        # Validate paths
+        if not os.path.exists(folder_path):
+            return jsonify({
+                'success': False,
+                'error': f'Folder does not exist: {folder_path}'
+            }), 400
+        
+        if not os.path.isdir(folder_path):
+            return jsonify({
+                'success': False,
+                'error': f'Path is not a directory: {folder_path}'
+            }), 400
+        
+        # Create deduplicator
+        deduplicator = ImageDeduplicator()
+        
+        # Find duplicates
+        duplicates = deduplicator.find_duplicates(
+            folder_path=folder_path,
+            hash_algorithm=hash_algorithm,
+            use_md5=use_md5,
+            similarity_threshold=similarity_threshold
+        )
+        
+        # Generate report
+        report = deduplicator.get_duplicate_report(duplicates)
+        
+        return jsonify({
+            'success': True,
+            'report': report
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/remove-duplicates', methods=['POST'])
+def remove_duplicates():
+    """
+    Handle duplicate image removal requests
+    
+    Expected JSON payload:
+    {
+        "folder_path": "path/to/images",
+        "hash_algorithm": "average",
+        "use_md5": false,
+        "similarity_threshold": 5,
+        "keep_strategy": "first", "last", "smallest", or "largest",
+        "dry_run": true
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'folder_path' not in data or not data['folder_path']:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required field: folder_path'
+            }), 400
+        
+        folder_path = data['folder_path']
+        hash_algorithm = data.get('hash_algorithm', 'average')
+        use_md5 = data.get('use_md5', False)
+        similarity_threshold = int(data.get('similarity_threshold', 5))
+        keep_strategy = data.get('keep_strategy', 'first')
+        dry_run = data.get('dry_run', True)
+        
+        # Validate paths
+        if not os.path.exists(folder_path):
+            return jsonify({
+                'success': False,
+                'error': f'Folder does not exist: {folder_path}'
+            }), 400
+        
+        # Create deduplicator
+        deduplicator = ImageDeduplicator()
+        
+        # Find duplicates
+        duplicates = deduplicator.find_duplicates(
+            folder_path=folder_path,
+            hash_algorithm=hash_algorithm,
+            use_md5=use_md5,
+            similarity_threshold=similarity_threshold
+        )
+        
+        # Remove duplicates
+        result = deduplicator.remove_duplicates(
+            duplicates=duplicates,
+            keep_strategy=keep_strategy,
+            dry_run=dry_run
+        )
+        
+        return jsonify({
+            'success': True,
+            **result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 if __name__ == '__main__':
     print('🚀 Image Processing Tools Server Starting...')
     print('📱 Open your browser and navigate to: http://localhost:5001')
@@ -361,5 +504,6 @@ if __name__ == '__main__':
     print('   - Image Cropper: http://localhost:5001/cropper')
     print('   - Dataset Generator: http://localhost:5001/generator')
     print('   - Dataset Splitter: http://localhost:5001/splitter')
+    print('   - Image Deduplicator: http://localhost:5001/deduplicator')
     print('Press Ctrl+C to stop the server')
     app.run(debug=True, host='0.0.0.0', port=5001)

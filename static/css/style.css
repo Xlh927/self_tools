@@ -934,3 +934,144 @@ input[type="range"]::-moz-range-thumb:hover {
         max-width: 100%;
     }
 }
+
+/* Deduplicator-specific Styles */
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.secondary-btn {
+    background: rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(102, 126, 234, 0.4);
+}
+
+.secondary-btn:hover {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: rgba(102, 126, 234, 0.6);
+}
+
+.duplicates-preview {
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border-color);
+    animation: fadeIn 0.4s ease;
+}
+
+.duplicates-preview h3 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.duplicate-group {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 16px;
+    transition: all var(--transition-normal);
+}
+
+.duplicate-group:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.group-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.group-count {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: rgba(102, 126, 234, 0.15);
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.group-files {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.duplicate-file {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+}
+
+.file-name {
+    color: var(--text-secondary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-left: 12px;
+}
+
+.toast.info {
+    border-left: 4px solid #ff9800;
+}
+
+/* Checkbox styles */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+.checkbox-label span {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .button-group {
+        grid-template-columns: 1fr;
+    }
+
+    .duplicate-file {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .file-size {
+        margin-left: 0;
+    }
+}
