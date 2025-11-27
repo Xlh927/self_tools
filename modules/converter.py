@@ -140,8 +140,38 @@ class DatasetConverter:
                 'error': str(e)
             }
     
+    def scan_yolo_classes(self, yolo_txt_dir: str) -> Dict[int, int]:
+        """
+        扫描YOLO格式文件，提取所有存在的类别ID及其出现次数
+        
+        Args:
+            yolo_txt_dir: Directory containing YOLO txt annotation files
+            
+        Returns:
+            Dictionary of {class_id: count}
+        """
+        class_counts = {}
+        txt_files = list(Path(yolo_txt_dir).glob('*.txt'))
+        txt_files = [f for f in txt_files if f.name != 'classes.txt']
+        
+        for txt_file in txt_files:
+            try:
+                with open(txt_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        parts = line.split()
+                        if parts:
+                            class_id = int(parts[0])
+                            class_counts[class_id] = class_counts.get(class_id, 0) + 1
+            except Exception:
+                continue
+        
+        return class_counts
+    
     def yolo_to_voc(self, yolo_txt_dir: str, images_dir: str, output_dir: str,
-                    classes_file: str = None) -> Dict[str, any]:
+                    classes_file: str = None, custom_classes: List[str] = None) -> Dict[str, any]:
         """
         Convert YOLO format to VOC format
         
@@ -149,21 +179,30 @@ class DatasetConverter:
             yolo_txt_dir: Directory containing YOLO txt annotation files
             images_dir: Directory containing images
             output_dir: Output directory for VOC XML files
-            classes_file: Path to classes.txt file (required for YOLO to VOC)
+            classes_file: Path to classes.txt file (optional)
+            custom_classes: List of custom class names indexed by ID (optional)
             
         Returns:
             Dictionary with conversion results
         """
         try:
             # Load classes
-            if classes_file and os.path.exists(classes_file):
+            if custom_classes:
+                # 使用自定义类别列表
+                self.classes = custom_classes
+            elif classes_file and os.path.exists(classes_file):
                 with open(classes_file, 'r', encoding='utf-8') as f:
                     self.classes = [line.strip() for line in f if line.strip()]
             elif not self.classes:
-                return {
-                    'success': False,
-                    'error': 'Classes file is required for YOLO to VOC conversion'
-                }
+                # 如果没有提供类别信息，使用默认命名
+                class_counts = self.scan_yolo_classes(yolo_txt_dir)
+                if class_counts:
+                    self.classes = [f'class_{i}' for i in range(max(class_counts.keys()) + 1)]
+                else:
+                    return {
+                        'success': False,
+                        'error': 'No annotations found in YOLO files'
+                    }
             
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)

@@ -10,6 +10,14 @@ const progressText = document.getElementById('progressText');
 const resultSection = document.getElementById('resultSection');
 const resultContent = document.getElementById('resultContent');
 const toast = document.getElementById('toast');
+const classManagementSection = document.getElementById('classManagementSection');
+const classListContainer = document.getElementById('classListContainer');
+const scanClassesBtn = document.getElementById('scanClassesBtn');
+const loadClassesBtn = document.getElementById('loadClassesBtn');
+const annotationsDir = document.getElementById('annotationsDir');
+const imagesDir = document.getElementById('imagesDir');
+const outputDir = document.getElementById('outputDir');
+const classesFile = document.getElementById('classesFile');
 
 // Update UI based on conversion type
 conversionType.addEventListener('change', (e) => {
@@ -17,15 +25,197 @@ conversionType.addEventListener('change', (e) => {
 
     // Update hints
     annotationsHint.textContent = isVocToYolo ? '(XML文件)' : '(TXT文件)';
-    classesOptional.textContent = isVocToYolo ? '(可选)' : '(必需)';
-
-    // Update required attribute
+    
+    // Classes file is always optional now
+    classesOptional.textContent = '(可选)';
     const classesFileInput = document.getElementById('classesFile');
-    if (isVocToYolo) {
-        classesFileInput.removeAttribute('required');
-    } else {
-        classesFileInput.setAttribute('required', 'required');
+    classesFileInput.removeAttribute('required');
+    
+    // Show class management section
+    if (classManagementSection) {
+        classManagementSection.style.display = 'block';
     }
+});
+
+// Scan classes button event
+scanClassesBtn?.addEventListener('click', async function() {
+    const annotationsDirVal = annotationsDir.value.trim();
+    const isYoloToVoc = conversionType.value !== 'voc_to_yolo';
+    
+    if (!annotationsDirVal) {
+        showToast('请先填写标注文件目录', 'error');
+        annotationsDir.classList.add('error');
+        return;
+    }
+    
+    this.disabled = true;
+    this.innerHTML = '<svg class="btn-icon" width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="2"><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 10 10" to="360 10 10" dur="1s" repeatCount="indefinite"/></circle></svg>扫描中...';
+    
+    try {
+        // Make API request to scan classes
+        const response = await fetch('/api/scan-classes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                annotations_dir: annotationsDirVal,
+                is_yolo_format: isYoloToVoc
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`扫描失败: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.classes && data.classes.length > 0) {
+            displayClassList(data.classes);
+            showToast(`成功扫描到 ${data.classes.length} 个类别`, 'success');
+        } else {
+            showToast('未找到类别信息，请检查路径', 'error');
+        }
+    } catch (error) {
+        showToast(`扫描失败: ${error.message}`, 'error');
+    } finally {
+        this.disabled = false;
+        this.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="2"/></svg>扫描类别';
+    }
+});
+
+// Load classes from file button event
+loadClassesBtn?.addEventListener('click', async function() {
+    if (!classesFile.value.trim()) {
+        showToast('请先填写类别文件路径', 'error');
+        classesFile.classList.add('error');
+        return;
+    }
+    
+    try {
+        // Make API request to load classes from file
+        const response = await fetch('/api/load-classes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                classes_file: classesFile.value.trim()
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`加载失败: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.classes && data.classes.length > 0) {
+            displayClassList(data.classes);
+            showToast(`成功加载 ${data.classes.length} 个类别`, 'success');
+        } else {
+            showToast('加载类别文件失败，请检查路径', 'error');
+        }
+    } catch (error) {
+        showToast(`加载失败: ${error.message}`, 'error');
+    }
+});
+
+// Display class list
+function displayClassList(classes) {
+    if (!classListContainer) return;
+    
+    classListContainer.innerHTML = '';
+    
+    const classTable = document.createElement('div');
+    classTable.className = 'class-table';
+    
+    // Table header
+    const header = document.createElement('div');
+    header.className = 'class-row header';
+    header.innerHTML = `
+        <div class="class-col index">索引</div>
+        <div class="class-col name">类别名称</div>
+        <div class="class-col count">计数</div>
+        <div class="class-col keep">保留</div>
+    `;
+    classTable.appendChild(header);
+    
+    // Table rows
+    classes.forEach((cls, index) => {
+        const row = document.createElement('div');
+        row.className = 'class-row';
+        row.innerHTML = `
+            <div class="class-col index">${index}</div>
+            <div class="class-col name">
+                <input type="text" class="class-name-input" value="${cls.name || `class_${index}`}" data-index="${index}">
+            </div>
+            <div class="class-col count">${cls.count || 0}</div>
+            <div class="class-col keep">
+                <input type="checkbox" class="class-keep-checkbox" checked data-index="${index}">
+            </div>
+        `;
+        classTable.appendChild(row);
+    });
+    
+    classListContainer.appendChild(classTable);
+    
+    // Add event listeners to inputs
+    document.querySelectorAll('.class-name-input').forEach(input => {
+        input.addEventListener('input', updateCustomClasses);
+    });
+    
+    document.querySelectorAll('.class-keep-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedClasses);
+    });
+}
+
+// Update custom classes hidden field
+function updateCustomClasses() {
+    const customClasses = [];
+    document.querySelectorAll('.class-name-input').forEach(input => {
+        customClasses[parseInt(input.dataset.index)] = input.value;
+    });
+    
+    // Store in a hidden field
+    let hiddenField = document.getElementById('customClasses');
+    if (!hiddenField) {
+        hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.id = 'customClasses';
+        hiddenField.name = 'custom_classes';
+        form.appendChild(hiddenField);
+    }
+    hiddenField.value = JSON.stringify(customClasses);
+}
+
+// Update selected classes hidden field
+function updateSelectedClasses() {
+    const selectedClasses = [];
+    document.querySelectorAll('.class-keep-checkbox:checked').forEach(checkbox => {
+        selectedClasses.push(parseInt(checkbox.dataset.index));
+    });
+    
+    // Store in a hidden field
+    let hiddenField = document.getElementById('selectedClasses');
+    if (!hiddenField) {
+        hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.id = 'selectedClasses';
+        hiddenField.name = 'selected_classes';
+        form.appendChild(hiddenField);
+    }
+    hiddenField.value = JSON.stringify(selectedClasses);
+}
+
+// Input event handlers for auto-inference
+[annotationsDir, imagesDir, outputDir, classesFile].forEach(field => {
+    field?.addEventListener('input', function() {
+        this.classList.remove('error');
+        
+        // Try to auto-infer other paths using smart input manager
+        if (window.smartInputManager) {
+            window.smartInputManager.tryInferPaths(field.id, this.value);
+        }
+    });
 });
 
 // Form submission
@@ -34,21 +224,28 @@ form.addEventListener('submit', async (e) => {
 
     // Get form data
     const formData = {
-        conversion_type: document.getElementById('conversionType').value,
-        annotations_dir: document.getElementById('annotationsDir').value.trim(),
-        images_dir: document.getElementById('imagesDir').value.trim(),
-        output_dir: document.getElementById('outputDir').value.trim(),
-        classes_file: document.getElementById('classesFile').value.trim()
+        conversion_type: conversionType.value,
+        annotations_dir: annotationsDir.value.trim(),
+        images_dir: imagesDir.value.trim(),
+        output_dir: outputDir.value.trim(),
+        classes_file: classesFile.value.trim()
     };
+    
+    // Add custom classes and selected classes if available
+    const customClassesField = document.getElementById('customClasses');
+    const selectedClassesField = document.getElementById('selectedClasses');
+    
+    if (customClassesField && customClassesField.value) {
+        formData.custom_classes = customClassesField.value;
+    }
+    
+    if (selectedClassesField && selectedClassesField.value) {
+        formData.selected_classes = selectedClassesField.value;
+    }
 
     // Validate
     if (!formData.annotations_dir || !formData.images_dir || !formData.output_dir) {
         showToast('请填写所有必填字段', 'error');
-        return;
-    }
-
-    if (formData.conversion_type === 'yolo_to_voc' && !formData.classes_file) {
-        showToast('YOLO转VOC需要提供classes.txt文件', 'error');
         return;
     }
 
@@ -155,6 +352,15 @@ function showSuccessResult(result) {
             </div>
         </div>
     ` : '';
+    
+    const selectedClassesHtml = result.selected_classes && result.selected_classes.length > 0 ? `
+        <div class="result-selected-classes">
+            <h4>已保留类别 (${result.selected_classes.length}):</h4>
+            <div class="classes-list">
+                ${result.selected_classes.map(cls => `<span class="class-tag selected">${cls}</span>`).join('')}
+            </div>
+        </div>
+    ` : '';
 
     const errorsHtml = result.errors && result.errors.length > 0 ? `
         <div class="error-list">
@@ -190,6 +396,7 @@ function showSuccessResult(result) {
                 </div>
             </div>
             ${classesHtml}
+            ${selectedClassesHtml}
             ${errorsHtml}
         </div>
     `;
@@ -229,10 +436,37 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
+// Initialize smart input manager if available
+if (window.smartInputManager) {
+    window.smartInputManager.initialize({
+        annotationsDir: annotationsDir,
+        imagesDir: imagesDir,
+        outputDir: outputDir,
+        classesFile: classesFile,
+        conversionType: conversionType
+    });
+}
+
 // Auto-fill example paths on development (optional)
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // You can uncomment these for testing
-    // document.getElementById('annotationsDir').value = '/path/to/annotations';
-    // document.getElementById('imagesDir').value = '/path/to/images';
-    // document.getElementById('outputDir').value = '/path/to/output';
+    // Create test button
+    const testBtn = document.createElement('button');
+    testBtn.textContent = '填充测试路径';
+    testBtn.className = 'secondary-btn';
+    testBtn.style.marginLeft = '10px';
+    testBtn.addEventListener('click', function() {
+        const basePath = '/path/to/dataset';
+        annotationsDir.value = conversionType.value === 'yolo_to_voc' ? `${basePath}/labels` : `${basePath}/Annotations`;
+        imagesDir.value = `${basePath}/images`;
+        outputDir.value = `${basePath}/output`;
+        classesFile.value = `${basePath}/classes.txt`;
+    });
+    
+    const actionsDiv = document.querySelector('.form-actions');
+    if (actionsDiv) {
+        actionsDiv.appendChild(testBtn);
+    }
 }
+
+// Trigger initial state update
+conversionType.dispatchEvent(new Event('change'));

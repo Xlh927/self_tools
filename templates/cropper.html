@@ -71,6 +71,21 @@
                             required>
                     </div>
 
+                    <!-- Annotations Directory (Optional) -->
+                    <div class="form-group">
+                        <label for="annotationsDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 7v10a2 2 0 002 2h10a2 2 0 002-2V7M3 7l2-4h10l2 4M3 7h14"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            标注文件目录
+                            <span class="optional-hint">(可选，用于裁剪标注)</span>
+                        </label>
+                        <input type="text" id="annotationsDir" name="annotationsDir"
+                            placeholder="例如: /path/to/annotations">
+                    </div>
+
                     <!-- Output Directory -->
                     <div class="form-group">
                         <label for="outputDir">
@@ -210,6 +225,8 @@
     </a>
 
     <script src="{{ url_for('static', filename='js/cropper.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/smart-inputs.js') }}"></script>
 </body>
 
 </html>

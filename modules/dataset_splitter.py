@@ -16,31 +16,33 @@ class DatasetSplitter:
     def __init__(self):
         self.supported_image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']
     
-    def scan_dataset(self, input_dir: str, format_type: str) -> Tuple[List[str], List[str]]:
+    def scan_dataset(self, images_dir: str, annotations_dir: str, format_type: str) -> Tuple[List[str], List[str]]:
         """
         Scan directory and separate labeled and unlabeled images
         
         Args:
-            input_dir: Directory containing images and annotations
+            images_dir: Directory containing images
+            annotations_dir: Directory containing annotations
             format_type: 'voc' or 'yolo'
             
         Returns:
             (labeled_images, unlabeled_images) - lists of image basenames (without extension)
         """
-        input_path = Path(input_dir)
+        images_path = Path(images_dir)
+        annotations_path = Path(annotations_dir)
         
         # Find all images
         image_files = []
         for ext in self.supported_image_extensions:
-            image_files.extend(input_path.glob(f'*{ext}'))
-            image_files.extend(input_path.glob(f'*{ext.upper()}'))
+            image_files.extend(images_path.glob(f'*{ext}'))
+            image_files.extend(images_path.glob(f'*{ext.upper()}'))
         
         # Get basenames
         image_basenames = {img.stem for img in image_files}
         
         # Find annotations
         annotation_ext = '.xml' if format_type == 'voc' else '.txt'
-        annotation_files = list(input_path.glob(f'*{annotation_ext}'))
+        annotation_files = list(annotations_path.glob(f'*{annotation_ext}'))
         annotation_basenames = {ann.stem for ann in annotation_files}
         
         # Separate labeled and unlabeled
@@ -69,19 +71,21 @@ class DatasetSplitter:
         
         return train_count, val_count, test_count
     
-    def copy_files(self, basenames: List[str], input_dir: str, output_dir: str, 
-                   split_name: str, format_type: str):
+    def copy_files(self, basenames: List[str], images_dir: str, annotations_dir: str, 
+                   output_dir: str, split_name: str, format_type: str):
         """
         Copy image and annotation files to output directory
         
         Args:
             basenames: List of file basenames (without extension)
-            input_dir: Source directory
+            images_dir: Source images directory
+            annotations_dir: Source annotations directory
             output_dir: Destination directory
             split_name: 'train', 'val', or 'test'
             format_type: 'voc' or 'yolo'
         """
-        input_path = Path(input_dir)
+        images_path = Path(images_dir)
+        annotations_path = Path(annotations_dir)
         output_path = Path(output_dir) / split_name
         
         # Create output directories
@@ -96,11 +100,11 @@ class DatasetSplitter:
             # Find and copy image
             image_file = None
             for ext in self.supported_image_extensions:
-                potential_file = input_path / f'{basename}{ext}'
+                potential_file = images_path / f'{basename}{ext}'
                 if potential_file.exists():
                     image_file = potential_file
                     break
-                potential_file = input_path / f'{basename}{ext.upper()}'
+                potential_file = images_path / f'{basename}{ext.upper()}'
                 if potential_file.exists():
                     image_file = potential_file
                     break
@@ -109,31 +113,31 @@ class DatasetSplitter:
                 shutil.copy2(image_file, images_dir / image_file.name)
             
             # Copy annotation
-            annotation_file = input_path / f'{basename}{annotation_ext}'
+            annotation_file = annotations_path / f'{basename}{annotation_ext}'
             if annotation_file.exists():
                 shutil.copy2(annotation_file, labels_dir / annotation_file.name)
     
-    def copy_background_files(self, basenames: List[str], input_dir: str, output_dir: str):
+    def copy_background_files(self, basenames: List[str], images_dir: str, output_dir: str):
         """
         Copy unlabeled images to background folder
         
         Args:
             basenames: List of file basenames (without extension)
-            input_dir: Source directory
+            images_dir: Source images directory
             output_dir: Destination directory
         """
-        input_path = Path(input_dir)
+        images_path = Path(images_dir)
         output_path = Path(output_dir) / 'background' / 'images'
         output_path.mkdir(parents=True, exist_ok=True)
         
         for basename in basenames:
             # Find and copy image
             for ext in self.supported_image_extensions:
-                image_file = input_path / f'{basename}{ext}'
+                image_file = images_path / f'{basename}{ext}'
                 if image_file.exists():
                     shutil.copy2(image_file, output_path / image_file.name)
                     break
-                image_file = input_path / f'{basename}{ext.upper()}'
+                image_file = images_path / f'{basename}{ext.upper()}'
                 if image_file.exists():
                     shutil.copy2(image_file, output_path / image_file.name)
                     break
@@ -158,7 +162,8 @@ class DatasetSplitter:
         """
         try:
             format_type = config['format']
-            input_dir = config['input_dir']
+            images_dir = config['images_dir']
+            annotations_dir = config['annotations_dir']
             output_dir = config['output_dir']
             train_ratio = config.get('train_ratio', 70)
             val_ratio = config.get('val_ratio', 20)
@@ -167,14 +172,19 @@ class DatasetSplitter:
             random_seed = config.get('random_seed', 42)
             
             # Validate input directory
-            if not os.path.exists(input_dir):
+            if not os.path.exists(images_dir):
                 return {
                     'success': False,
-                    'error': f'Input directory does not exist: {input_dir}'
+                    'error': f'Images directory does not exist: {images_dir}'
+                }
+            if not os.path.exists(annotations_dir):
+                return {
+                    'success': False,
+                    'error': f'Annotations directory does not exist: {annotations_dir}'
                 }
             
             # Scan dataset
-            labeled, unlabeled = self.scan_dataset(input_dir, format_type)
+            labeled, unlabeled = self.scan_dataset(images_dir, annotations_dir, format_type)
             
             total_images = len(labeled) + len(unlabeled)
             
@@ -208,16 +218,16 @@ class DatasetSplitter:
             os.makedirs(output_dir, exist_ok=True)
             
             # Copy files
-            self.copy_files(train_images, input_dir, output_dir, 'train', format_type)
-            self.copy_files(val_images, input_dir, output_dir, 'val', format_type)
+            self.copy_files(train_images, images_dir, annotations_dir, output_dir, 'train', format_type)
+            self.copy_files(val_images, images_dir, annotations_dir, output_dir, 'val', format_type)
             
             if test_count > 0:
-                self.copy_files(test_images, input_dir, output_dir, 'test', format_type)
+                self.copy_files(test_images, images_dir, annotations_dir, output_dir, 'test', format_type)
             
             # Handle background images
             background_count = 0
             if use_background and len(unlabeled) > 0:
-                self.copy_background_files(unlabeled, input_dir, output_dir)
+                self.copy_background_files(unlabeled, images_dir, output_dir)
                 background_count = len(unlabeled)
             
             return {
