@@ -114,6 +114,7 @@
     /* Tools handle their own scrolling */
     align-items: flex-start;
     /* Align tools to top */
+    justify-content: center;
 }
 
 .workspace::-webkit-scrollbar {
