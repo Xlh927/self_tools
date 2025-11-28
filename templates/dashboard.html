@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Toolkit Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Load tool scripts (they will be initialized dynamically) -->
+    <script src="{{ url_for('static', filename='js/splitter.js') }}" defer></script>
+    <!-- Add other scripts here as we refactor them -->
+</head>
+
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <!-- Top Navigation Bar -->
+        <nav class="top-nav">
+            <div class="nav-logo">
+                <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="8" fill="url(#gradient)" />
+                    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <defs>
+                        <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#667eea" />
+                            <stop offset="100%" stop-color="#764ba2" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <span>AI Toolkit</span>
+            </div>
+
+            <div class="nav-tools">
+                <button class="nav-tool-btn" data-tool="converter" onclick="addTool('converter')">
+                    <span class="icon">🔄</span> 格式转换
+                </button>
+                <button class="nav-tool-btn" data-tool="cropper" onclick="addTool('cropper')">
+                    <span class="icon">✂️</span> 滑窗裁剪
+                </button>
+                <button class="nav-tool-btn" data-tool="generator" onclick="addTool('generator')">
+                    <span class="icon">📦</span> 数据生成
+                </button>
+                <button class="nav-tool-btn" data-tool="splitter" onclick="addTool('splitter')">
+                    <span class="icon">📊</span> 数据划分
+                </button>
+                <button class="nav-tool-btn" data-tool="deduplicator" onclick="addTool('deduplicator')">
+                    <span class="icon">🗑️</span> 图像去重
+                </button>
+            </div>
+
+            <div class="nav-actions">
+                <button class="theme-toggle" id="themeToggle" title="切换主题">
+                    🎨
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Workspace -->
+        <main class="workspace" id="workspace">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">👆</div>
+                <h2>选择上方工具开始工作</h2>
+                <p>点击工具栏按钮，将工具添加到工作区</p>
+            </div>
+            <!-- Dynamic Tool Containers will be added here -->
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
+
+</html>

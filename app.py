@@ -20,6 +20,12 @@ app = Flask(__name__)
 
 
 @app.route('/')
+def dashboard():
+    """Serve the new dashboard"""
+    return render_template('dashboard.html')
+
+
+@app.route('/legacy')
 def index():
     """Serve the home page with tool selection"""
     return render_template('index.html')
