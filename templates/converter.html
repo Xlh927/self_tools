@@ -33,132 +33,129 @@
 
         <main class="main-content compact">
             <div class="card compact">
-                <form id="conversionForm">
-                    <div class="form-row">
-                        <!-- Conversion Type -->
-                        <div class="form-group half">
-                            <label for="conversionType">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                转换方向
-                            </label>
-                            <select id="conversionType" name="conversionType" required>
-                                <option value="voc_to_yolo">VOC → YOLO</option>
-                                <option value="yolo_to_voc">YOLO → VOC</option>
-                            </select>
-                        </div>
-
-                        <!-- Classes File -->
-                        <div class="form-group half" id="classesFileGroup">
-                            <label for="classesFile">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <path
-                                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                                        stroke="currentColor" stroke-width="2" />
-                                </svg>
-                                类别文件
-                                <span class="optional-hint" id="classesOptional">(可选)</span>
-                            </label>
-                            <input type="text" id="classesFile" name="classesFile" placeholder="/path/to/classes.txt">
-                        </div>
+                <form id="{{tool_id}}_conversionForm">
+                    <!-- Conversion Type -->
+                    <div class="form-group">
+                        <label for="{{ tool_id }}_conversionType">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            转换类型
+                        </label>
+                        <select id="{{ tool_id }}_conversionType" name="conversionType" required>
+                            <option value="voc_to_yolo">VOC (XML) 转 YOLO (TXT)</option>
+                            <option value="yolo_to_voc">YOLO (TXT) 转 VOC (XML)</option>
+                        </select>
                     </div>
 
-                    <div class="form-row">
-                        <!-- Annotations Directory -->
-                        <div class="form-group">
-                            <label for="annotationsDir">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <path d="M3 7v10a2 2 0 002 2h10a2 2 0 002-2V7M3 7l2-4h10l2 4M3 7h14"
-                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round" />
-                                </svg>
-                                标注文件目录
-                                <span class="format-hint" id="annotationsHint">(XML文件)</span>
-                            </label>
-                            <input type="text" id="annotationsDir" name="annotationsDir"
-                                placeholder="/path/to/annotations" required>
-                        </div>
+                    <!-- Annotations Directory -->
+                    <div class="form-group">
+                        <label for="{{ tool_id }}_annotationsDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M3 7v10a2 2 0 002 2h10a2 2 0 002-2V7M3 7l2-4h10l2 4M3 7h14"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            标注文件目录
+                        </label>
+                        <input type="text" id="{{ tool_id }}_annotationsDir" name="annotationsDir"
+                            placeholder="例如: /path/to/annotations" required>
                     </div>
 
-                    <div class="form-row">
-                        <!-- Images Directory -->
-                        <div class="form-group">
-                            <label for="imagesDir">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor"
-                                        stroke-width="2" />
-                                    <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="2" />
-                                    <path d="M3 13l4-4 4 4 4-6" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                图片文件目录
-                            </label>
-                            <input type="text" id="imagesDir" name="imagesDir" placeholder="/path/to/images" required>
-                        </div>
+                    <!-- Images Directory -->
+                    <div class="form-group">
+                        <label for="{{ tool_id }}_imagesDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor"
+                                    stroke-width="2" />
+                                <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="2" />
+                                <path d="M3 13l4-4 4 4 4-6" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            图片目录
+                        </label>
+                        <input type="text" id="{{ tool_id }}_imagesDir" name="imagesDir"
+                            placeholder="例如: /path/to/images" required>
                     </div>
 
-                    <div class="form-row">
-                        <!-- Output Directory -->
-                        <div class="form-group">
-                            <label for="outputDir">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <path d="M10 3v14M17 10H3" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" />
-                                </svg>
-                                输出目录
-                            </label>
-                            <input type="text" id="outputDir" name="outputDir" placeholder="/path/to/output" required>
+                    <!-- Output Directory -->
+                    <div class="form-group">
+                        <label for="{{ tool_id }}_outputDir">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M10 3v14M17 10H3" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            输出目录
+                        </label>
+                        <input type="text" id="{{ tool_id }}_outputDir" name="outputDir"
+                            placeholder="例如: /path/to/output" required>
+                    </div>
+
+                    <!-- Classes File (Optional) -->
+                    <div class="form-group">
+                        <label for="{{ tool_id }}_classesFile">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            类别文件 classes.txt
+                            <span class="optional-hint">(可选)</span>
+                        </label>
+                        <div class="input-with-btn">
+                            <input type="text" id="{{ tool_id }}_classesFile" name="classesFile"
+                                placeholder="例如: /path/to/classes.txt">
+                            <button type="button" id="{{ tool_id }}_loadClassesBtn"
+                                class="secondary-btn small">加载</button>
                         </div>
                     </div>
 
                     <!-- Class Management Section -->
-                    <div class="class-management-section" id="classManagementSection" style="display: none;">
-                        <h3>类别管理</h3>
-                        <div id="classListContainer" class="class-list-container"></div>
-                        <div class="class-actions">
-                            <button type="button" id="scanClassesBtn" class="secondary-btn">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
-                                    <circle cx="10" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
+                    <div class="class-management-section">
+                        <div class="section-header">
+                            <h3>类别管理</h3>
+                            <button type="button" id="{{ tool_id }}_scanClassesBtn" class="secondary-btn small">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                                 扫描类别
                             </button>
-                            <button type="button" id="loadClassesBtn" class="secondary-btn">
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                    <path d="M8 13V17M8 17L4 13M8 17L12 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M12 7V3M12 3L16 7M12 3L8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M6 10H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                加载类别文件
-                            </button>
                         </div>
+                        <div class="class-list-container" id="{{ tool_id }}_classListContainer">
+                            <div class="empty-classes-hint">
+                                点击"加载"或"扫描类别"来管理数据集类别
+                            </div>
+                        </div>
+                        <input type="hidden" id="{{ tool_id }}_selectedClasses" name="selectedClasses">
+                        <input type="hidden" id="{{ tool_id }}_customClasses" name="customClasses">
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div class="form-actions">
-                        <button type="submit" class="submit-btn" id="submitBtn">
-                            <span class="btn-text">开始转换</span>
-                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </button>
-                    </div>
+                    <!-- Submit Button -->
+                    <button type="submit" class="submit-btn" id="{{ tool_id }}_submitBtn">
+                        <span class="btn-text">开始转换</span>
+                        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
                 </form>
 
                 <!-- Progress Section -->
-                <div class="progress-section" id="progressSection" style="display: none;">
+                <div class="progress-section" id="{{ tool_id }}_progressSection" style="display: none;">
                     <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
+                        <div class="progress-fill" id="{{ tool_id }}_progressFill"></div>
                     </div>
-                    <p class="progress-text" id="progressText">转换中...</p>
+                    <p class="progress-text" id="{{ tool_id }}_progressText">转换中...</p>
                 </div>
 
                 <!-- Result Section -->
-                <div class="result-section" id="resultSection" style="display: none;">
-                    <div class="result-content" id="resultContent"></div>
+                <div class="result-section" id="{{ tool_id }}_resultSection" style="display: none;">
+                    <div class="result-content" id="{{ tool_id }}_resultContent"></div>
                 </div>
             </div>
         </main>

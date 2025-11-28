@@ -1,32 +1,31 @@
 // Generator Tool Logic
 
-window.initGenerator = function (container) {
-    const getEl = (id) => container.querySelector(`#${id}`);
+// window.initGenerator = function (container, toolId) {
+    const getEl = (id) => container.querySelector(`#${ toolId }_${ id } `);
 
     // DOM Elements
     const form = getEl('generatorForm');
-    const detectBtn = getEl('detectBtn');
-    const submitBtn = getEl('submitBtn');
+    const annotationFormat = getEl('annotationFormat');
+    const imagesDir = getEl('imagesDir');
+    const annotationsDir = getEl('annotationsDir');
+    const outputDir = getEl('outputDir');
+    const detectClassesBtn = getEl('detectClassesBtn');
     const classSelectionGroup = getEl('classSelectionGroup');
-    const outputFormatGroup = getEl('outputFormatGroup');
-    const classCheckboxes = getEl('classCheckboxes');
-    const annotationFormatSelect = getEl('annotationFormat');
+    const windowWidth = getEl('windowWidth');
+    const windowHeight = getEl('windowHeight');
+    const strideX = getEl('strideX');
+    const strideY = getEl('strideY');
+    const overlapThreshold = getEl('overlapThreshold');
+    const overlapThresholdValue = getEl('overlapThresholdValue');
+    const previewWindow = getEl('previewWindow');
+    const previewStride = getEl('previewStride');
+    const previewOverlapRate = getEl('previewOverlapRate');
+    const submitBtn = getEl('submitBtn');
     const progressSection = getEl('progressSection');
     const progressFill = getEl('progressFill');
     const progressText = getEl('progressText');
     const resultSection = getEl('resultSection');
     const resultContent = getEl('resultContent');
-
-    // Preview elements
-    const windowWidthInput = getEl('windowWidth');
-    const windowHeightInput = getEl('windowHeight');
-    const strideXInput = getEl('strideX');
-    const strideYInput = getEl('strideY');
-    const overlapThresholdInput = getEl('overlapThreshold');
-    const thresholdValue = getEl('thresholdValue');
-    const previewWindow = getEl('previewWindow');
-    const previewStride = getEl('previewStride');
-    const previewThreshold = getEl('previewThreshold');
 
     let toast = document.getElementById('toast');
     if (!toast) {
@@ -46,10 +45,10 @@ window.initGenerator = function (container) {
         const sy = strideYInput.value;
         const threshold = overlapThresholdInput.value;
 
-        previewWindow.textContent = `${windowW} × ${windowH}`;
-        previewStride.textContent = `${sx} × ${sy}`;
-        previewThreshold.textContent = `${threshold}%`;
-        thresholdValue.textContent = `${threshold}%`;
+        previewWindow.textContent = `${ windowW } × ${ windowH } `;
+        previewStride.textContent = `${ sx } × ${ sy } `;
+        previewThreshold.textContent = `${ threshold }% `;
+        thresholdValue.textContent = `${ threshold }% `;
     }
 
     // Event listeners for preview updates
@@ -87,7 +86,7 @@ window.initGenerator = function (container) {
                 classSelectionGroup.style.display = 'block';
                 outputFormatGroup.style.display = 'block';
                 submitBtn.style.display = 'block';
-                showToast(`检测到 ${result.classes.length} 个类别 (格式: ${result.format.toUpperCase()})`, 'success');
+                showToast(`检测到 ${ result.classes.length } 个类别(格式: ${ result.format.toUpperCase() })`, 'success');
             } else {
                 showToast('检测失败: ' + result.error, 'error');
             }
@@ -106,11 +105,11 @@ window.initGenerator = function (container) {
         // Add "Select All" checkbox
         const selectAllDiv = document.createElement('div');
         selectAllDiv.innerHTML = `
-            <label class="checkbox-label">
-                <input type="checkbox" id="selectAll" checked>
-                <span style="font-weight: 600;">全选</span>
-            </label>
-        `;
+    < label class="checkbox-label" >
+        <input type="checkbox" id="selectAll" checked>
+            <span style="font-weight: 600;">全选</span>
+        </label>
+`;
         classCheckboxes.appendChild(selectAllDiv);
 
         const selectAllCheckbox = selectAllDiv.querySelector('#selectAll');
@@ -123,11 +122,11 @@ window.initGenerator = function (container) {
         classes.forEach((cls, index) => {
             const div = document.createElement('div');
             div.innerHTML = `
-                <label class="checkbox-label">
-                    <input type="checkbox" class="class-checkbox" value="${cls}" checked>
-                    <span>${cls}</span>
-                </label>
-            `;
+    < label class="checkbox-label" >
+        <input type="checkbox" class="class-checkbox" value="${cls}" checked>
+            <span>${cls}</span>
+        </label>
+`;
             classCheckboxes.appendChild(div);
         });
     }
@@ -201,14 +200,14 @@ window.initGenerator = function (container) {
         inputs.forEach(input => input.disabled = !enabled);
 
         if (!enabled) {
-            submitBtn.innerHTML = '<div class="spinner"></div><span class="btn-text">生成中...</span>';
+            submitBtn.innerHTML = `< div class="spinner" ></div > <span class="btn-text">生成中...</span>`;
         } else {
             submitBtn.innerHTML = `
-                <span class="btn-text">开始生成</span>
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            `;
+    < span class="btn-text" > 开始生成</span >
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+`;
         }
     }
 
@@ -243,7 +242,7 @@ window.initGenerator = function (container) {
 
     function showSuccessResult(result) {
         resultContent.innerHTML = `
-            <div class="result-success">
+    < div class="result-success" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -265,7 +264,8 @@ window.initGenerator = function (container) {
                         <div class="stat-value">${result.annotations_kept}</div>
                     </div>
                 </div>
-                ${result.errors && result.errors.length > 0 ? `
+                ${
+    result.errors && result.errors.length > 0 ? `
                 <div style="margin-top: 16px; padding: 12px; background: rgba(245, 87, 108, 0.1); border-radius: 8px;">
                     <p style="color: #f5576c; font-size: 0.9rem; margin-bottom: 8px;">
                         ⚠️ 部分文件处理失败：
@@ -275,9 +275,10 @@ window.initGenerator = function (container) {
                         ${result.errors.length > 5 ? '<br>...' : ''}
                     </div>
                 </div>
-                ` : ''}
-            </div>
-        `;
+                ` : ''
+}
+            </div >
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -285,7 +286,7 @@ window.initGenerator = function (container) {
 
     function showErrorResult(result) {
         resultContent.innerHTML = `
-            <div class="result-error">
+    < div class="result-error" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#f5576c" stroke-width="2"/>
@@ -296,8 +297,8 @@ window.initGenerator = function (container) {
                 <p style="color: var(--text-secondary); margin-top: 12px;">
                     ${result.error || '未知错误'}
                 </p>
-            </div>
-        `;
+            </div >
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -305,7 +306,7 @@ window.initGenerator = function (container) {
 
     function showToast(message, type = 'success') {
         toast.textContent = message;
-        toast.className = `toast ${type} show`;
+        toast.className = `toast ${ type } show`;
         setTimeout(() => toast.classList.remove('show'), 4000);
     }
 

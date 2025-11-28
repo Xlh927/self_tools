@@ -78,7 +78,7 @@ async function addTool(toolName) {
 
     // Fetch content
     try {
-        const response = await fetch(TOOL_URLS[toolName]);
+        const response = await fetch(`${TOOL_URLS[toolName]}?tool_id=${toolId}`);
         const html = await response.text();
 
         // Parse HTML
@@ -95,7 +95,7 @@ async function addTool(toolName) {
             body.appendChild(mainContent);
 
             // Initialize script
-            initializeToolScript(toolName, body);
+            initializeToolScript(toolName, body, toolId);
         } else {
             throw new Error('Could not find content in tool page');
         }
@@ -131,14 +131,14 @@ function removeTool(toolId) {
  * This is the tricky part: we need to make sure the script runs 
  * and binds to the specific elements in THIS container, not global IDs.
  */
-function initializeToolScript(toolName, container) {
+function initializeToolScript(toolName, container, toolId) {
     // This relies on the refactored JS files exposing an init function
-    // Format: init{ToolName}(containerElement)
+    // Format: init{ToolName}(containerElement, toolId)
 
     const functionName = 'init' + toolName.charAt(0).toUpperCase() + toolName.slice(1);
 
     if (typeof window[functionName] === 'function') {
-        window[functionName](container);
+        window[functionName](container, toolId);
     } else {
         console.warn(`Initialization function ${functionName} not found. Tool might not work correctly.`);
 

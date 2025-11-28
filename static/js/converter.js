@@ -1,13 +1,20 @@
 // Converter Tool Logic
 
-window.initConverter = function (container) {
-    const getEl = (id) => container.querySelector(`#${id}`);
+window.initConverter = function (container, toolId) {
+    const getEl = (id) => container.querySelector(`#${toolId}_${id}`);
 
     // DOM Elements
     const form = getEl('conversionForm');
     const conversionType = getEl('conversionType');
-    const annotationsHint = getEl('annotationsHint');
-    const classesOptional = getEl('classesOptional');
+    const annotationsDir = getEl('annotationsDir');
+    const imagesDir = getEl('imagesDir');
+    const outputDir = getEl('outputDir');
+    const classesFile = getEl('classesFile');
+    const loadClassesBtn = getEl('loadClassesBtn');
+    const scanClassesBtn = getEl('scanClassesBtn');
+    const classListContainer = getEl('classListContainer');
+    const selectedClassesInput = getEl('selectedClasses');
+    const customClassesInput = getEl('customClasses');
     const submitBtn = getEl('submitBtn');
     const progressSection = getEl('progressSection');
     const progressFill = getEl('progressFill');
@@ -25,13 +32,6 @@ window.initConverter = function (container) {
     }
 
     const classManagementSection = getEl('classManagementSection');
-    const classListContainer = getEl('classListContainer');
-    const scanClassesBtn = getEl('scanClassesBtn');
-    const loadClassesBtn = getEl('loadClassesBtn');
-    const annotationsDir = getEl('annotationsDir');
-    const imagesDir = getEl('imagesDir');
-    const outputDir = getEl('outputDir');
-    const classesFile = getEl('classesFile');
 
     // Update UI based on conversion type
     conversionType.addEventListener('change', (e) => {
@@ -78,7 +78,7 @@ window.initConverter = function (container) {
             });
 
             if (!response.ok) {
-                // throw new Error(`扫描失败: ${response.status}`);
+                // throw new Error(`扫描失败: ${ response.status}`);
                 // API might not exist yet, simulate for now or handle gracefully
                 console.warn('Scan API not implemented yet');
             }
@@ -86,12 +86,12 @@ window.initConverter = function (container) {
             const data = await response.json();
             if (data.success && data.classes && data.classes.length > 0) {
                 displayClassList(data.classes);
-                showToast(`成功扫描到 ${data.classes.length} 个类别`, 'success');
+                showToast(`成功扫描到 ${data.classes.length}个类别`, 'success');
             } else {
                 showToast('未找到类别信息，请检查路径', 'error');
             }
         } catch (error) {
-            // showToast(`扫描失败: ${error.message}`, 'error');
+            // showToast(`扫描失败: ${ error.message}`, 'error');
             console.warn('Scan API failed or not implemented', error);
         } finally {
             this.disabled = false;
@@ -126,7 +126,7 @@ window.initConverter = function (container) {
             const data = await response.json();
             if (data.success && data.classes && data.classes.length > 0) {
                 displayClassList(data.classes);
-                showToast(`成功加载 ${data.classes.length} 个类别`, 'success');
+                showToast(`成功加载 ${data.classes.length}个类别`, 'success');
             } else {
                 showToast('加载类别文件失败，请检查路径', 'error');
             }
@@ -148,11 +148,11 @@ window.initConverter = function (container) {
         const header = document.createElement('div');
         header.className = 'class-row header';
         header.innerHTML = `
-            <div class="class-col index">索引</div>
+    u003cdiv class="class-col index" > 索引u003c/div>
             <div class="class-col name">类别名称</div>
             <div class="class-col count">计数</div>
             <div class="class-col keep">保留</div>
-        `;
+`;
         classTable.appendChild(header);
 
         // Table rows
@@ -160,7 +160,7 @@ window.initConverter = function (container) {
             const row = document.createElement('div');
             row.className = 'class-row';
             row.innerHTML = `
-                <div class="class-col index">${index}</div>
+    u003cdiv class="class-col index" > ${index}u003c/div>
                 <div class="class-col name">
                     <input type="text" class="class-name-input" value="${cls.name || `class_${index}`}" data-index="${index}">
                 </div>
@@ -168,7 +168,7 @@ window.initConverter = function (container) {
                 <div class="class-col keep">
                     <input type="checkbox" class="class-keep-checkbox" checked data-index="${index}">
                 </div>
-            `;
+`;
             classTable.appendChild(row);
         });
 
@@ -321,11 +321,11 @@ window.initConverter = function (container) {
             submitBtn.innerHTML = '<div class="spinner"></div><span class="btn-text">转换中...</span>';
         } else {
             submitBtn.innerHTML = `
-                <span class="btn-text">开始转换</span>
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            `;
+    u003cspan class="btn-text" > 开始转换u003c/span>
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+`;
         }
     }
 
@@ -367,35 +367,35 @@ window.initConverter = function (container) {
     // Show success result
     function showSuccessResult(result) {
         const classesHtml = result.classes && result.classes.length > 0 ? `
-            <div class="result-classes">
+    u003cdiv class="result-classes" >
                 <h4>检测到的类别 (${result.classes.length}):</h4>
                 <div class="classes-list">
                     ${result.classes.map(cls => `<span class="class-tag">${cls}</span>`).join('')}
                 </div>
-            </div>
-        ` : '';
+            u003c/div>
+    ` : '';
 
         const selectedClassesHtml = result.selected_classes && result.selected_classes.length > 0 ? `
-            <div class="result-selected-classes">
+    u003cdiv class="result-selected-classes" >
                 <h4>已保留类别 (${result.selected_classes.length}):</h4>
                 <div class="classes-list">
                     ${result.selected_classes.map(cls => `<span class="class-tag selected">${cls}</span>`).join('')}
                 </div>
-            </div>
-        ` : '';
+            u003c/div>
+    ` : '';
 
         const errorsHtml = result.errors && result.errors.length > 0 ? `
-            <div class="error-list">
-                <h4 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">
-                    警告 (${result.errors.length}):
-                </h4>
+    u003cdiv class="error-list" >
+        <h4 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">
+            警告 (${result.errors.length}):
+        </h4>
                 ${result.errors.slice(0, 10).map(err => `<div class="error-item">${err}</div>`).join('')}
                 ${result.errors.length > 10 ? `<div class="error-item">...还有 ${result.errors.length - 10} 个警告</div>` : ''}
-            </div>
-        ` : '';
+            u003c/div>
+    ` : '';
 
         resultContent.innerHTML = `
-            <div class="result-success">
+    u003cdiv class="result-success" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -420,8 +420,8 @@ window.initConverter = function (container) {
                 ${classesHtml}
                 ${selectedClassesHtml}
                 ${errorsHtml}
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -430,7 +430,7 @@ window.initConverter = function (container) {
     // Show error result
     function showErrorResult(result) {
         resultContent.innerHTML = `
-            <div class="result-error">
+    u003cdiv class="result-error" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#f5576c" stroke-width="2"/>
@@ -441,8 +441,8 @@ window.initConverter = function (container) {
                 <p style="color: var(--text-secondary); margin-top: 12px;">
                     ${result.error || '未知错误'}
                 </p>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -451,7 +451,7 @@ window.initConverter = function (container) {
     // Show toast notification
     function showToast(message, type = 'success') {
         toast.textContent = message;
-        toast.className = `toast ${type} show`;
+        toast.className = `toast ${type}show`;
 
         setTimeout(() => {
             toast.classList.remove('show');

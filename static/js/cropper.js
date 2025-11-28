@@ -1,7 +1,7 @@
 // Cropper Tool Logic
 
-window.initCropper = function (container) {
-    const getEl = (id) => container.querySelector(`#${id}`);
+window.initCropper = function (container, toolId) {
+    const getEl = (id) => container.querySelector(`#${toolId}_${id}`);
 
     // DOM Elements
     const form = getEl('cropperForm');

@@ -1,16 +1,18 @@
 // Deduplicator Tool Logic
 
-window.initDeduplicator = function (container) {
-    const getEl = (id) => container.querySelector(`#${id}`);
+window.initDeduplicator = function (container, toolId) {
+    const getEl = (id) => container.querySelector(`#${toolId}_${id}`);
 
     // DOM Elements
     const form = getEl('deduplicatorForm');
+    const folderPath = getEl('folderPath');
     const detectionMode = getEl('detectionMode');
+    const hashAlgoGroup = getEl('hashAlgoGroup');
     const hashAlgorithm = getEl('hashAlgorithm');
+    const thresholdGroup = getEl('thresholdGroup');
     const similarityThreshold = getEl('similarityThreshold');
     const thresholdValue = getEl('thresholdValue');
-    const hashAlgorithmGroup = getEl('hashAlgorithmGroup');
-    const thresholdGroup = getEl('thresholdGroup');
+    const keepStrategy = getEl('keepStrategy');
     const scanBtn = getEl('scanBtn');
     const removeBtn = getEl('removeBtn');
     const progressSection = getEl('progressSection');
@@ -40,7 +42,7 @@ window.initDeduplicator = function (container) {
     // Toggle algorithm selection based on detection mode
     detectionMode.addEventListener('change', () => {
         const isPerceptual = detectionMode.value === 'perceptual';
-        hashAlgorithmGroup.style.display = isPerceptual ? 'block' : 'none';
+        hashAlgoGroup.style.display = isPerceptual ? 'block' : 'none';
         thresholdGroup.style.display = isPerceptual ? 'block' : 'none';
     });
 
@@ -86,7 +88,7 @@ window.initDeduplicator = function (container) {
 
                 if (result.report.duplicate_groups > 0) {
                     removeBtn.disabled = false;
-                    showToast(`发现 ${result.report.duplicate_groups} 组重复图像`, 'success');
+                    showToast(`发现 ${result.report.duplicate_groups}组重复图像`, 'success');
                 } else {
                     removeBtn.disabled = true;
                     showToast('未发现重复图像', 'info');
@@ -114,8 +116,8 @@ window.initDeduplicator = function (container) {
             return;
         }
 
-        const confirmMsg = `确定要删除 ${currentDuplicates.total_duplicate_files} 个重复文件吗？\n` +
-            `将释放约 ${currentDuplicates.potential_space_saved_mb} MB 空间`;
+        const confirmMsg = `确定要删除 ${currentDuplicates.total_duplicate_files}个重复文件吗？\n` +
+            `将释放约 ${currentDuplicates.potential_space_saved_mb}MB 空间`;
 
         if (!confirm(confirmMsg)) {
             return;
@@ -154,7 +156,7 @@ window.initDeduplicator = function (container) {
 
             if (result.success) {
                 showRemoveResult(result);
-                showToast(`成功删除 ${result.removed_count} 个文件，释放 ${result.space_saved_mb} MB`, 'success');
+                showToast(`成功删除 ${result.removed_count}个文件，释放 ${result.space_saved_mb}MB`, 'success');
 
                 // Reset state
                 currentDuplicates = null;
@@ -192,12 +194,12 @@ window.initDeduplicator = function (container) {
             scanBtn.innerHTML = '<div class="spinner"></div><span class="btn-text">扫描中...</span>';
         } else {
             scanBtn.innerHTML = `
-                <span class="btn-text">扫描重复项</span>
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="2" />
-                    <path d="M14 14l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-            `;
+    u003cspan class="btn-text" > 扫描重复项u003c/span>
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="2" />
+            <path d="M14 14l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+`;
         }
     }
 
@@ -240,7 +242,7 @@ window.initDeduplicator = function (container) {
     function showScanResult(report) {
         if (report.duplicate_groups === 0) {
             resultContent.innerHTML = `
-                <div class="result-success">
+    u003cdiv class="result-success" >
                     <div class="result-title">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -251,15 +253,15 @@ window.initDeduplicator = function (container) {
                     <p style="color: var(--text-secondary); margin-top: 12px;">
                         该文件夹中没有重复的图像文件 ✨
                     </p>
-                </div>
-            `;
+                u003c/div>
+    `;
             resultSection.style.display = 'block';
             duplicatesPreview.style.display = 'none';
             return;
         }
 
         resultContent.innerHTML = `
-            <div class="result-success">
+    u003cdiv class="result-success" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -286,8 +288,8 @@ window.initDeduplicator = function (container) {
                         ⚠️ 建议：查看下方重复组预览，确认无误后再点击"删除重复项"按钮
                     </p>
                 </div>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
 
@@ -310,15 +312,15 @@ window.initDeduplicator = function (container) {
             const files = group.files.map(file => {
                 const filename = file.path.split('/').pop();
                 return `
-                    <div class="duplicate-file">
+    u003cdiv class="duplicate-file" >
                         <span class="file-name" title="${file.path}">${filename}</span>
                         <span class="file-size">${file.size_mb} MB</span>
-                    </div>
-                `;
+                    u003c/div>
+    `;
             }).join('');
 
             return `
-                <div class="duplicate-group">
+    u003cdiv class="duplicate-group" >
                     <div class="group-header">
                         <span class="group-title">🔗 重复组 ${index + 1}</span>
                         <span class="group-count">${group.count} 个文件</span>
@@ -326,16 +328,16 @@ window.initDeduplicator = function (container) {
                     <div class="group-files">
                         ${files}
                     </div>
-                </div>
-            `;
+                u003c/div>
+    `;
         }).join('');
 
         if (hasMore) {
             duplicatesContainer.innerHTML += `
-                <div style="text-align: center; padding: 16px; color: var(--text-secondary);">
-                    ... 还有 ${groups.length - 10} 组未显示
-                </div>
-            `;
+    u003cdiv style = "text-align: center; padding: 16px; color: var(--text-secondary);" >
+                    ... 还有 ${groups.length - 10}组未显示
+                u003c/div>
+    `;
         }
 
         duplicatesPreview.style.display = 'block';
@@ -344,7 +346,7 @@ window.initDeduplicator = function (container) {
     // Show remove result
     function showRemoveResult(result) {
         resultContent.innerHTML = `
-            <div class="result-success">
+    u003cdiv class="result-success" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -371,8 +373,8 @@ window.initDeduplicator = function (container) {
                         ✅ 成功释放 ${result.space_saved_mb} MB 存储空间
                     </p>
                 </div>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
     }
@@ -380,7 +382,7 @@ window.initDeduplicator = function (container) {
     // Show error result
     function showErrorResult(errorMsg) {
         resultContent.innerHTML = `
-            <div class="result-error">
+    u003cdiv class="result-error" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#f5576c" stroke-width="2"/>
@@ -391,8 +393,8 @@ window.initDeduplicator = function (container) {
                 <p style="color: var(--text-secondary); margin-top: 12px;">
                     ${errorMsg || '未知错误'}
                 </p>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
     }
@@ -400,7 +402,7 @@ window.initDeduplicator = function (container) {
     // Show toast notification
     function showToast(message, type = 'success') {
         toast.textContent = message;
-        toast.className = `toast ${type} show`;
+        toast.className = `toast ${type}show`;
 
         setTimeout(() => {
             toast.classList.remove('show');
@@ -409,7 +411,7 @@ window.initDeduplicator = function (container) {
 
     // Initialize
     thresholdValue.textContent = similarityThreshold.value;
-    hashAlgorithmGroup.style.display = 'block';
+    hashAlgoGroup.style.display = 'block';
     thresholdGroup.style.display = 'block';
 };
 

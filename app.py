@@ -36,43 +36,50 @@ def index():
 @app.route('/converter')
 def converter_page():
     """Serve the dataset converter page"""
-    return render_template('converter.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('converter.html', tool_id=tool_id)
 
 
 @app.route('/cropper')
 def cropper_page():
     """Serve the image cropper page"""
-    return render_template('cropper.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('cropper.html', tool_id=tool_id)
 
 
 @app.route('/generator')
 def generator_page():
     """Serve the dataset generator page"""
-    return render_template('generator.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('generator.html', tool_id=tool_id)
 
 
 @app.route('/splitter')
 def splitter_page():
     """Serve the dataset splitter page"""
-    return render_template('splitter.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('splitter.html', tool_id=tool_id)
 
 
 @app.route('/deduplicator')
 def deduplicator_page():
     """Serve the image deduplicator page"""
-    return render_template('deduplicator.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('deduplicator.html', tool_id=tool_id)
 
 
 @app.route('/matcher')
 def matcher_page():
     """Serve the image matcher page"""
-    return render_template('matcher.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('matcher.html', tool_id=tool_id)
 
 
 @app.route('/visualizer')
 def visualizer_page():
     """Serve the annotation visualizer page"""
-    return render_template('visualizer.html')
+    tool_id = request.args.get('tool_id', 'legacy')
+    return render_template('visualizer.html', tool_id=tool_id)
 
 
 @app.route('/api/detect-classes', methods=['POST'])

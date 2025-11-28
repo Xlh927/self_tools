@@ -1,22 +1,25 @@
 // Splitter Tool Logic
 
 // We wrap everything in a function that can be called when the tool is loaded
-window.initSplitter = function (container) {
+window.initSplitter = function (container, toolId) {
     // Helper to find element within this specific tool container
-    const getEl = (id) => container.querySelector(`#${id}`);
+    const getEl = (id) => container.querySelector(`#${toolId}_${id}`);
 
     // DOM Elements
     const form = getEl('splitterForm');
+    const datasetFormat = getEl('datasetFormat');
+    const imagesDir = getEl('imagesDir');
+    const annotationsDir = getEl('annotationsDir');
+    const outputDir = getEl('outputDir');
     const trainRatio = getEl('trainRatio');
     const valRatio = getEl('valRatio');
     const testRatio = getEl('testRatio');
     const trainValue = getEl('trainValue');
     const valValue = getEl('valValue');
     const testValue = getEl('testValue');
-    const trainPreview = getEl('trainPreview');
-    const valPreview = getEl('valPreview');
-    const testPreview = getEl('testPreview');
-    const ratioWarning = getEl('ratioWarning');
+    const ratioWarning = getEl('ratioTotal'); // Element ID is ratioTotal but variable name should be ratioWarning
+    const useBackground = getEl('useBackground');
+    const randomSeed = getEl('randomSeed');
     const submitBtn = getEl('submitBtn');
     const progressSection = getEl('progressSection');
     const progressFill = getEl('progressFill');
@@ -48,19 +51,9 @@ window.initSplitter = function (container) {
         valValue.textContent = `${val}%`;
         testValue.textContent = `${test}%`;
 
-        // Check if sum is 100
+        // Update total display
         const sum = train + val + test;
-        if (sum !== 100) {
-            ratioWarning.style.display = 'block';
-            ratioWarning.textContent = `⚠️ 当前总和: ${sum}% (需要100%)`;
-        } else {
-            ratioWarning.style.display = 'none';
-        }
-
-        // Update preview (placeholder counts)
-        trainPreview.textContent = `${train}% 的标注图片`;
-        valPreview.textContent = `${val}% 的标注图片`;
-        testPreview.textContent = `${test}% 的标注图片`;
+        ratioWarning.textContent = `总计: ${sum}%`;
     }
 
     // Auto-adjust ratios to sum to 100
@@ -216,11 +209,11 @@ window.initSplitter = function (container) {
             submitBtn.innerHTML = '<div class="spinner"></div><span class="btn-text">划分中...</span>';
         } else {
             submitBtn.innerHTML = `
-                <span class="btn-text">开始划分</span>
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            `;
+    u003cspan class="btn-text" > 开始划分u003c/span>
+        <svg class="btn-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+`;
         }
     }
 
@@ -267,7 +260,7 @@ window.initSplitter = function (container) {
         if (result.output_structure.background) outputStructure.push('background/');
 
         resultContent.innerHTML = `
-            <div class="result-success">
+    u003cdiv class="result-success" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#00f2fe" stroke-width="2"/>
@@ -317,8 +310,8 @@ window.initSplitter = function (container) {
                         ${outputStructure.map(dir => `📁 ${dir}`).join('<br>')}
                     </div>
                 </div>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -327,7 +320,7 @@ window.initSplitter = function (container) {
     // Show error result
     function showErrorResult(result) {
         resultContent.innerHTML = `
-            <div class="result-error">
+    u003cdiv class="result-error" >
                 <div class="result-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="10" stroke="#f5576c" stroke-width="2"/>
@@ -338,8 +331,8 @@ window.initSplitter = function (container) {
                 <p style="color: var(--text-secondary); margin-top: 12px;">
                     ${result.error || '未知错误'}
                 </p>
-            </div>
-        `;
+            u003c/div>
+    `;
 
         resultSection.style.display = 'block';
         resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -348,7 +341,7 @@ window.initSplitter = function (container) {
     // Show toast notification
     function showToast(message, type = 'success') {
         toast.textContent = message;
-        toast.className = `toast ${type} show`;
+        toast.className = `toast ${type}show`;
 
         setTimeout(() => {
             toast.classList.remove('show');

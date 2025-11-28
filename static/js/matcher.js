@@ -1,11 +1,18 @@
 // Matcher Tool Logic
 
-window.initMatcher = function (container) {
+window.initMatcher = function (container, toolId) {
     // Helper to find element within this specific tool container
-    const getEl = (id) => container.querySelector(`#${id}`);
+    const getEl = (id) => container.querySelector(`#${toolId}_${id}`);
 
     // DOM Elements
     const form = getEl('matcherForm');
+    const sourceDir = getEl('sourceDir');
+    const targetDir = getEl('targetDir');
+    const outputDir = getEl('outputDir');
+    const matchMode = getEl('matchMode');
+    const actionType = getEl('actionType');
+    const recursive = getEl('recursive');
+    const caseSensitive = getEl('caseSensitive');
     const submitBtn = getEl('submitBtn');
     const progressSection = getEl('progressSection');
     const progressFill = getEl('progressFill');
