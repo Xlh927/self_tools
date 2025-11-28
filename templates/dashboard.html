@@ -12,6 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Load tool scripts (they will be initialized dynamically) -->
     <script src="{{ url_for('static', filename='js/splitter.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/matcher.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/visualizer.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/generator.js') }}" defer></script>
     <!-- Add other scripts here as we refactor them -->
 </head>
 
@@ -49,6 +52,12 @@
                 </button>
                 <button class="nav-tool-btn" data-tool="deduplicator" onclick="addTool('deduplicator')">
                     <span class="icon">🗑️</span> 图像去重
+                </button>
+                <button class="nav-tool-btn" data-tool="matcher" onclick="addTool('matcher')">
+                    <span class="icon">🔍</span> 图像匹配
+                </button>
+                <button class="nav-tool-btn" data-tool="visualizer" onclick="addTool('visualizer')">
+                    <span class="icon">👁️</span> 标注可视化
                 </button>
             </div>
 

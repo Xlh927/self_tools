@@ -15,6 +15,8 @@ from image_cropper import ImageCropper
 from dataset_generator import DatasetGenerator
 from dataset_splitter import DatasetSplitter
 from image_deduplicator import ImageDeduplicator
+from image_matcher import ImageMatcher
+from annotation_visualizer import AnnotationVisualizer
 
 app = Flask(__name__)
 
@@ -59,6 +61,85 @@ def splitter_page():
 def deduplicator_page():
     """Serve the image deduplicator page"""
     return render_template('deduplicator.html')
+
+
+@app.route('/matcher')
+def matcher_page():
+    """Serve the image matcher page"""
+    return render_template('matcher.html')
+
+
+@app.route('/visualizer')
+def visualizer_page():
+    """Serve the annotation visualizer page"""
+    return render_template('visualizer.html')
+
+
+@app.route('/api/detect-classes', methods=['POST'])
+def detect_classes():
+    """Detect available classes from annotations"""
+    try:
+        data = request.get_json()
+        
+        if 'annotations_dir' not in data or not data['annotations_dir']:
+            return jsonify({'success': False, 'error': 'Missing annotations_dir'}), 400
+        
+        visualizer = AnnotationVisualizer()
+        result = visualizer.detect_classes(
+            annotations_dir=data['annotations_dir'],
+            annotation_format=data.get('annotation_format')
+        )
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/visualize', methods=['POST'])
+def visualize_annotations():
+    """Visualize annotations on images"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['images_dir', 'annotations_dir', 'output_dir']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'success': False, 'error': f'Missing {field}'}), 400
+        
+        visualizer = AnnotationVisualizer()
+        result = visualizer.visualize(data)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/match', methods=['POST'])
+def match_images():
+    """
+    Handle image matching requests
+    """
+    try:
+        data = request.get_json()
+        
+        if 'source_dir' not in data or not data['source_dir']:
+            return jsonify({'success': False, 'error': 'Missing source_dir'}), 400
+        if 'reference_dir' not in data or not data['reference_dir']:
+            return jsonify({'success': False, 'error': 'Missing reference_dir'}), 400
+        if 'output_dir' not in data or not data['output_dir']:
+            return jsonify({'success': False, 'error': 'Missing output_dir'}), 400
+            
+        matcher = ImageMatcher()
+        result = matcher.match_and_copy(
+            source_dir=data['source_dir'],
+            reference_dir=data['reference_dir'],
+            output_dir=data['output_dir'],
+            dry_run=data.get('dry_run', False)
+        )
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/convert', methods=['POST'])

@@ -9,7 +9,9 @@ const TOOL_URLS = {
     'cropper': '/cropper',
     'generator': '/generator',
     'splitter': '/splitter',
-    'deduplicator': '/deduplicator'
+    'deduplicator': '/deduplicator',
+    'matcher': '/matcher',
+    'visualizer': '/visualizer'
 };
 
 // Tool Titles
@@ -18,7 +20,9 @@ const TOOL_TITLES = {
     'cropper': '滑窗裁剪',
     'generator': '数据集生成',
     'splitter': '数据集划分',
-    'deduplicator': '图像去重'
+    'deduplicator': '图像去重',
+    'matcher': '图像匹配',
+    'visualizer': '标注可视化'
 };
 
 // Tool Icons
@@ -27,7 +31,9 @@ const TOOL_ICONS = {
     'cropper': '✂️',
     'generator': '📦',
     'splitter': '📊',
-    'deduplicator': '🗑️'
+    'deduplicator': '🗑️',
+    'matcher': '🔍',
+    'visualizer': '👁️'
 };
 
 // Counter for unique IDs
