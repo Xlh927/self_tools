@@ -251,11 +251,81 @@ def convert():
         
         return jsonify(result)
         
+
+        return jsonify(result)
+        
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/scan-classes', methods=['POST'])
+def scan_classes():
+    """Scan classes from annotations directory"""
+    try:
+        data = request.get_json()
+        annotations_dir = data.get('annotations_dir')
+        is_yolo_format = data.get('is_yolo_format', False)
+        
+        if not annotations_dir:
+            return jsonify({'success': False, 'error': 'Missing annotations_dir'}), 400
+            
+        if not os.path.exists(annotations_dir):
+            return jsonify({'success': False, 'error': f'Directory not found: {annotations_dir}'}), 400
+            
+        # Use AnnotationVisualizer to detect classes
+        visualizer = AnnotationVisualizer()
+        annotation_format = 'yolo' if is_yolo_format else 'voc'
+        
+        result = visualizer.detect_classes(annotations_dir, annotation_format)
+        
+        if result['success']:
+            # Format for frontend
+            classes_list = []
+            for cls in result['classes']:
+                classes_list.append({'name': cls, 'count': 0})  # Count not supported yet
+            
+            return jsonify({
+                'success': True,
+                'classes': classes_list
+            })
+        else:
+            return jsonify(result)
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/load-classes', methods=['POST'])
+def load_classes():
+    """Load classes from file"""
+    try:
+        data = request.get_json()
+        classes_file = data.get('classes_file')
+        
+        if not classes_file:
+            return jsonify({'success': False, 'error': 'Missing classes_file'}), 400
+            
+        if not os.path.exists(classes_file):
+            return jsonify({'success': False, 'error': f'File not found: {classes_file}'}), 400
+            
+        classes = []
+        with open(classes_file, 'r', encoding='utf-8') as f:
+            classes = [line.strip() for line in f if line.strip()]
+            
+        classes_list = []
+        for cls in classes:
+            classes_list.append({'name': cls, 'count': 0})
+            
+        return jsonify({
+            'success': True,
+            'classes': classes_list
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/crop', methods=['POST'])
