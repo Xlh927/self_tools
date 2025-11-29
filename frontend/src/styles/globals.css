@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 * {
     margin: 0;
@@ -15,7 +15,7 @@ body {
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--gradient-dark);
+    background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -38,10 +38,11 @@ h6 {
     font-weight: 700;
     line-height: 1.2;
     margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
 }
 
 h1 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -49,13 +50,11 @@ h1 {
 }
 
 h2 {
-    font-size: 2rem;
-    color: var(--text-primary);
+    font-size: 1.75rem;
 }
 
 h3 {
     font-size: 1.5rem;
-    color: var(--text-primary);
 }
 
 p {
@@ -65,51 +64,52 @@ p {
 
 code,
 pre {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
     background: var(--bg-tertiary);
     padding: 0.2rem 0.4rem;
     border-radius: var(--radius-sm);
     font-size: 0.9em;
 }
 
-/* Scrollbar */
+/* Scrollbar - Modern minimal */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--neon-blue), var(--neon-purple));
-    border-radius: 10px;
+    background: linear-gradient(180deg, var(--primary-blue), var(--primary-purple));
+    border-radius: var(--radius-full);
+    opacity: 0.5;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--neon-purple), var(--neon-pink));
+    background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple));
 }
 
-/* Glass Card */
+/* Glass Card - Enhanced frosted glass */
 .glass-card {
     background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-shadow);
-    padding: var(--spacing-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-md);
     transition: all var(--transition-normal);
 }
 
 .glass-card:hover {
     background: var(--bg-glass-hover);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
 }
 
-/* Button Styles */
+/* Button Styles - Modern minimal */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -119,7 +119,7 @@ pre {
     border: none;
     border-radius: var(--radius-md);
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-normal);
@@ -127,52 +127,40 @@ pre {
     overflow: hidden;
 }
 
-.btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left var(--transition-slow);
-}
-
-.btn:hover::before {
-    left: 100%;
-}
-
 .btn-primary {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: var(--shadow-neon-blue);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-neon-blue), var(--shadow-md);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
 }
 
 .btn-secondary {
     background: var(--gradient-secondary);
     color: white;
-    box-shadow: var(--shadow-neon-pink);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-neon-pink), var(--shadow-md);
+    box-shadow: var(--shadow-md);
 }
 
 .btn-ghost {
     background: transparent;
-    border: 2px solid var(--neon-blue);
-    color: var(--neon-blue);
+    border: 1px solid var(--primary-blue);
+    color: var(--primary-blue);
 }
 
 .btn-ghost:hover {
-    background: var(--neon-blue);
-    color: var(--bg-primary);
+    background: var(--gradient-subtle);
 }
 
 .btn:disabled {
@@ -181,7 +169,7 @@ pre {
     transform: none;
 }
 
-/* Input Styles */
+/* Input Styles - Clean modern */
 .input-group {
     margin-bottom: var(--spacing-md);
 }
@@ -192,15 +180,14 @@ pre {
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: var(--spacing-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.01em;
 }
 
 .input-field {
     width: 100%;
     padding: 0.75rem;
-    background: var(--bg-tertiary);
-    border: 2px solid var(--glass-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
     font-family: inherit;
@@ -210,8 +197,9 @@ pre {
 
 .input-field:focus {
     outline: none;
-    border-color: var(--neon-blue);
-    box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.2);
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: var(--bg-secondary);
 }
 
 .input-field::placeholder {
@@ -222,8 +210,8 @@ pre {
 .select-field {
     width: 100%;
     padding: 0.75rem;
-    background: var(--bg-tertiary);
-    border: 2px solid var(--glass-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
     font-family: inherit;
@@ -234,8 +222,8 @@ pre {
 
 .select-field:focus {
     outline: none;
-    border-color: var(--neon-blue);
-    box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.2);
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 /* Utility Classes */
@@ -285,4 +273,21 @@ pre {
 
 .mt-auto {
     margin-top: auto;
+}
+
+/* Modern hover effects */
+.hover-lift {
+    transition: all var(--transition-normal);
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+}
+
+/* Gradient text utility */
+.gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }

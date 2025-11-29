@@ -67,10 +67,19 @@ function App() {
     const [activeTools, setActiveTools] = useState([]);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [sidebarPosition, setSidebarPosition] = useState('left'); // left, right, top, bottom
+    const [currentTheme, setCurrentTheme] = useState(() => {
+        return localStorage.getItem('app-theme') || 'default';
+    });
     const [nextInstanceId, setNextInstanceId] = useState(1);
     const canvasRef = useRef(null);
 
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
+
+    // Apply theme to document root
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('app-theme', currentTheme);
+    }, [currentTheme]);
 
     const addTool = (toolId) => {
         setActiveTools(prev => [...prev, { instanceId: nextInstanceId, toolId }]);
@@ -212,22 +221,22 @@ function App() {
                                 background: 'var(--bg-tertiary)',
                                 border: '1px solid var(--glass-border)',
                                 borderRadius: 'var(--radius-md)',
-                                padding: 'var(--spacing-sm)',
+                                padding: '0.4rem',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 flexDirection: isHorizontal ? 'column' : 'row',
                                 alignItems: 'center',
-                                gap: 'var(--spacing-sm)',
+                                gap: '0.35rem',
                                 transition: 'all 0.2s',
-                                minWidth: isHorizontal ? '80px' : 'auto',
+                                minWidth: isHorizontal ? '60px' : 'auto',
                                 justifyContent: isHorizontal || sidebarCollapsed ? 'center' : 'flex-start',
                                 position: 'relative',
                                 overflow: 'hidden',
                             },
                             onMouseEnter: (e) => {
-                                e.currentTarget.style.borderColor = 'var(--neon-blue)';
+                                e.currentTarget.style.borderColor = 'var(--primary-blue)';
                                 e.currentTarget.style.background = 'var(--bg-secondary)';
-                                e.currentTarget.style.transform = 'scale(1.05)';
+                                e.currentTarget.style.transform = 'scale(1.03)';
                             },
                             onMouseLeave: (e) => {
                                 e.currentTarget.style.borderColor = 'var(--glass-border)';
@@ -235,13 +244,13 @@ function App() {
                                 e.currentTarget.style.transform = 'scale(1)';
                             }
                         },
-                        e('span', { style: { fontSize: '1.5rem' } }, tool.icon),
+                        e('span', { style: { fontSize: '1.2rem' } }, tool.icon),
                         (!sidebarCollapsed && !isHorizontal) && e('span',
-                            { style: { fontSize: '0.9rem', whiteSpace: 'nowrap' } },
+                            { style: { fontSize: '0.8rem', whiteSpace: 'nowrap', color: 'var(--text-primary)' } },
                             tool.name
                         ),
                         (isHorizontal) && e('span',
-                            { style: { fontSize: '0.7rem', whiteSpace: 'nowrap' } },
+                            { style: { fontSize: '0.65rem', whiteSpace: 'nowrap', color: 'var(--text-primary)' } },
                             tool.name
                         )
                     )
@@ -338,9 +347,62 @@ function App() {
                         '图像处理工作台'
                     )
                 ),
-                e('div', { style: { display: 'flex', gap: 'var(--spacing-md)' } },
+                e('div', { style: { display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' } },
                     e('span', { style: { color: 'var(--text-secondary)', fontSize: '0.9rem' } },
                         activeTools.length > 0 ? `当前运行: ${activeTools.length} 个任务` : '空闲'
+                    ),
+                    // Theme Switcher
+                    e('div',
+                        {
+                            style: {
+                                display: 'flex',
+                                gap: '0.4rem',
+                                padding: '0.3rem',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--glass-border)',
+                            }
+                        },
+                        [
+                            { id: 'default', name: '默认', icon: '💎' },
+                            { id: 'pornhub', name: 'PH', icon: '🟠' },
+                            { id: 'douyin', name: 'TT', icon: '🎵' },
+                            { id: 'youtube', name: 'YT', icon: '📺' }
+                        ].map(theme =>
+                            e('button',
+                                {
+                                    key: theme.id,
+                                    onClick: () => setCurrentTheme(theme.id),
+                                    title: theme.name,
+                                    style: {
+                                        padding: '0.4rem 0.6rem',
+                                        background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
+                                        color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-sm)',
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                    },
+                                    onMouseEnter: (e) => {
+                                        if (currentTheme !== theme.id) {
+                                            e.currentTarget.style.background = 'var(--bg-secondary)';
+                                        }
+                                    },
+                                    onMouseLeave: (e) => {
+                                        if (currentTheme !== theme.id) {
+                                            e.currentTarget.style.background = 'transparent';
+                                        }
+                                    }
+                                },
+                                e('span', {}, theme.icon),
+                                e('span', {}, theme.name)
+                            )
+                        )
                     )
                 )
             ),

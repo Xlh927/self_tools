@@ -11,21 +11,31 @@ export default function ConverterTool() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Auto-infer output path
+    // Auto-infer paths from annotationsDir
     useEffect(() => {
-        if (annotationsDir && !outputDir) {
+        if (annotationsDir && !imagesDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setImagesDir(`${parentDir}/images`);
+            setOutputDir(`${parentDir}/output_${conversionType}`);
+        } else if (annotationsDir && !outputDir) {
             const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
             setOutputDir(`${parentDir}/output_${conversionType}`);
         }
     }, [annotationsDir, conversionType]);
 
-    // Auto-infer images path
+    // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (annotationsDir && !imagesDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setImagesDir(`${parentDir}/images`);
+        if (imagesDir && !annotationsDir && !outputDir) {
+            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+            // Try common annotation folder names
+            const possibleNames = ['annotations', 'labels', 'Annotations', 'Labels'];
+            setAnnotationsDir(`${parentDir}/${possibleNames[0]}`);
+            setOutputDir(`${parentDir}/output_${conversionType}`);
+        } else if (imagesDir && !outputDir) {
+            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+            setOutputDir(`${parentDir}/output_${conversionType}`);
         }
-    }, [annotationsDir]);
+    }, [imagesDir, conversionType]);
 
     const handleConvert = async () => {
         setLoading(true);

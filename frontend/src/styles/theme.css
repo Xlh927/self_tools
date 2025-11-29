@@ -1,44 +1,174 @@
-:root {
-    /* Cyberpunk Color Palette */
-    --neon-blue: #00f2fe;
-    --neon-purple: #4facfe;
-    --neon-pink: #f093fb;
-    --neon-orange: #f5576c;
-    --neon-green: #43e97b;
-    --neon-yellow: #ffd200;
+/* Default Theme - Modern Frosted Glass */
+:root,
+:root[data-theme="default"] {
+    /* Modern Blue-Purple Color Palette */
+    --primary-blue: #667eea;
+    --primary-purple: #764ba2;
+    --accent-blue: #4f9deb;
+    --accent-purple: #a78bfa;
+    --soft-blue: #93c5fd;
+    --soft-purple: #c4b5fd;
 
     /* Background Colors */
-    --bg-primary: #0a0e27;
-    --bg-secondary: #1a1f3a;
-    --bg-tertiary: #252b4a;
-    --bg-glass: rgba(255, 255, 255, 0.05);
-    --bg-glass-hover: rgba(255, 255, 255, 0.1);
+    --bg-primary: #f8f9fd;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f3f9;
+    --bg-glass: rgba(255, 255, 255, 0.7);
+    --bg-glass-hover: rgba(255, 255, 255, 0.85);
+
+    --dark-bg-primary: #0f1419;
+    --dark-bg-secondary: #1a1f2e;
+    --dark-bg-tertiary: #252b3b;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
-    --gradient-secondary: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-orange) 100%);
-    --gradient-tertiary: linear-gradient(135deg, var(--neon-green) 0%, var(--neon-blue) 100%);
-    --gradient-accent: linear-gradient(135deg, var(--neon-yellow) 0%, var(--neon-orange) 100%);
-    --gradient-dark: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-secondary: linear-gradient(135deg, #4f9deb 0%, #a78bfa 100%);
+    --gradient-tertiary: linear-gradient(135deg, #93c5fd 0%, #c4b5fd 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    --gradient-dark: linear-gradient(180deg, var(--dark-bg-primary) 0%, var(--dark-bg-secondary) 100%);
 
     /* Glass Effect */
-    --glass-bg: rgba(26, 31, 58, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-bg-dark: rgba(26, 31, 46, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --glass-border-dark: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.15);
+    --glass-blur: blur(30px);
 
     /* Text Colors */
-    --text-primary: #ffffff;
-    --text-secondary: #b8c5d6;
-    --text-tertiary: #8892a6;
-    --text-accent: var(--neon-blue);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-tertiary: #94a3b8;
+    --text-accent: #667eea;
+
+    --dark-text-primary: #f1f5f9;
+    --dark-text-secondary: #cbd5e1;
+    --dark-text-tertiary: #94a3b8;
 
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-neon-blue: 0 0 20px rgba(0, 242, 254, 0.5);
-    --shadow-neon-pink: 0 0 20px rgba(240, 147, 251, 0.5);
+    --shadow-xs: 0 1px 2px rgba(102, 126, 234, 0.05);
+    --shadow-sm: 0 2px 8px rgba(102, 126, 234, 0.08);
+    --shadow-md: 0 4px 16px rgba(102, 126, 234, 0.12);
+    --shadow-lg: 0 8px 32px rgba(102, 126, 234, 0.15);
+    --shadow-xl: 0 12px 48px rgba(102, 126, 234, 0.2);
+}
 
+/* PornHub Theme - Black & Orange */
+:root[data-theme="pornhub"] {
+    --primary-blue: #ff9000;
+    --primary-purple: #ffa500;
+    --accent-blue: #ffb84d;
+    --accent-purple: #ffc107;
+    --soft-blue: #ffd280;
+    --soft-purple: #ffe6b3;
+
+    --bg-primary: #000000;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #2a2a2a;
+    --bg-glass: rgba(0, 0, 0, 0.7);
+    --bg-glass-hover: rgba(0, 0, 0, 0.85);
+
+    --gradient-primary: linear-gradient(135deg, #ff9000 0%, #ffa500 100%);
+    --gradient-secondary: linear-gradient(135deg, #ffb84d 0%, #ffc107 100%);
+    --gradient-tertiary: linear-gradient(135deg, #ffd280 0%, #ffe6b3 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(255, 144, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
+    --gradient-dark: linear-gradient(180deg, #000000 0%, #1a1a1a 100%);
+
+    --glass-bg: rgba(26, 26, 26, 0.6);
+    --glass-border: rgba(255, 144, 0, 0.3);
+    --glass-shadow: 0 8px 32px 0 rgba(255, 144, 0, 0.2);
+    --glass-blur: blur(30px);
+
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --text-tertiary: #999999;
+    --text-accent: #ff9000;
+
+    --shadow-xs: 0 1px 2px rgba(255, 144, 0, 0.1);
+    --shadow-sm: 0 2px 8px rgba(255, 144, 0, 0.15);
+    --shadow-md: 0 4px 16px rgba(255, 144, 0, 0.2);
+    --shadow-lg: 0 8px 32px rgba(255, 144, 0, 0.25);
+    --shadow-xl: 0 12px 48px rgba(255, 144, 0, 0.3);
+}
+
+/* Douyin/TikTok Theme - Black, Pink & Cyan */
+:root[data-theme="douyin"] {
+    --primary-blue: #25f4ee;
+    --primary-purple: #fe2c55;
+    --accent-blue: #69f7f3;
+    --accent-purple: #ff5c7c;
+    --soft-blue: #a3faf7;
+    --soft-purple: #ffadb8;
+
+    --bg-primary: #000000;
+    --bg-secondary: #121212;
+    --bg-tertiary: #1e1e1e;
+    --bg-glass: rgba(18, 18, 18, 0.7);
+    --bg-glass-hover: rgba(18, 18, 18, 0.85);
+
+    --gradient-primary: linear-gradient(135deg, #25f4ee 0%, #fe2c55 100%);
+    --gradient-secondary: linear-gradient(135deg, #69f7f3 0%, #ff5c7c 100%);
+    --gradient-tertiary: linear-gradient(135deg, #a3faf7 0%, #ffadb8 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(37, 244, 238, 0.1) 0%, rgba(254, 44, 85, 0.1) 100%);
+    --gradient-dark: linear-gradient(180deg, #000000 0%, #121212 100%);
+
+    --glass-bg: rgba(18, 18, 18, 0.6);
+    --glass-border: rgba(37, 244, 238, 0.3);
+    --glass-shadow: 0 8px 32px 0 rgba(254, 44, 85, 0.2);
+    --glass-blur: blur(30px);
+
+    --text-primary: #ffffff;
+    --text-secondary: #d1d1d1;
+    --text-tertiary: #a1a1a1;
+    --text-accent: #fe2c55;
+
+    --shadow-xs: 0 1px 2px rgba(254, 44, 85, 0.1);
+    --shadow-sm: 0 2px 8px rgba(254, 44, 85, 0.15);
+    --shadow-md: 0 4px 16px rgba(254, 44, 85, 0.2);
+    --shadow-lg: 0 8px 32px rgba(254, 44, 85, 0.25);
+    --shadow-xl: 0 12px 48px rgba(254, 44, 85, 0.3);
+}
+
+/* YouTube Theme - Red & Dark */
+:root[data-theme="youtube"] {
+    --primary-blue: #ff0000;
+    --primary-purple: #cc0000;
+    --accent-blue: #ff3333;
+    --accent-purple: #ff6666;
+    --soft-blue: #ff9999;
+    --soft-purple: #ffcccc;
+
+    --bg-primary: #0f0f0f;
+    --bg-secondary: #212121;
+    --bg-tertiary: #282828;
+    --bg-glass: rgba(33, 33, 33, 0.7);
+    --bg-glass-hover: rgba(33, 33, 33, 0.85);
+
+    --gradient-primary: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+    --gradient-secondary: linear-gradient(135deg, #ff3333 0%, #ff6666 100%);
+    --gradient-tertiary: linear-gradient(135deg, #ff9999 0%, #ffcccc 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(255, 0, 0, 0.1) 0%, rgba(204, 0, 0, 0.1) 100%);
+    --gradient-dark: linear-gradient(180deg, #0f0f0f 0%, #212121 100%);
+
+    --glass-bg: rgba(33, 33, 33, 0.6);
+    --glass-border: rgba(255, 0, 0, 0.3);
+    --glass-shadow: 0 8px 32px 0 rgba(255, 0, 0, 0.2);
+    --glass-blur: blur(30px);
+
+    --text-primary: #ffffff;
+    --text-secondary: #aaaaaa;
+    --text-tertiary: #717171;
+    --text-accent: #ff0000;
+
+    --shadow-xs: 0 1px 2px rgba(255, 0, 0, 0.1);
+    --shadow-sm: 0 2px 8px rgba(255, 0, 0, 0.15);
+    --shadow-md: 0 4px 16px rgba(255, 0, 0, 0.2);
+    --shadow-lg: 0 8px 32px rgba(255, 0, 0, 0.25);
+    --shadow-xl: 0 12px 48px rgba(255, 0, 0, 0.3);
+}
+
+/* Common CSS Variables */
+:root {
     /* Spacing */
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
@@ -48,10 +178,11 @@
     --spacing-2xl: 3rem;
 
     /* Border Radius */
-    --radius-sm: 0.25rem;
-    --radius-md: 0.5rem;
-    --radius-lg: 1rem;
-    --radius-xl: 1.5rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1.25rem;
+    --radius-xl: 1.75rem;
+    --radius-full: 9999px;
 
     /* Transitions */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -66,4 +197,18 @@
     --z-modal: 1050;
     --z-popover: 1060;
     --z-tooltip: 1070;
+}
+
+/* Dark mode support for default theme */
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="default"] {
+        --bg-primary: var(--dark-bg-primary);
+        --bg-secondary: var(--dark-bg-secondary);
+        --bg-tertiary: var(--dark-bg-tertiary);
+        --bg-glass: var(--glass-bg-dark);
+        --glass-border: var(--glass-border-dark);
+        --text-primary: var(--dark-text-primary);
+        --text-secondary: var(--dark-text-secondary);
+        --text-tertiary: var(--dark-text-tertiary);
+    }
 }

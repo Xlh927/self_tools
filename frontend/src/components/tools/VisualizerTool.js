@@ -10,22 +10,29 @@ export default function VisualizerTool() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Auto-infer output path
+    // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (imagesDir && !outputDir) {
+        if (imagesDir && !annotationsDir && !outputDir) {
+            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+            setAnnotationsDir(`${parentDir}/annotations`);
+            setOutputDir(`${parentDir}/visualized`);
+        } else if (imagesDir && !outputDir) {
             const parentDir = imagesDir.split('/').slice(0, -1).join('/');
             setOutputDir(`${parentDir}/visualized`);
         }
     }, [imagesDir]);
 
-    // Auto-infer annotations path
+    // Auto-infer paths from annotationsDir
     useEffect(() => {
-        if (imagesDir && !annotationsDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            // Guess
-            // setAnnotationsDir(`${parentDir}/annotations`);
+        if (annotationsDir && !imagesDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setImagesDir(`${parentDir}/images`);
+            setOutputDir(`${parentDir}/visualized`);
+        } else if (annotationsDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setOutputDir(`${parentDir}/visualized`);
         }
-    }, [imagesDir]);
+    }, [annotationsDir]);
 
     const handleVisualize = async () => {
         setLoading(true);

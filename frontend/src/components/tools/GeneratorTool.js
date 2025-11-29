@@ -20,13 +20,29 @@ export default function GeneratorTool() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Auto-infer output path
+    // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (imagesDir && !outputDir) {
+        if (imagesDir && !annotationsDir && !outputDir) {
+            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+            setAnnotationsDir(`${parentDir}/annotations`);
+            setOutputDir(`${parentDir}/generated_dataset`);
+        } else if (imagesDir && !outputDir) {
             const parentDir = imagesDir.split('/').slice(0, -1).join('/');
             setOutputDir(`${parentDir}/generated_dataset`);
         }
     }, [imagesDir]);
+
+    // Auto-infer paths from annotationsDir
+    useEffect(() => {
+        if (annotationsDir && !imagesDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setImagesDir(`${parentDir}/images`);
+            setOutputDir(`${parentDir}/generated_dataset`);
+        } else if (annotationsDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setOutputDir(`${parentDir}/generated_dataset`);
+        }
+    }, [annotationsDir]);
 
     // Auto-detect classes when annotations dir changes
     useEffect(() => {

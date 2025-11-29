@@ -16,22 +16,29 @@ export default function SplitterTool() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Auto-infer output path
+    // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (imagesDir && !outputDir) {
+        if (imagesDir && !annotationsDir && !outputDir) {
+            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+            setAnnotationsDir(`${parentDir}/annotations`);
+            setOutputDir(`${parentDir}/split_dataset`);
+        } else if (imagesDir && !outputDir) {
             const parentDir = imagesDir.split('/').slice(0, -1).join('/');
             setOutputDir(`${parentDir}/split_dataset`);
         }
     }, [imagesDir]);
 
-    // Auto-infer annotations path
+    // Auto-infer paths from annotationsDir
     useEffect(() => {
-        if (imagesDir && !annotationsDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            // Guess
-            // setAnnotationsDir(`${parentDir}/annotations`);
+        if (annotationsDir && !imagesDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setImagesDir(`${parentDir}/images`);
+            setOutputDir(`${parentDir}/split_dataset`);
+        } else if (annotationsDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setOutputDir(`${parentDir}/split_dataset`);
         }
-    }, [imagesDir]);
+    }, [annotationsDir]);
 
     // Normalize ratios to sum to 100
     const handleRatioChange = (type, value) => {
