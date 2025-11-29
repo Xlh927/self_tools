@@ -351,6 +351,43 @@ function App() {
                     e('span', { style: { color: 'var(--text-secondary)', fontSize: '0.9rem' } },
                         activeTools.length > 0 ? `当前运行: ${activeTools.length} 个任务` : '空闲'
                     ),
+                    // Clear All Button
+                    activeTools.length > 0 && e('button',
+                        {
+                            onClick: () => {
+                                if (confirm(`确定要清除所有 ${activeTools.length} 个任务吗？`)) {
+                                    setActiveTools([]);
+                                }
+                            },
+                            title: '清除所有任务',
+                            style: {
+                                padding: '0.4rem 0.8rem',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                            },
+                            onMouseEnter: (e) => {
+                                e.currentTarget.style.background = 'rgba(245, 87, 108, 0.1)';
+                                e.currentTarget.style.borderColor = 'var(--primary-blue)';
+                                e.currentTarget.style.color = 'var(--primary-blue)';
+                            },
+                            onMouseLeave: (e) => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.borderColor = 'var(--glass-border)';
+                                e.currentTarget.style.color = 'var(--text-secondary)';
+                            }
+                        },
+                        e('span', {}, '🗑️'),
+                        e('span', {}, '清空')
+                    ),
                     // Theme Switcher
                     e('div',
                         {
