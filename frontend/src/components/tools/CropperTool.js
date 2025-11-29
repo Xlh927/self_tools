@@ -1,0 +1,216 @@
+import React, { useState, useEffect } from 'react';
+
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
+
+export default function CropperTool() {
+    const [processingMode, setProcessingMode] = useState('folder');
+    const [inputPath, setInputPath] = useState('');
+    const [annotationsDir, setAnnotationsDir] = useState('');
+    const [outputDir, setOutputDir] = useState('');
+    const [windowWidth, setWindowWidth] = useState(1024);
+    const [windowHeight, setWindowHeight] = useState(1024);
+    const [overlapX, setOverlapX] = useState(512);
+    const [overlapY, setOverlapY] = useState(512);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState(null);
+
+    // Auto-infer output path
+    useEffect(() => {
+        if (inputPath && !outputDir) {
+            const cleanPath = inputPath.endsWith('/') ? inputPath.slice(0, -1) : inputPath;
+            const parentDir = cleanPath.split('/').slice(0, -1).join('/');
+            setOutputDir(`${parentDir}/crops`);
+        }
+    }, [inputPath]);
+
+    // Auto-infer annotations path if input is folder
+    useEffect(() => {
+        if (inputPath && !annotationsDir && processingMode === 'folder') {
+            const cleanPath = inputPath.endsWith('/') ? inputPath.slice(0, -1) : inputPath;
+            // Try to guess annotations dir
+            // This is just a guess, user can change it
+            // setAnnotationsDir(`${parentDir}/annotations`); 
+        }
+    }, [inputPath, processingMode]);
+
+    const handleCrop = async () => {
+        setLoading(true);
+        setResult(null);
+
+        try {
+            const response = await fetch('/api/crop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: processingMode,
+                    input_path: inputPath,
+                    annotations_dir: annotationsDir || undefined,
+                    output_dir: outputDir,
+                    window_width: parseInt(windowWidth),
+                    window_height: parseInt(windowHeight),
+                    overlap_x: parseInt(overlapX),
+                    overlap_y: parseInt(overlapY),
+                }),
+            });
+
+            const data = await response.json();
+            setResult(data);
+        } catch (error) {
+            setResult({ success: false, error: error.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return e('div',
+        { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
+
+        // Processing Mode
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' }, '处理模式'),
+            e('select',
+                {
+                    className: 'select-field',
+                    value: processingMode,
+                    onChange: (e) => setProcessingMode(e.target.value),
+                },
+                e('option', { value: 'folder' }, '📁 文件夹批量'),
+                e('option', { value: 'single' }, '📄 单张图片')
+            )
+        ),
+
+        // Input Path
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                processingMode === 'folder' ? '📁 图片文件夹路径' : '📄 图片文件路径',
+                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(必填)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: processingMode === 'folder' ? '/path/to/images' : '/path/to/image.jpg',
+                    value: inputPath,
+                    onChange: (e) => setInputPath(e.target.value),
+                }
+            )
+        ),
+
+        // Annotations Directory
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                '📁 标注文件目录',
+                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(可选，用于裁剪标注)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: '/path/to/annotations',
+                    value: annotationsDir,
+                    onChange: (e) => setAnnotationsDir(e.target.value),
+                }
+            )
+        ),
+
+        // Output Directory
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                '📤 输出目录',
+                e('span', { style: { color: 'var(--neon-green)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(自动推理)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: '/path/to/output',
+                    value: outputDir,
+                    onChange: (e) => setOutputDir(e.target.value),
+                }
+            )
+        ),
+
+        // Parameters Grid
+        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
+            // Window Size
+            e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
+                e('h4', { style: { marginTop: 0, color: 'var(--neon-blue)' } }, '窗口大小'),
+                e('div', { className: 'input-group', style: { marginBottom: 'var(--spacing-sm)' } },
+                    e('label', { className: 'input-label' }, '宽度 (px)'),
+                    e('input', {
+                        type: 'number', className: 'input-field', value: windowWidth,
+                        onChange: (e) => setWindowWidth(e.target.value)
+                    })
+                ),
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '高度 (px)'),
+                    e('input', {
+                        type: 'number', className: 'input-field', value: windowHeight,
+                        onChange: (e) => setWindowHeight(e.target.value)
+                    })
+                )
+            ),
+            // Overlap
+            e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
+                e('h4', { style: { marginTop: 0, color: 'var(--neon-pink)' } }, '重叠度'),
+                e('div', { className: 'input-group', style: { marginBottom: 'var(--spacing-sm)' } },
+                    e('label', { className: 'input-label' }, '横向 (px)'),
+                    e('input', {
+                        type: 'number', className: 'input-field', value: overlapX,
+                        onChange: (e) => setOverlapX(e.target.value)
+                    })
+                ),
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '纵向 (px)'),
+                    e('input', {
+                        type: 'number', className: 'input-field', value: overlapY,
+                        onChange: (e) => setOverlapY(e.target.value)
+                    })
+                )
+            )
+        ),
+
+        // Visual Preview (Simple text for now)
+        e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-around', fontSize: '0.9rem' } },
+                e('span', {}, `步长: ${windowWidth - overlapX} × ${windowHeight - overlapY} px`),
+                e('span', {}, `有效区域: ${(windowWidth - overlapX) * (windowHeight - overlapY)} px²`)
+            )
+        ),
+
+        // Submit Button
+        e('button',
+            {
+                className: 'btn btn-secondary',
+                onClick: handleCrop,
+                disabled: loading || !inputPath || !outputDir,
+                style: {
+                    fontSize: '1.1rem',
+                    padding: 'var(--spacing-md) var(--spacing-xl)',
+                    width: '100%',
+                    marginTop: 'var(--spacing-md)',
+                }
+            },
+            loading ? '裁剪中...' : '✂️ 开始裁剪'
+        ),
+
+        // Result
+        result && e('div',
+            {
+                className: 'glass-card',
+                style: {
+                    marginTop: 'var(--spacing-lg)',
+                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
+                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
+                }
+            },
+            e('h3', {}, result.success ? '✅ 裁剪完成！' : '❌ 裁剪失败'),
+            result.success && e('div', {},
+                e('p', {}, `处理文件数: ${result.total_files || 1}`),
+                e('p', {}, `生成图片数: ${result.total_crops || result.crops_generated || 0}`),
+                result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`)
+            ),
+            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+        )
+    );
+}
