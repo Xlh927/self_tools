@@ -94,6 +94,8 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
 
     // Size based on content length (clamped)
     const size = Math.min(Math.max(120, note.title.length * 9), 180);
+    // Determine tooltip side (left if on right half of screen)
+    const tooltipSide = position.x > containerSize.width / 2 ? 'left' : 'right';
 
     return e('div', {
         className: 'balloon',
@@ -112,6 +114,7 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
         e('div', { className: 'balloon-content' },
             e('div', { className: 'balloon-icon' }, category.icon),
             e('div', { className: 'balloon-title' }, note.title)
-        )
+        ),
+        e('div', { className: `balloon-tooltip tooltip-${tooltipSide}` }, note.command)
     );
 }

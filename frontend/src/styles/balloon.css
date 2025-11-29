@@ -177,3 +177,56 @@
     -webkit-box-orient: vertical;
     width: 100%;
 }
+
+/* Tooltip Styling */
+.balloon-tooltip {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) scale(0.8);
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    padding: 10px 15px;
+    border-radius: 15px;
+    width: max-content;
+    max-width: 250px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+    z-index: 200;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+    font-family: monospace;
+    font-size: 0.85rem;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Right Side Tooltip (Default) */
+.balloon-tooltip.tooltip-right {
+    left: 110%;
+    border-bottom-left-radius: 2px;
+    transform-origin: left center;
+}
+
+/* Left Side Tooltip */
+.balloon-tooltip.tooltip-left {
+    right: 110%;
+    border-bottom-right-radius: 2px;
+    transform-origin: right center;
+}
+
+/* Hover States */
+.balloon:hover .balloon-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) scale(1);
+}
+
+.balloon:hover .balloon-tooltip.tooltip-right {
+    left: 120%;
+}
+
+.balloon:hover .balloon-tooltip.tooltip-left {
+    right: 120%;
+}
