@@ -4,29 +4,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图像处理工具集 - Image Processing Toolset</title>
-    <meta name="description" content="现代化的图像处理工具集，支持数据集转换、裁剪、去重等功能">
+    <title>工具集 - 首页</title>
+    <link rel="stylesheet" href="src/styles/theme.css">
+    <link rel="stylesheet" href="src/styles/globals.css">
+    <link rel="stylesheet" href="src/styles/animations.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="/src/styles/theme.css">
-    <link rel="stylesheet" href="/src/styles/globals.css">
-    <link rel="stylesheet" href="/src/styles/animations.css">
+        .landing-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-2xl);
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
 
-    <!-- React & ReactDOM via CDN (using ES modules) -->
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom": "https://esm.sh/react-dom@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client"
-      }
-    }
-  </script>
+        .landing-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .landing-title {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .landing-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            animation: fadeInUp 0.6s ease-out 0.2s both;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--spacing-xl);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .app-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .app-card:nth-child(1) {
+            animation-delay: 0.3s;
+        }
+
+        .app-card:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+            background: var(--bg-glass-hover);
+        }
+
+        .app-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .app-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-primary);
+        }
+
+        .app-description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .theme-switcher {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            display: flex;
+            gap: 0.4rem;
+            padding: 0.3rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: var(--glass-blur);
+            z-index: 100;
+        }
+
+        .theme-btn {
+            padding: 0.4rem 0.6rem;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .theme-btn.active {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .theme-btn:hover:not(.active) {
+            background: var(--bg-secondary);
+        }
+    </style>
 </head>
 
 <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.js"></script>
+    <!-- Theme Switcher -->
+    <div class="theme-switcher">
+        <button class="theme-btn active" data-theme="default">
+            <span>💎</span>
+            <span>默认</span>
+        </button>
+        <button class="theme-btn" data-theme="pornhub">
+            <span>🟠</span>
+            <span>PH</span>
+        </button>
+        <button class="theme-btn" data-theme="douyin">
+            <span>🎵</span>
+            <span>TT</span>
+        </button>
+        <button class="theme-btn" data-theme="youtube">
+            <span>📺</span>
+            <span>YT</span>
+        </button>
+    </div>
+
+    <div class="landing-container">
+        <div class="landing-header">
+            <h1 class="landing-title">工具集</h1>
+            <p class="landing-subtitle">选择您需要的工具系统</p>
+        </div>
+
+        <div class="apps-grid">
+            <a href="/cv-tools" class="app-card">
+                <div class="app-icon">🖼️</div>
+                <h2 class="app-title">CV Tools</h2>
+                <p class="app-description">
+                    图像处理工具集<br>
+                    格式转换 • 图像裁剪 • 数据集生成 • 标注可视化
+                </p>
+            </a>
+
+            <a href="/notes" class="app-card">
+                <div class="app-icon">📝</div>
+                <h2 class="app-title">Command Notes</h2>
+                <p class="app-description">
+                    命令记忆系统<br>
+                    记录常用命令 • 分类管理 • Git 同步
+                </p>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Theme management
+        const currentTheme = localStorage.getItem('app-theme') || 'default';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+
+        // Update active button
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            if (btn.dataset.theme === currentTheme) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+
+            btn.addEventListener('click', () => {
+                const theme = btn.dataset.theme;
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('app-theme', theme);
+
+                document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    </script>
 </body>
 
 </html>

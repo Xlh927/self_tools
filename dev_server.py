@@ -30,6 +30,16 @@ class DevServerHandler(SimpleHTTPRequestHandler):
         if self.path.startswith('/api/'):
             self.proxy_request()
         else:
+            # Handle root path - serve landing page
+            if self.path == '/':
+                self.path = '/index.html'
+            # Handle /cv-tools route
+            elif self.path == '/cv-tools':
+                self.path = '/cv-tools.html'
+            # Handle /notes route
+            elif self.path == '/notes':
+                self.path = '/notes.html'
+            
             super().do_GET()
             
     def do_POST(self):

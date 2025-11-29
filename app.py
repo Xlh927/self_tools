@@ -747,6 +747,141 @@ def remove_duplicates():
         }), 500
 
 
+# ==================== NOTES API ROUTES ====================
+import notes_manager
+
+@app.route('/api/notes', methods=['GET'])
+def get_notes():
+    """Get all notes with optional filtering"""
+    try:
+        category = request.args.get('category')
+        search = request.args.get('search')
+        
+        notes = notes_manager.get_all_notes(category=category, search=search)
+        
+        return jsonify({
+            'success': True,
+            'notes': notes,
+            'count': len(notes)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notes/<note_id>', methods=['GET'])
+def get_note(note_id):
+    """Get a single note by ID"""
+    try:
+        note = notes_manager.get_note_by_id(note_id)
+        
+        if note:
+            return jsonify({
+                'success': True,
+                'note': note
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Note not found'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notes', methods=['POST'])
+def create_note():
+    """Create a new note"""
+    try:
+        data = request.json
+        
+        title = data.get('title')
+        category = data.get('category', 'general')
+        command = data.get('command')
+        description = data.get('description', '')
+        tags = data.get('tags', [])
+        
+        if not title or not command:
+            return jsonify({
+                'success': False,
+                'error': 'Title and command are required'
+            }), 400
+        
+        note = notes_manager.create_note(
+            title=title,
+            category=category,
+            command=command,
+            description=description,
+            tags=tags
+        )
+        
+        return jsonify({
+            'success': True,
+            'note': note
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notes/<note_id>', methods=['PUT'])
+def update_note(note_id):
+    """Update an existing note"""
+    try:
+        data = request.json
+        
+        note = notes_manager.update_note(note_id, **data)
+        
+        if note:
+            return jsonify({
+                'success': True,
+                'note': note
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Note not found'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/notes/<note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    """Delete a note"""
+    try:
+        success = notes_manager.delete_note(note_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Note deleted successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Note not found'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+
+
+
 if __name__ == '__main__':
     print('🚀 Image Processing Tools Server Starting...')
     print('📱 Open your browser and navigate to: http://localhost:5001')

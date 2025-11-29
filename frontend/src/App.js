@@ -111,6 +111,42 @@ function App() {
     return e('div',
         { className: 'app-container', style: layoutStyle },
 
+        // Home button (floating)
+        e('a',
+            {
+                href: '/',
+                style: {
+                    position: 'fixed',
+                    top: 'var(--spacing-md)',
+                    left: 'var(--spacing-md)',
+                    zIndex: 1000,
+                    padding: '0.6rem 1rem',
+                    background: 'var(--glass-bg)',
+                    backdropFilter: 'var(--glass-blur)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                },
+                onMouseEnter: (e) => {
+                    e.currentTarget.style.background = 'var(--bg-glass-hover)';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                },
+                onMouseLeave: (e) => {
+                    e.currentTarget.style.background = 'var(--glass-bg)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                }
+            },
+            e('span', {}, '🏠'),
+            e('span', {}, '主页')
+        ),
+
         // Sidebar
         e('aside',
             {
