@@ -302,6 +302,7 @@ function NotesApp() {
                         note,
                         category,
                         containerSize,
+                        theme: currentTheme,
                         onClick: openForm
                     });
                 })

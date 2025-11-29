@@ -5,11 +5,33 @@ const { createElement: e } = React;
 // Random utility functions
 const random = (min, max) => Math.random() * (max - min) + min;
 
-export default function BalloonNote({ note, category, onClick, containerSize }) {
+export default function BalloonNote({ note, category, onClick, containerSize, theme }) {
     // State for position and movement
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const animationRef = useRef(null);
+
+    // Theme Palettes
+    const THEME_PALETTES = {
+        default: null, // Use category color
+        pornhub: ['#ff9900', '#ffffff', '#e6ac00', '#cccccc', '#ffb84d'], // Orange/White/Yellow
+        douyin: ['#00f2ea', '#ff0050', '#ffffff', '#e0e0e0', '#800080'], // Cyan/Pink/White/Purple
+        youtube: ['#ff0000', '#ffffff', '#282828', '#cc0000', '#aaaaaa']  // Red/White/Grey
+    };
+
+    // Get color based on theme
+    const getColor = () => {
+        if (!theme || theme === 'default' || !THEME_PALETTES[theme]) {
+            return category.color;
+        }
+
+        const palette = THEME_PALETTES[theme];
+        // Use category ID hash to pick consistent color from palette
+        const hash = category.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return palette[hash % palette.length];
+    };
+
+    const baseColor = getColor();
 
     // Initialize random position
     useEffect(() => {
@@ -44,8 +66,8 @@ export default function BalloonNote({ note, category, onClick, containerSize }) 
     const size = Math.min(Math.max(100, note.title.length * 8), 160);
 
     // Color with opacity for glass effect
-    const bgColor = category.color + '40'; // 25% opacity
-    const borderColor = category.color + '80'; // 50% opacity
+    const bgColor = baseColor + '40'; // 25% opacity
+    const borderColor = baseColor + '80'; // 50% opacity
 
     return e('div', {
         className: 'balloon glass-card',
