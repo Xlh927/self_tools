@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ProgressBar from '../common/ProgressBar.js';
 
-const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
 export default function ConverterTool() {
     const [conversionType, setConversionType] = useState('voc_to_yolo');
@@ -9,7 +10,10 @@ export default function ConverterTool() {
     const [outputDir, setOutputDir] = useState('');
     const [classesFile, setClassesFile] = useState('');
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressMessage, setProgressMessage] = useState('');
     const [result, setResult] = useState(null);
+    const pollTimer = useRef(null);
 
     // Auto-infer paths from annotationsDir
     useEffect(() => {
@@ -37,9 +41,46 @@ export default function ConverterTool() {
         }
     }, [imagesDir, conversionType]);
 
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimer.current) clearInterval(pollTimer.current);
+        };
+    }, []);
+
+    const startPolling = (taskId) => {
+        pollTimer.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/progress/${taskId}`);
+                if (res.status === 404) {
+                    clearInterval(pollTimer.current);
+                    return;
+                }
+                const data = await res.json();
+
+                setProgress(data.progress);
+                setProgressMessage(data.message);
+
+                if (data.status === 'completed') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult(data.result);
+                } else if (data.status === 'error') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult({ success: false, error: data.error });
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+            }
+        }, 500);
+    };
+
     const handleConvert = async () => {
         setLoading(true);
         setResult(null);
+        setProgress(0);
+        setProgressMessage('Starting...');
 
         try {
             const response = await fetch('/api/convert', {
@@ -55,11 +96,16 @@ export default function ConverterTool() {
             });
 
             const data = await response.json();
-            setResult(data);
+
+            if (data.success && data.task_id) {
+                startPolling(data.task_id);
+            } else {
+                setLoading(false);
+                setResult(data);
+            }
         } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
             setLoading(false);
+            setResult({ success: false, error: error.message });
         }
     };
 
@@ -150,19 +196,22 @@ export default function ConverterTool() {
             )
         ),
 
+        // Progress Bar
+        loading && e(ProgressBar, { progress, message: progressMessage }),
+
         // Convert Button
-        e('button',
+        !loading && e('button',
             {
                 className: 'btn btn-primary',
                 onClick: handleConvert,
-                disabled: loading || !annotationsDir || !imagesDir || !outputDir,
+                disabled: !annotationsDir || !imagesDir || !outputDir,
                 style: {
                     fontSize: '1.1rem',
                     padding: 'var(--spacing-md) var(--spacing-xl)',
                     width: '100%',
                 }
             },
-            loading ? '转换中...' : '🚀 开始转换'
+            '🚀 开始转换'
         ),
 
         // Result

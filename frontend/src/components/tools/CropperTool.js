@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ProgressBar from '../common/ProgressBar.js';
 
-const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
 export default function CropperTool() {
     const [processingMode, setProcessingMode] = useState('folder');
@@ -12,7 +13,10 @@ export default function CropperTool() {
     const [overlapX, setOverlapX] = useState(512);
     const [overlapY, setOverlapY] = useState(512);
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressMessage, setProgressMessage] = useState('');
     const [result, setResult] = useState(null);
+    const pollTimer = useRef(null);
 
     // Auto-infer output path
     useEffect(() => {
@@ -33,9 +37,46 @@ export default function CropperTool() {
         }
     }, [inputPath, processingMode]);
 
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimer.current) clearInterval(pollTimer.current);
+        };
+    }, []);
+
+    const startPolling = (taskId) => {
+        pollTimer.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/progress/${taskId}`);
+                if (res.status === 404) {
+                    clearInterval(pollTimer.current);
+                    return;
+                }
+                const data = await res.json();
+
+                setProgress(data.progress);
+                setProgressMessage(data.message);
+
+                if (data.status === 'completed') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult(data.result);
+                } else if (data.status === 'error') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult({ success: false, error: data.error });
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+            }
+        }, 500);
+    };
+
     const handleCrop = async () => {
         setLoading(true);
         setResult(null);
+        setProgress(0);
+        setProgressMessage('Starting...');
 
         try {
             const response = await fetch('/api/crop', {
@@ -54,11 +95,16 @@ export default function CropperTool() {
             });
 
             const data = await response.json();
-            setResult(data);
+
+            if (data.success && data.task_id) {
+                startPolling(data.task_id);
+            } else {
+                setLoading(false);
+                setResult(data);
+            }
         } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
             setLoading(false);
+            setResult({ success: false, error: error.message });
         }
     };
 
@@ -178,12 +224,15 @@ export default function CropperTool() {
             )
         ),
 
+        // Progress Bar
+        loading && e(ProgressBar, { progress, message: progressMessage }),
+
         // Submit Button
-        e('button',
+        !loading && e('button',
             {
                 className: 'btn btn-secondary',
                 onClick: handleCrop,
-                disabled: loading || !inputPath || !outputDir,
+                disabled: !inputPath || !outputDir,
                 style: {
                     fontSize: '1.1rem',
                     padding: 'var(--spacing-md) var(--spacing-xl)',
@@ -191,7 +240,7 @@ export default function CropperTool() {
                     marginTop: 'var(--spacing-md)',
                 }
             },
-            loading ? '裁剪中...' : '✂️ 开始裁剪'
+            '✂️ 开始裁剪'
         ),
 
         // Result
@@ -206,7 +255,7 @@ export default function CropperTool() {
             },
             e('h3', {}, result.success ? '✅ 裁剪完成！' : '❌ 裁剪失败'),
             result.success && e('div', {},
-                e('p', {}, `处理文件数: ${result.total_files || 1}`),
+                e('p', {}, `处理文件数: ${result.total_files || result.total_images || 1}`),
                 e('p', {}, `生成图片数: ${result.total_crops || result.crops_generated || 0}`),
                 result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`)
             ),

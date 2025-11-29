@@ -29,7 +29,7 @@ class DatasetConverter:
         self.classes = classes
     
     def voc_to_yolo(self, voc_xml_dir: str, images_dir: str, output_dir: str, 
-                    classes_file: str = None) -> Dict[str, any]:
+                    classes_file: str = None, progress_callback=None) -> Dict[str, any]:
         """
         Convert VOC format to YOLO format
         
@@ -38,6 +38,7 @@ class DatasetConverter:
             images_dir: Directory containing images
             output_dir: Output directory for YOLO txt files
             classes_file: Path to classes.txt file (optional)
+            progress_callback: Optional function(current, total, message)
             
         Returns:
             Dictionary with conversion results
@@ -64,7 +65,10 @@ class DatasetConverter:
             skipped_count = 0
             errors = []
             
-            for xml_file in xml_files:
+            for i, xml_file in enumerate(xml_files):
+                if progress_callback:
+                    progress_callback(i, len(xml_files), f"Processing {xml_file.name}")
+
                 try:
                     # Parse XML
                     tree = ET.parse(xml_file)
@@ -171,7 +175,8 @@ class DatasetConverter:
         return class_counts
     
     def yolo_to_voc(self, yolo_txt_dir: str, images_dir: str, output_dir: str,
-                    classes_file: str = None, custom_classes: List[str] = None) -> Dict[str, any]:
+                    classes_file: str = None, custom_classes: List[str] = None,
+                    progress_callback=None) -> Dict[str, any]:
         """
         Convert YOLO format to VOC format
         
@@ -181,6 +186,7 @@ class DatasetConverter:
             output_dir: Output directory for VOC XML files
             classes_file: Path to classes.txt file (optional)
             custom_classes: List of custom class names indexed by ID (optional)
+            progress_callback: Optional function(current, total, message)
             
         Returns:
             Dictionary with conversion results
@@ -221,7 +227,9 @@ class DatasetConverter:
             skipped_count = 0
             errors = []
             
-            for txt_file in txt_files:
+            for i, txt_file in enumerate(txt_files):
+                if progress_callback:
+                    progress_callback(i, len(txt_files), f"Processing {txt_file.name}")
                 try:
                     # Find corresponding image
                     image_path = None

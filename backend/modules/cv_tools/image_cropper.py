@@ -141,7 +141,8 @@ class ImageCropper:
         window_width: int = 1024,
         window_height: int = 1024,
         overlap_x: int = 512,
-        overlap_y: int = 512
+        overlap_y: int = 512,
+        progress_callback=None
     ) -> Dict:
         """
         Crop all images in a folder using sliding window
@@ -153,6 +154,7 @@ class ImageCropper:
             window_height: Height of cropping window
             overlap_x: Horizontal overlap between windows
             overlap_y: Vertical overlap between windows
+            progress_callback: Optional function(current, total, message)
             
         Returns:
             Dictionary with cropping results
@@ -187,7 +189,9 @@ class ImageCropper:
             failed_count = 0
             errors = []
             
-            for image_file in image_files:
+            for i, image_file in enumerate(image_files):
+                if progress_callback:
+                    progress_callback(i, len(image_files), f"Cropping {image_file.name}")
                 result = self.crop_image_sliding_window(
                     image_path=str(image_file),
                     output_dir=output_dir,

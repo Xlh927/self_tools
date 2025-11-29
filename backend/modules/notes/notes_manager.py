@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import uuid4
 from pathlib import Path
 
-NOTES_DIR = Path(__file__).parent / 'notes'
+NOTES_DIR = Path(__file__).parent.parent.parent / 'data' / 'notes'
 NOTES_FILE = NOTES_DIR / 'commands.json'
 
 

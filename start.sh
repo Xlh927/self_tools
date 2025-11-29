@@ -6,7 +6,7 @@ lsof -ti:8080 | xargs kill -9 2>/dev/null
 
 # Start Flask backend
 echo "Starting Backend..."
-python3 app.py &
+python3 backend/app.py &
 BACKEND_PID=$!
 
 # Wait for backend to start
