@@ -1,0 +1,14 @@
+{
+  "notes": [
+    {
+      "id": "459c824b-781f-46fd-a36e-eee5635251a2",
+      "title": "git 同步",
+      "category": "git",
+      "command": "git add .\ngit commit -m \"描述\"\ngit push",
+      "description": "",
+      "tags": [],
+      "created_at": "2025-11-29T05:37:55.337408Z",
+      "updated_at": "2025-11-29T05:37:55.337449Z"
+    }
+  ]
+}

@@ -11,34 +11,52 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const animationRef = useRef(null);
 
-    // Theme Palettes
+    // Theme Palettes (Gradients)
     const THEME_PALETTES = {
-        default: null, // Use category color
-        pornhub: ['#ff9900', '#ffffff', '#e6ac00', '#cccccc', '#ffb84d'], // Orange/White/Yellow
-        douyin: ['#00f2ea', '#ff0050', '#ffffff', '#e0e0e0', '#800080'], // Cyan/Pink/White/Purple
-        youtube: ['#ff0000', '#ffffff', '#282828', '#cc0000', '#aaaaaa']  // Red/White/Grey
+        default: [
+            'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', // Purple/Pink
+            'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', // Green/Blue
+            'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)', // Lavender/Blue
+            'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Pink/Red
+            'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue/Cyan
+            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Pink/Yellow
+        ],
+        pornhub: [
+            'linear-gradient(135deg, #ff9900 0%, #ff5e62 100%)', // Orange/Red
+            'linear-gradient(135deg, #f2994a 0%, #f2c94c 100%)', // Orange/Yellow
+            'linear-gradient(135deg, #ffffff 0%, #d7d2cc 100%)', // White/Grey
+            'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)', // Light Orange
+        ],
+        douyin: [
+            'linear-gradient(135deg, #00f2ea 0%, #00c6fb 100%)', // Cyan/Blue
+            'linear-gradient(135deg, #ff0050 0%, #ff4b1f 100%)', // Pink/Red
+            'linear-gradient(135deg, #7f00ff 0%, #e100ff 100%)', // Purple/Pink
+            'linear-gradient(135deg, #ffffff 0%, #e6e9f0 100%)', // White
+        ],
+        youtube: [
+            'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)', // Red
+            'linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%)', // Red/Orange
+            'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)', // White
+            'linear-gradient(135deg, #282828 0%, #434343 100%)', // Dark Grey
+        ]
     };
 
     // Get color based on theme
     const getColor = () => {
-        if (!theme || theme === 'default' || !THEME_PALETTES[theme]) {
-            return category.color;
-        }
-
-        const palette = THEME_PALETTES[theme];
+        const palette = THEME_PALETTES[theme] || THEME_PALETTES['default'];
         // Use category ID hash to pick consistent color from palette
         const hash = category.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         return palette[hash % palette.length];
     };
 
-    const baseColor = getColor();
+    const balloonGradient = getColor();
 
     // Initialize random position
     useEffect(() => {
         if (containerSize.width > 0) {
             setPosition({
-                x: random(50, containerSize.width - 100),
-                y: random(50, containerSize.height - 100)
+                x: random(50, containerSize.width - 150),
+                y: random(100, containerSize.height - 200)
             });
         }
     }, [containerSize]);
@@ -46,14 +64,26 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
     // Floating animation effect
     useEffect(() => {
         let time = random(0, 100);
-        const speed = random(0.2, 0.5);
-        const range = random(10, 30);
+        const speed = random(0.3, 0.6);
+        const driftSpeed = random(0.1, 0.3);
+        const rangeX = random(20, 50);
+        const rangeY = random(30, 60);
+        const phase = random(0, Math.PI * 2);
+        const driftDirection = Math.random() > 0.5 ? 1 : -1;
 
         const animate = () => {
             time += 0.01 * speed;
+
+            // Vertical bobbing + Horizontal drift
+            const bobX = Math.sin(time + phase) * rangeX;
+            const bobY = Math.cos(time * 0.8 + phase) * rangeY;
+
+            // Continuous drift
+            const driftX = (time * driftSpeed * 10 * driftDirection) % (rangeX * 2);
+
             setOffset({
-                x: Math.sin(time) * range,
-                y: Math.cos(time * 0.8) * range
+                x: bobX + driftX,
+                y: bobY
             });
             animationRef.current = requestAnimationFrame(animate);
         };
@@ -63,43 +93,25 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
     }, []);
 
     // Size based on content length (clamped)
-    const size = Math.min(Math.max(100, note.title.length * 8), 160);
-
-    // Color with opacity for glass effect
-    const bgColor = baseColor + '40'; // 25% opacity
-    const borderColor = baseColor + '80'; // 50% opacity
+    const size = Math.min(Math.max(120, note.title.length * 9), 180);
 
     return e('div', {
-        className: 'balloon glass-card',
+        className: 'balloon',
         onClick: () => onClick(note),
         style: {
             left: position.x,
             top: position.y,
             width: size,
             height: size,
-            backgroundColor: bgColor,
-            borderColor: borderColor,
+            background: balloonGradient, // Use gradient directly
             transform: `translate(${offset.x}px, ${offset.y}px)`,
-            zIndex: Math.floor(size), // Larger balloons on top
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '10px',
-            textAlign: 'center',
-            color: 'var(--text-primary)',
-            fontSize: '0.9rem',
-            overflow: 'hidden'
+            zIndex: Math.floor(size),
         }
     },
-        e('div', { style: { fontSize: '1.5rem', marginBottom: '5px' } }, category.icon),
-        e('div', {
-            style: {
-                fontWeight: 600,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical'
-            }
-        }, note.title)
+        e('div', { className: 'balloon-knot', style: { background: balloonGradient } }),
+        e('div', { className: 'balloon-content' },
+            e('div', { className: 'balloon-icon' }, category.icon),
+            e('div', { className: 'balloon-title' }, note.title)
+        )
     );
 }

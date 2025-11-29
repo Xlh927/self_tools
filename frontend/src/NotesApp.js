@@ -308,7 +308,7 @@ function NotesApp() {
                 })
         ),
 
-        // Bottom Controls (Floating Bar)
+        // Bottom Controls (Unified Glass Capsule)
         e('div', {
             style: {
                 position: 'absolute',
@@ -317,52 +317,63 @@ function NotesApp() {
                 transform: 'translateX(-50%)',
                 zIndex: 100,
                 display: 'flex',
-                gap: '1rem',
-                alignItems: 'center'
+                alignItems: 'center',
+                gap: '0.5rem',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(15px)',
+                padding: '0.5rem',
+                borderRadius: '50px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
             }
         },
-            // Search Bar
+            // Search Input
             e('div', {
-                className: 'glass-card',
                 style: {
-                    padding: '0.5rem 1rem',
-                    borderRadius: 'var(--radius-full)',
                     display: 'flex',
                     alignItems: 'center',
-                    width: '300px'
+                    padding: '0 1rem',
+                    borderRight: '1px solid rgba(255,255,255,0.1)'
                 }
             },
-                e('span', { style: { marginRight: '0.5rem' } }, '🔍'),
+                e('span', { style: { marginRight: '0.5rem', fontSize: '1.1rem' } }, '🔍'),
                 e('input', {
                     type: 'text',
-                    placeholder: 'Search commands...',
+                    placeholder: 'Search balloons...',
                     value: searchQuery,
                     onChange: (e) => setSearchQuery(e.target.value),
                     style: {
                         background: 'transparent',
                         border: 'none',
                         color: 'var(--text-primary)',
-                        width: '100%',
+                        width: '200px',
                         outline: 'none',
                         fontSize: '1rem'
                     }
                 })
             ),
 
-            // Add Button
+            // Add Button (Integrated)
             e('button', {
                 onClick: () => openForm(),
                 className: 'btn btn-primary',
                 style: {
-                    width: '50px',
-                    height: '50px',
+                    width: '45px',
+                    height: '45px',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '1.5rem',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                }
+                    border: 'none',
+                    background: 'var(--gradient-primary)',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                    marginLeft: '0.5rem',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s'
+                },
+                onMouseEnter: (e) => e.currentTarget.style.transform = 'scale(1.1)',
+                onMouseLeave: (e) => e.currentTarget.style.transform = 'scale(1)'
             }, '➕')
         ),
 
