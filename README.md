@@ -17,7 +17,20 @@
 - Flask
 - Pillow (PIL)
 
-## 🚀 快速开始
+## 📦 下载使用
+
+### 方式一：下载可执行文件（推荐）
+
+从 [Releases](https://github.com/GGbao8848/self_tools/releases) 页面下载对应平台的可执行文件：
+
+- **Windows**: `self_tools-windows.exe`
+- **macOS**: `self_tools-macos`
+- **Linux**: `self_tools-linux`
+
+下载后直接双击运行，浏览器会自动打开应用界面。
+
+### 方式二：从源码运行
+
 
 ### 1. 安装依赖
 
@@ -28,8 +41,7 @@ pip install -r requirements.txt
 ### 2. 启动服务器
 
 ```bash
-cd /Users/songkui/mycode/self_tools/scripts
-python app.py
+python dev_server.py
 ```
 
 ### 3. 打开浏览器
@@ -180,6 +192,34 @@ car
 ## 📄 许可证
 
 MIT License
+
+## 🔧 开发者
+
+### 本地开发
+
+```bash
+# 克隆仓库
+git clone https://github.com/GGbao8848/self_tools.git
+cd self_tools
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动开发服务器
+python dev_server.py
+```
+
+### 发布新版本
+
+详细的发布流程请参考 [RELEASE.md](RELEASE.md)
+
+简要步骤：
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions 会自动构建并发布到 Releases。
 
 ## 🤝 贡献
 

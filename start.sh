@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Kill existing processes on ports 5001 and 8080 if any
-lsof -ti:5001 | xargs kill -9 2>/dev/null
+# Kill existing processes on ports 5000 and 8080 if any
+lsof -ti:5000 | xargs kill -9 2>/dev/null
 lsof -ti:8080 | xargs kill -9 2>/dev/null
 
 # Start Flask backend

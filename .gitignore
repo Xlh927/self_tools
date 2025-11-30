@@ -59,3 +59,10 @@ tmp/
 backend/data/test_data/
 backend/data/notes/
 backend/data/todo/
+
+# PyInstaller
+*.spec.bak
+build/
+dist/
+*.manifest
+*.exe.log

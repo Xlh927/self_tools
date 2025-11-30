@@ -12,7 +12,7 @@ import urllib.error
 import json
 
 # Use 127.0.0.1 to avoid IPv6 issues with localhost
-BACKEND_URL = 'http://127.0.0.1:5001'
+BACKEND_URL = 'http://127.0.0.1:5000'
 
 class DevServerHandler(SimpleHTTPRequestHandler):
     def end_headers(self):

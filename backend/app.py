@@ -978,14 +978,15 @@ def delete_note(note_id):
 
 
 
+
 if __name__ == '__main__':
     print('🚀 Image Processing Tools Server Starting...')
-    print('📱 Open your browser and navigate to: http://localhost:5001')
-    print('   - Home: http://localhost:5001/')
-    print('   - Dataset Converter: http://localhost:5001/converter')
-    print('   - Image Cropper: http://localhost:5001/cropper')
-    print('   - Dataset Generator: http://localhost:5001/generator')
-    print('   - Dataset Splitter: http://localhost:5001/splitter')
-    print('   - Image Deduplicator: http://localhost:5001/deduplicator')
+    print('📱 Open your browser and navigate to: http://localhost:5000')
+    print('   - Home: http://localhost:5000/')
+    print('   - Dataset Converter: http://localhost:5000/converter')
+    print('   - Image Cropper: http://localhost:5000/cropper')
+    print('   - Dataset Generator: http://localhost:5000/generator')
+    print('   - Dataset Splitter: http://localhost:5000/splitter')
+    print('   - Image Deduplicator: http://localhost:5000/deduplicator')
     print('Press Ctrl+C to stop the server')
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5000)
