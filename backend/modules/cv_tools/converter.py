@@ -29,7 +29,8 @@ class DatasetConverter:
         self.classes = classes
     
     def voc_to_yolo(self, voc_xml_dir: str, images_dir: str, output_dir: str, 
-                    classes_file: str = None, progress_callback=None) -> Dict[str, any]:
+                    classes_file: str = None, custom_class_mapping: Dict[str, int] = None,
+                    progress_callback=None) -> Dict[str, any]:
         """
         Convert VOC format to YOLO format
         
@@ -38,14 +39,22 @@ class DatasetConverter:
             images_dir: Directory containing images
             output_dir: Output directory for YOLO txt files
             classes_file: Path to classes.txt file (optional)
+            custom_class_mapping: Dictionary mapping class_name to class_id (optional)
             progress_callback: Optional function(current, total, message)
             
         Returns:
             Dictionary with conversion results
         """
         try:
+            # If custom mapping is provided, use it to set up classes
+            if custom_class_mapping:
+                # Sort by index to create the classes list
+                max_idx = max(custom_class_mapping.values())
+                self.classes = [''] * (max_idx + 1)
+                for class_name, idx in custom_class_mapping.items():
+                    self.classes[idx] = class_name
             # Load classes if provided
-            if classes_file and os.path.exists(classes_file):
+            elif classes_file and os.path.exists(classes_file):
                 with open(classes_file, 'r', encoding='utf-8') as f:
                     self.classes = [line.strip() for line in f if line.strip()]
             
@@ -90,11 +99,17 @@ class DatasetConverter:
                     for obj in root.findall('object'):
                         class_name = obj.find('name').text
                         
-                        # Auto-add class if not in list
-                        if class_name not in self.classes:
-                            self.classes.append(class_name)
-                        
-                        class_id = self.classes.index(class_name)
+                        # If using custom mapping, check if class is included
+                        if custom_class_mapping:
+                            if class_name not in custom_class_mapping:
+                                # Skip this class if not in custom mapping
+                                continue
+                            class_id = custom_class_mapping[class_name]
+                        else:
+                            # Auto-add class if not in list
+                            if class_name not in self.classes:
+                                self.classes.append(class_name)
+                            class_id = self.classes.index(class_name)
                         
                         # Get bounding box
                         bbox = obj.find('bndbox')
@@ -144,9 +159,64 @@ class DatasetConverter:
                 'error': str(e)
             }
     
+    def scan_voc_classes(self, voc_xml_dir: str) -> Dict[str, any]:
+        """
+        扫描VOC格式XML文件,提取所有存在的类别名称及其出现次数
+        
+        Args:
+            voc_xml_dir: Directory containing VOC XML annotation files
+            
+        Returns:
+            Dictionary with 'success', 'classes' (list of {name, count, index}), 'error'
+        """
+        try:
+            class_counts = {}
+            xml_files = list(Path(voc_xml_dir).glob('*.xml'))
+            
+            if not xml_files:
+                return {
+                    'success': False,
+                    'error': f'No XML files found in {voc_xml_dir}'
+                }
+            
+            for xml_file in xml_files:
+                try:
+                    tree = ET.parse(xml_file)
+                    root = tree.getroot()
+                    
+                    for obj in root.findall('object'):
+                        name_elem = obj.find('name')
+                        if name_elem is not None and name_elem.text:
+                            class_name = name_elem.text.strip()
+                            class_counts[class_name] = class_counts.get(class_name, 0) + 1
+                except Exception:
+                    continue
+            
+            # Convert to list of dicts with default indices sorted alphabetically
+            sorted_classes = sorted(class_counts.keys())
+            classes_list = [
+                {
+                    'name': class_name,
+                    'count': class_counts[class_name],
+                    'index': idx
+                }
+                for idx, class_name in enumerate(sorted_classes)
+            ]
+            
+            return {
+                'success': True,
+                'classes': classes_list,
+                'total_files': len(xml_files)
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
     def scan_yolo_classes(self, yolo_txt_dir: str) -> Dict[int, int]:
         """
-        扫描YOLO格式文件，提取所有存在的类别ID及其出现次数
+        扫描YOLO格式文件,提取所有存在的类别ID及其出现次数
         
         Args:
             yolo_txt_dir: Directory containing YOLO txt annotation files

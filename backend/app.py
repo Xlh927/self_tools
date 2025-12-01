@@ -255,11 +255,15 @@ def convert():
                 
                 # Perform conversion
                 if conversion_type == 'voc_to_yolo':
+                    # Get custom class mapping if provided
+                    custom_class_mapping = data.get('custom_class_mapping')
+                    
                     result = converter.voc_to_yolo(
                         voc_xml_dir=annotations_dir,
                         images_dir=images_dir,
                         output_dir=output_dir,
                         classes_file=classes_file if classes_file else None,
+                        custom_class_mapping=custom_class_mapping,
                         progress_callback=progress_callback
                     )
                     
@@ -369,6 +373,29 @@ def scan_classes():
             })
         else:
             return jsonify(result)
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/scan-voc-classes', methods=['POST'])
+def scan_voc_classes():
+    """Scan VOC XML classes with counts and default indices"""
+    try:
+        data = request.get_json()
+        annotations_dir = data.get('annotations_dir')
+        
+        if not annotations_dir:
+            return jsonify({'success': False, 'error': 'Missing annotations_dir'}), 400
+            
+        if not os.path.exists(annotations_dir):
+            return jsonify({'success': False, 'error': f'Directory not found: {annotations_dir}'}), 400
+        
+        # Use DatasetConverter to scan VOC classes
+        converter = DatasetConverter()
+        result = converter.scan_voc_classes(annotations_dir)
+        
+        return jsonify(result)
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
