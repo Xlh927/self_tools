@@ -5,6 +5,7 @@ from .dataset_splitter import DatasetSplitter
 from .image_deduplicator import ImageDeduplicator
 from .image_matcher import ImageMatcher
 from .annotation_visualizer import AnnotationVisualizer
+from .label_modifier import LabelModifier
 
 __all__ = [
     'DatasetConverter',
@@ -13,5 +14,6 @@ __all__ = [
     'DatasetSplitter',
     'ImageDeduplicator',
     'ImageMatcher',
-    'AnnotationVisualizer'
+    'AnnotationVisualizer',
+    'LabelModifier'
 ]

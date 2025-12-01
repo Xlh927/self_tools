@@ -6,6 +6,7 @@ import SplitterTool from './components/tools/SplitterTool.js';
 import DeduplicatorTool from './components/tools/DeduplicatorTool.js';
 import MatcherTool from './components/tools/MatcherTool.js';
 import VisualizerTool from './components/tools/VisualizerTool.js';
+import LabelModifierTool from './components/tools/LabelModifierTool.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -59,6 +60,13 @@ const TOOLS = [
         icon: '👁️',
         description: '自动检测标注格式并可视化',
         gradient: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+    },
+    {
+        id: 'label-modifier',
+        name: 'YOLO 标签修改',
+        icon: '🏷️',
+        description: '批量修改 YOLO 标签类别 ID',
+        gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
     },
 ];
 
@@ -680,7 +688,8 @@ function ToolWorkspace({ instanceId, toolId, onClose, style }) {
             toolId === 'splitter' && e(SplitterTool),
             toolId === 'deduplicator' && e(DeduplicatorTool),
             toolId === 'matcher' && e(MatcherTool),
-            toolId === 'visualizer' && e(VisualizerTool)
+            toolId === 'visualizer' && e(VisualizerTool),
+            toolId === 'label-modifier' && e(LabelModifierTool)
         )
     );
 }

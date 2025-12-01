@@ -24,7 +24,8 @@ from modules.cv_tools import (
     DatasetSplitter,
     ImageDeduplicator,
     ImageMatcher,
-    AnnotationVisualizer
+    AnnotationVisualizer,
+    LabelModifier
 )
 from modules.notes import notes_manager
 
@@ -979,6 +980,66 @@ def delete_note(note_id):
 
 
 
+@app.route('/api/scan-yolo-classes', methods=['POST'])
+def scan_yolo_classes():
+    """Scan YOLO classes from a directory"""
+    try:
+        data = request.get_json()
+        label_dir = data.get('label_dir')
+        
+        if not label_dir:
+            return jsonify({'success': False, 'error': 'Missing label_dir'}), 400
+            
+        modifier = LabelModifier()
+        result = modifier.scan_classes(label_dir)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/modify-labels', methods=['POST'])
+def modify_labels():
+    """
+    Handle label modification requests
+    
+    Expected JSON payload:
+    {
+        "label_dir": "path/to/labels",
+        "class_mapping": {"0": 1, "1": 2},
+        "overwrite": true/false,
+        "output_dir": "path/to/output" (optional if overwrite is true)
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'label_dir' not in data or not data['label_dir']:
+            return jsonify({'success': False, 'error': 'Missing label_dir'}), 400
+            
+        if 'class_mapping' not in data:
+            return jsonify({'success': False, 'error': 'Missing class_mapping'}), 400
+            
+        label_dir = data['label_dir']
+        class_mapping = data['class_mapping']
+        overwrite = data.get('overwrite', False)
+        output_dir = data.get('output_dir')
+        
+        modifier = LabelModifier()
+        result = modifier.modify_labels(
+            label_dir=label_dir,
+            class_mapping=class_mapping,
+            overwrite=overwrite,
+            output_dir=output_dir
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     print('🚀 Image Processing Tools Server Starting...')
     print('📱 Open your browser and navigate to: http://localhost:5000')
@@ -990,3 +1051,4 @@ if __name__ == '__main__':
     print('   - Image Deduplicator: http://localhost:5000/deduplicator')
     print('Press Ctrl+C to stop the server')
     app.run(debug=True, host='0.0.0.0', port=5000)
+
