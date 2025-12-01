@@ -172,6 +172,8 @@ def match_images():
             source_dir=data['source_dir'],
             reference_dir=data['reference_dir'],
             output_dir=data['output_dir'],
+            copy_intersection=data.get('copy_intersection', True),
+            copy_difference=data.get('copy_difference', False),
             dry_run=data.get('dry_run', False)
         )
         

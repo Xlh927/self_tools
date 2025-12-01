@@ -6,6 +6,8 @@ export default function MatcherTool() {
     const [sourceDir, setSourceDir] = useState('');
     const [referenceDir, setReferenceDir] = useState('');
     const [outputDir, setOutputDir] = useState('');
+    const [copyIntersection, setCopyIntersection] = useState(true);
+    const [copyDifference, setCopyDifference] = useState(false);
     const [dryRun, setDryRun] = useState(false);
 
     const [loading, setLoading] = useState(false);
@@ -31,6 +33,8 @@ export default function MatcherTool() {
                     source_dir: sourceDir,
                     reference_dir: referenceDir,
                     output_dir: outputDir,
+                    copy_intersection: copyIntersection,
+                    copy_difference: copyDifference,
                     dry_run: dryRun,
                 }),
             });
@@ -99,8 +103,24 @@ export default function MatcherTool() {
         ),
 
         // Options
-        e('div', { style: { marginBottom: 'var(--spacing-md)' } },
+        e('div', { style: { marginBottom: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
             e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' } },
+                e('input', {
+                    type: 'checkbox',
+                    checked: copyIntersection,
+                    onChange: (e) => setCopyIntersection(e.target.checked)
+                }),
+                '复制交集 (Intersection) - 两个文件夹都有的图片'
+            ),
+            e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' } },
+                e('input', {
+                    type: 'checkbox',
+                    checked: copyDifference,
+                    onChange: (e) => setCopyDifference(e.target.checked)
+                }),
+                '复制差集 (Difference) - 仅在源文件夹有的图片'
+            ),
+            e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginTop: '0.5rem' } },
                 e('input', {
                     type: 'checkbox',
                     checked: dryRun,
@@ -137,8 +157,9 @@ export default function MatcherTool() {
             },
             e('h3', {}, result.success ? '✅ 匹配完成！' : '❌ 匹配失败'),
             result.success && e('div', {},
-                e('p', {}, `匹配成功: ${result.matched_count} 个文件`),
-                e('p', {}, `未找到: ${result.missing_count} 个文件`),
+                e('p', {}, `扫描总数: ${result.total_scanned}`),
+                e('p', {}, `交集匹配: ${result.matched_count} (已复制: ${result.copied_intersection_count})`),
+                e('p', {}, `差集数量: ${result.unmatched_count} (已复制: ${result.copied_difference_count})`),
                 result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`),
                 dryRun && e('p', { style: { color: 'var(--neon-yellow)', fontSize: '0.9rem' } }, '注意：这是测试运行，没有实际复制文件')
             ),

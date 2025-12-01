@@ -6,10 +6,17 @@ class ImageMatcher:
     def __init__(self):
         pass
 
-    def match_and_copy(self, source_dir, reference_dir, output_dir, dry_run=False):
+    def match_and_copy(self, source_dir, reference_dir, output_dir, copy_intersection=True, copy_difference=False, dry_run=False):
         """
-        Find images in source_dir that have the same stem as files in reference_dir
-        and copy them to output_dir.
+        Find images in source_dir that have the same stem as files in reference_dir.
+        
+        Args:
+            source_dir: Directory containing source images
+            reference_dir: Directory containing reference files (to match by filename)
+            output_dir: Base directory for output
+            copy_intersection: Whether to copy matched files (default: True)
+            copy_difference: Whether to copy unmatched files (default: False)
+            dry_run: If True, do not actually copy files
         """
         source_path = Path(source_dir)
         reference_path = Path(reference_dir)
@@ -20,40 +27,68 @@ class ImageMatcher:
         if not reference_path.exists():
             return {'success': False, 'error': f'Reference directory not found: {reference_dir}'}
         
+        # Define subdirectories
+        intersection_dir = output_path / 'intersection'
+        difference_dir = output_path / 'difference'
+
         if not dry_run:
-            output_path.mkdir(parents=True, exist_ok=True)
+            if copy_intersection:
+                intersection_dir.mkdir(parents=True, exist_ok=True)
+            if copy_difference:
+                difference_dir.mkdir(parents=True, exist_ok=True)
 
         # Get reference stems
-        # We consider any file in reference dir as a potential match target
         reference_stems = {f.stem for f in reference_path.iterdir() if f.is_file()}
 
-        matched_count = 0
-        copied_files = []
-        errors = []
+        stats = {
+            'total_scanned': 0,
+            'matched_count': 0,
+            'unmatched_count': 0,
+            'copied_intersection': [],
+            'copied_difference': [],
+            'errors': []
+        }
 
         # Iterate source files
         for file_path in source_path.iterdir():
-            if not file_path.is_file():
+            if not file_path.is_file() or file_path.name.startswith('.'):
                 continue
             
+            stats['total_scanned'] += 1
+            
             # Check if stem exists in reference
-            if file_path.stem in reference_stems:
-                matched_count += 1
-                dest_path = output_path / file_path.name
-                
-                try:
-                    if not dry_run:
-                        shutil.copy2(file_path, dest_path)
-                    copied_files.append(str(file_path.name))
-                except Exception as e:
-                    errors.append(f"Failed to copy {file_path.name}: {str(e)}")
+            is_match = file_path.stem in reference_stems
+            
+            if is_match:
+                stats['matched_count'] += 1
+                if copy_intersection:
+                    dest_path = intersection_dir / file_path.name
+                    try:
+                        if not dry_run:
+                            shutil.copy2(file_path, dest_path)
+                        stats['copied_intersection'].append(str(file_path.name))
+                    except Exception as e:
+                        stats['errors'].append(f"Failed to copy intersection {file_path.name}: {str(e)}")
+            else:
+                stats['unmatched_count'] += 1
+                if copy_difference:
+                    dest_path = difference_dir / file_path.name
+                    try:
+                        if not dry_run:
+                            shutil.copy2(file_path, dest_path)
+                        stats['copied_difference'].append(str(file_path.name))
+                    except Exception as e:
+                        stats['errors'].append(f"Failed to copy difference {file_path.name}: {str(e)}")
 
         return {
             'success': True,
-            'total_scanned': sum(1 for _ in source_path.iterdir() if _.is_file()),
+            'total_scanned': stats['total_scanned'],
             'reference_count': len(reference_stems),
-            'matched_count': matched_count,
-            'copied_files': copied_files,
-            'errors': errors,
-            'dry_run': dry_run
+            'matched_count': stats['matched_count'],
+            'unmatched_count': stats['unmatched_count'],
+            'copied_intersection_count': len(stats['copied_intersection']),
+            'copied_difference_count': len(stats['copied_difference']),
+            'errors': stats['errors'],
+            'dry_run': dry_run,
+            'output_dir': str(output_path)
         }
