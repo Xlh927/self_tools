@@ -42,7 +42,7 @@ export default function GridGeneratorTool() {
                         col: c,
                         rowspan: 1,
                         colspan: 1,
-                        path: '',
+                        file: null,
                         preview: null
                     });
                 }
@@ -131,7 +131,7 @@ export default function GridGeneratorTool() {
                     col: c,
                     rowspan: 1,
                     colspan: 1,
-                    path: '',
+                    file: null,
                     preview: null
                 });
             }

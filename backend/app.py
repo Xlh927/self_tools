@@ -6,6 +6,7 @@ Includes dataset format converter and image cropper
 from flask import Flask, render_template, request, jsonify
 import os
 import sys
+from PIL import Image
 import threading
 import time
 import uuid
@@ -14,8 +15,9 @@ from datetime import datetime
 # Global dictionary to store task progress
 # Format: {task_id: {'status': 'running'|'completed'|'error', 'progress': 0-100, 'message': '', 'result': None}}
 TASK_PROGRESS = {}
-# Add modules to path - not strictly necessary if running as package, but good for safety
-sys.path.insert(0, os.path.dirname(__file__))
+# Add backend directory to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
 
 from modules.cv_tools import (
     DatasetConverter,

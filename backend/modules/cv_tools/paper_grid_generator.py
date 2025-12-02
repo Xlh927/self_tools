@@ -89,21 +89,26 @@ class PaperGridGenerator:
             # 找到第一个有效的图片作为基准
             base_w, base_h = 0, 0
             for cell in cells:
-                if os.path.exists(cell['path']):
+                # Prefer in-memory PIL image if provided
+                if 'pil_image' in cell and cell['pil_image'] is not None:
+                    img = cell['pil_image']
+                    rs = int(cell.get('rowspan', 1))
+                    cs = int(cell.get('colspan', 1))
+                    w, h = img.size
+                    base_w = int((w - (padding * (cs - 1))) / cs)
+                    base_h = int((h - (padding * (rs - 1))) / rs)
+                    break
+                # Fallback to path on disk
+                if 'path' in cell and cell['path'] and os.path.exists(cell['path']):
                     try:
                         img = Image.open(cell['path'])
-                        # 如果是跨行/跨列的图片，需要反推基准尺寸
-                        # 这里简化处理：假设第一个非跨行跨列的图片为基准
-                        # 如果都是跨行跨列，则取第一个图片尺寸除以跨度
                         rs = int(cell.get('rowspan', 1))
                         cs = int(cell.get('colspan', 1))
-                        
                         w, h = img.size
-                        # 估算单个单元格尺寸 (减去间距)
                         base_w = int((w - (padding * (cs - 1))) / cs)
                         base_h = int((h - (padding * (rs - 1))) / rs)
                         break
-                    except:
+                    except Exception:
                         continue
             
             if base_w == 0:
