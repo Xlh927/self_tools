@@ -53,43 +53,6 @@
     --shadow-xl: 0 12px 48px rgba(102, 126, 234, 0.2);
 }
 
-/* PornHub Theme - Black & Orange */
-:root[data-theme="pornhub"] {
-    --primary-blue: #ff9000;
-    --primary-purple: #ffa500;
-    --accent-blue: #ffb84d;
-    --accent-purple: #ffc107;
-    --soft-blue: #ffd280;
-    --soft-purple: #ffe6b3;
-
-    --bg-primary: #000000;
-    --bg-secondary: #1a1a1a;
-    --bg-tertiary: #2a2a2a;
-    --bg-glass: rgba(0, 0, 0, 0.7);
-    --bg-glass-hover: rgba(0, 0, 0, 0.85);
-
-    --gradient-primary: linear-gradient(135deg, #ff9000 0%, #ffa500 100%);
-    --gradient-secondary: linear-gradient(135deg, #ffb84d 0%, #ffc107 100%);
-    --gradient-tertiary: linear-gradient(135deg, #ffd280 0%, #ffe6b3 100%);
-    --gradient-subtle: linear-gradient(135deg, rgba(255, 144, 0, 0.1) 0%, rgba(255, 165, 0, 0.1) 100%);
-    --gradient-dark: linear-gradient(180deg, #000000 0%, #1a1a1a 100%);
-
-    --glass-bg: rgba(26, 26, 26, 0.6);
-    --glass-border: rgba(255, 144, 0, 0.3);
-    --glass-shadow: 0 8px 32px 0 rgba(255, 144, 0, 0.2);
-    --glass-blur: blur(30px);
-
-    --text-primary: #ffffff;
-    --text-secondary: #cccccc;
-    --text-tertiary: #999999;
-    --text-accent: #ff9000;
-
-    --shadow-xs: 0 1px 2px rgba(255, 144, 0, 0.1);
-    --shadow-sm: 0 2px 8px rgba(255, 144, 0, 0.15);
-    --shadow-md: 0 4px 16px rgba(255, 144, 0, 0.2);
-    --shadow-lg: 0 8px 32px rgba(255, 144, 0, 0.25);
-    --shadow-xl: 0 12px 48px rgba(255, 144, 0, 0.3);
-}
 
 /* Douyin/TikTok Theme - Black, Pink & Cyan */
 :root[data-theme="douyin"] {

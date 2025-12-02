@@ -462,7 +462,6 @@ function App() {
                         },
                         [
                             { id: 'default', name: '默认', icon: '💎' },
-                            { id: 'pornhub', name: 'PH', icon: '🟠' },
                             { id: 'douyin', name: 'TT', icon: '🎵' },
                             { id: 'youtube', name: 'YT', icon: '📺' }
                         ].map(theme =>
@@ -496,8 +495,7 @@ function App() {
                                         }
                                     }
                                 },
-                                e('span', {}, theme.icon),
-                                e('span', {}, theme.name)
+                                e('span', {}, theme.icon)
                             )
                         )
                     )
