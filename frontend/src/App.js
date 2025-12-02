@@ -7,6 +7,8 @@ import DeduplicatorTool from './components/tools/DeduplicatorTool.js';
 import MatcherTool from './components/tools/MatcherTool.js';
 import VisualizerTool from './components/tools/VisualizerTool.js';
 import LabelModifierTool from './components/tools/LabelModifierTool.js';
+import AugmentorTool from './components/tools/AugmentorTool.js';
+import GridGeneratorTool from './components/tools/GridGeneratorTool.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -67,6 +69,20 @@ const TOOLS = [
         icon: '🏷️',
         description: '批量修改 YOLO 标签类别 ID',
         gradient: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)',
+    },
+    {
+        id: 'augmentor',
+        name: '数据集增强',
+        icon: '📊',
+        description: '通过图像变换扩充数据集',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    },
+    {
+        id: 'grid-generator',
+        name: '论文宫格排版',
+        icon: '📑',
+        description: '生成学术论文风格的图片对比网格',
+        gradient: 'linear-gradient(135deg, #2196f3 0%, #00bcd4 100%)',
     },
 ];
 
@@ -689,7 +705,9 @@ function ToolWorkspace({ instanceId, toolId, onClose, style }) {
             toolId === 'deduplicator' && e(DeduplicatorTool),
             toolId === 'matcher' && e(MatcherTool),
             toolId === 'visualizer' && e(VisualizerTool),
-            toolId === 'label-modifier' && e(LabelModifierTool)
+            toolId === 'label-modifier' && e(LabelModifierTool),
+            toolId === 'augmentor' && e(AugmentorTool),
+            toolId === 'grid-generator' && e(GridGeneratorTool)
         )
     );
 }

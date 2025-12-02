@@ -25,7 +25,9 @@ from modules.cv_tools import (
     ImageDeduplicator,
     ImageMatcher,
     AnnotationVisualizer,
-    LabelModifier
+    LabelModifier,
+    DataAugmentor,
+    PaperGridGenerator
 )
 from modules.notes import notes_manager
 
@@ -1065,6 +1067,150 @@ def modify_labels():
         
         return jsonify(result)
         
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/augment', methods=['POST'])
+def augment_dataset():
+    """
+    Handle dataset augmentation requests
+    """
+    try:
+        data = request.get_json()
+        
+        required_fields = ['images_dir', 'annotations_dir', 'output_dir', 'annotation_format']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Validate paths
+        if not os.path.exists(data['images_dir']):
+            return jsonify({
+                'success': False,
+                'error': f'Images directory does not exist: {data["images_dir"]}'
+            }), 400
+        
+        if not os.path.exists(data['annotations_dir']):
+            return jsonify({
+                'success': False,
+                'error': f'Annotations directory does not exist: {data["annotations_dir"]}'
+            }), 400
+        
+        # Create augmentor
+        augmentor = DataAugmentor()
+        
+        # Perform augmentation
+        result = augmentor.augment_dataset(data)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/generate-grid', methods=['POST'])
+def generate_grid():
+    """
+    Handle paper grid generation requests with embedded images
+    """
+    try:
+        # Parse multipart form data
+        config_json = request.form.get('config')
+        if not config_json:
+            return jsonify({'success': False, 'error': 'Missing config'}), 400
+            
+        import json
+        config = json.loads(config_json)
+        
+        # Get cells info
+        cells = config.get('cells', [])
+        if not cells:
+            return jsonify({'success': False, 'error': 'Missing cells'}), 400
+        
+        # Create temp file mapping for processing
+        # We'll create temporary PIL Image objects from the uploaded files
+        from io import BytesIO
+        temp_image_map = {}
+        
+        for key in request.files:
+            if key.startswith('cell_'):
+                file = request.files[key]
+                # Read into memory as PIL Image
+                img_data = file.read()
+                pil_img = Image.open(BytesIO(img_data))
+                temp_image_map[key] = pil_img
+        
+        # Update cells to use temp image objects instead of paths
+        for i, cell in enumerate(cells):
+            file_key = f"cell_{i}"
+            if file_key in temp_image_map:
+                cell['pil_image'] = temp_image_map[file_key]
+                cell['path'] = None  # Mark as using PIL object
+        
+        # Pass to generator with modified config
+        generator = PaperGridGenerator()
+        result = generator.generate_grid(config)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """
+    Handle file uploads for grid generator
+    """
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file part'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No selected file'}), 400
+            
+        if file:
+            # Create temp uploads directory
+            upload_dir = os.path.join(os.getcwd(), 'temp_uploads')
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # Save file
+            filename = file.filename
+            # Simple sanitization
+            filename = "".join([c for c in filename if c.isalpha() or c.isdigit() or c in '._-']).strip()
+            if not filename:
+                filename = 'uploaded_image.png'
+                
+            filepath = os.path.join(upload_dir, filename)
+            
+            # Handle duplicate names
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            while os.path.exists(filepath):
+                filepath = os.path.join(upload_dir, f"{base}_{counter}{ext}")
+                counter += 1
+                
+            file.save(filepath)
+            
+            return jsonify({
+                'success': True,
+                'path': filepath,
+                'filename': os.path.basename(filepath)
+            })
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

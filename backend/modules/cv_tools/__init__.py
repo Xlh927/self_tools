@@ -6,6 +6,8 @@ from .image_deduplicator import ImageDeduplicator
 from .image_matcher import ImageMatcher
 from .annotation_visualizer import AnnotationVisualizer
 from .label_modifier import LabelModifier
+from .data_augmentor import DataAugmentor
+from .paper_grid_generator import PaperGridGenerator
 
 __all__ = [
     'DatasetConverter',
@@ -15,5 +17,7 @@ __all__ = [
     'ImageDeduplicator',
     'ImageMatcher',
     'AnnotationVisualizer',
-    'LabelModifier'
+    'LabelModifier',
+    'DataAugmentor',
+    'PaperGridGenerator',
 ]
