@@ -254,7 +254,6 @@ function NotesApp() {
             },
                 [
                     { id: 'default', icon: '💎' },
-                    { id: 'pornhub', icon: '🟠' },
                     { id: 'douyin', icon: '🎵' },
                     { id: 'youtube', icon: '📺' }
                 ].map(theme =>

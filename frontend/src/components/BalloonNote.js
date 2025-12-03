@@ -21,12 +21,6 @@ export default function BalloonNote({ note, category, onClick, containerSize, th
             'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue/Cyan
             'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Pink/Yellow
         ],
-        pornhub: [
-            'linear-gradient(135deg, #ff9900 0%, #ff5e62 100%)', // Orange/Red
-            'linear-gradient(135deg, #f2994a 0%, #f2c94c 100%)', // Orange/Yellow
-            'linear-gradient(135deg, #ffffff 0%, #d7d2cc 100%)', // White/Grey
-            'linear-gradient(135deg, #ffb347 0%, #ffcc33 100%)', // Light Orange
-        ],
         douyin: [
             'linear-gradient(135deg, #00f2ea 0%, #00c6fb 100%)', // Cyan/Blue
             'linear-gradient(135deg, #ff0050 0%, #ff4b1f 100%)', // Pink/Red
