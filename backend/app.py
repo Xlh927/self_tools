@@ -35,7 +35,8 @@ from modules.notes import notes_manager
 
 app = Flask(__name__, 
             template_folder='../frontend',
-            static_folder='../frontend')
+            static_folder='../frontend',
+            static_url_path='')
 
 # Enable CORS for development
 @app.after_request
@@ -59,7 +60,19 @@ def get_progress(task_id):
 @app.route('/')
 def dashboard():
     """Serve the new dashboard"""
-    return render_template('dashboard.html')
+    return render_template('index.html')
+
+
+@app.route('/cv-tools')
+def cv_tools():
+    """Serve the CV Tools application"""
+    return render_template('cv-tools.html')
+
+
+@app.route('/notes')
+def notes():
+    """Serve the Notes application"""
+    return render_template('notes.html')
 
 
 @app.route('/legacy')

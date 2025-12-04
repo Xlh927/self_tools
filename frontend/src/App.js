@@ -9,6 +9,7 @@ import VisualizerTool from './components/tools/VisualizerTool.js';
 import LabelModifierTool from './components/tools/LabelModifierTool.js';
 import AugmentorTool from './components/tools/AugmentorTool.js';
 import GridGeneratorTool from './components/tools/GridGeneratorTool.js';
+import SlurmGeneratorTool from './components/tools/SlurmGeneratorTool.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -84,6 +85,13 @@ const TOOLS = [
         description: '生成学术论文风格的图片对比网格',
         gradient: 'linear-gradient(135deg, #2196f3 0%, #00bcd4 100%)',
     },
+    {
+        id: 'slurm-generator',
+        name: 'Slurm 命令生成',
+        icon: '🚀',
+        description: '生成 YOLO 训练的 Slurm 提交命令',
+        gradient: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
+    },
 ];
 
 function App() {
@@ -106,7 +114,7 @@ function App() {
     }, [currentTheme]);
 
     const addTool = (toolId) => {
-        setActiveTools(prev => [...prev, { instanceId: nextInstanceId, toolId }]);
+        setActiveTools(prev => [...prev, { instanceId: nextInstanceId, toolId, resetKey: 0 }]);
         setNextInstanceId(prev => prev + 1);
         setTimeout(() => {
             if (canvasRef.current) {
@@ -120,6 +128,14 @@ function App() {
 
     const removeTool = (instanceId) => {
         setActiveTools(prev => prev.filter(t => t.instanceId !== instanceId));
+    };
+
+    const resetTool = (instanceId) => {
+        setActiveTools(prev => prev.map(t =>
+            t.instanceId === instanceId
+                ? { ...t, resetKey: t.resetKey + 1 }
+                : t
+        ));
     };
 
     // Layout configuration
@@ -534,7 +550,9 @@ function App() {
                                 key: toolInstance.instanceId,
                                 instanceId: toolInstance.instanceId,
                                 toolId: toolInstance.toolId,
+                                resetKey: toolInstance.resetKey,
                                 onClose: () => removeTool(toolInstance.instanceId),
+                                onReset: () => resetTool(toolInstance.instanceId),
                                 style: {
                                     flex: '1 0 450px',
                                     maxWidth: '800px',
@@ -604,7 +622,7 @@ function WelcomeScreen() {
 }
 
 // Tool Workspace Component
-function ToolWorkspace({ instanceId, toolId, onClose, style }) {
+function ToolWorkspace({ instanceId, toolId, resetKey, onClose, onReset, style }) {
     const tool = TOOLS.find(t => t.id === toolId);
 
     return e('div',
@@ -647,6 +665,39 @@ function ToolWorkspace({ instanceId, toolId, onClose, style }) {
                 }
             },
             '✕'
+        ),
+
+        // Reset button
+        e('button',
+            {
+                onClick: onReset,
+                title: '重置为初始状态',
+                style: {
+                    position: 'absolute',
+                    top: 'var(--spacing-md)',
+                    right: 'calc(var(--spacing-md) + 40px)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-tertiary)',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    padding: '5px',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s',
+                    zIndex: 10,
+                },
+                onMouseEnter: (e) => {
+                    e.currentTarget.style.background = 'rgba(33, 150, 243, 0.2)';
+                    e.currentTarget.style.color = 'var(--primary-blue)';
+                    e.currentTarget.style.transform = 'rotate(180deg)';
+                },
+                onMouseLeave: (e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-tertiary)';
+                    e.currentTarget.style.transform = 'rotate(0deg)';
+                }
+            },
+            '🔄'
         ),
 
         e('div',
@@ -696,16 +747,17 @@ function ToolWorkspace({ instanceId, toolId, onClose, style }) {
                 paddingRight: '5px', // Space for scrollbar
             }
         },
-            toolId === 'converter' && e(ConverterTool),
-            toolId === 'cropper' && e(CropperTool),
-            toolId === 'generator' && e(GeneratorTool),
-            toolId === 'splitter' && e(SplitterTool),
-            toolId === 'deduplicator' && e(DeduplicatorTool),
-            toolId === 'matcher' && e(MatcherTool),
-            toolId === 'visualizer' && e(VisualizerTool),
-            toolId === 'label-modifier' && e(LabelModifierTool),
-            toolId === 'augmentor' && e(AugmentorTool),
-            toolId === 'grid-generator' && e(GridGeneratorTool)
+            toolId === 'converter' && e(ConverterTool, { key: resetKey }),
+            toolId === 'cropper' && e(CropperTool, { key: resetKey }),
+            toolId === 'generator' && e(GeneratorTool, { key: resetKey }),
+            toolId === 'splitter' && e(SplitterTool, { key: resetKey }),
+            toolId === 'deduplicator' && e(DeduplicatorTool, { key: resetKey }),
+            toolId === 'matcher' && e(MatcherTool, { key: resetKey }),
+            toolId === 'visualizer' && e(VisualizerTool, { key: resetKey }),
+            toolId === 'label-modifier' && e(LabelModifierTool, { key: resetKey }),
+            toolId === 'augmentor' && e(AugmentorTool, { key: resetKey }),
+            toolId === 'grid-generator' && e(GridGeneratorTool, { key: resetKey }),
+            toolId === 'slurm-generator' && e(SlurmGeneratorTool, { key: resetKey })
         )
     );
 }
