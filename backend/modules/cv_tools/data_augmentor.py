@@ -51,7 +51,11 @@ class DataAugmentor:
             
             # 创建输出目录
             images_output = Path(output_dir) / 'images'
-            annotations_output = Path(output_dir) / 'annotations'
+            # 根据标注格式使用不同的文件夹名称
+            if annotation_format == 'yolo':
+                annotations_output = Path(output_dir) / 'labels'
+            else:  # voc
+                annotations_output = Path(output_dir) / 'xmls'
             images_output.mkdir(parents=True, exist_ok=True)
             annotations_output.mkdir(parents=True, exist_ok=True)
             
