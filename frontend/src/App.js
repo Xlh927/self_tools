@@ -537,6 +537,7 @@ function App() {
                         style: {
                             display: 'flex',
                             flexDirection: 'row',
+                            justifyContent: 'center', // Center content
                             gap: 'var(--spacing-md)', // Reduced gap
                             height: '100%',
                             minWidth: '100%',
