@@ -67,7 +67,22 @@ class DatasetSplitter:
         """
         train_count = int(total * train_ratio / 100)
         val_count = int(total * val_ratio / 100)
-        test_count = total - train_count - val_count  # Remaining goes to test
+        test_count = int(total * test_ratio / 100)
+        
+        remainder = total - (train_count + val_count + test_count)
+        
+        # Add remainder to the largest split to respect ratios as much as possible
+        if remainder > 0:
+            ratios = {'train': train_ratio, 'val': val_ratio, 'test': test_ratio}
+            # Find key with max value
+            max_split = max(ratios, key=ratios.get)
+            
+            if max_split == 'train':
+                train_count += remainder
+            elif max_split == 'val':
+                val_count += remainder
+            else:
+                test_count += remainder
         
         return train_count, val_count, test_count
     

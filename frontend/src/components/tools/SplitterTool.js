@@ -7,9 +7,9 @@ export default function SplitterTool() {
     const [imagesDir, setImagesDir] = useState('');
     const [annotationsDir, setAnnotationsDir] = useState('');
     const [outputDir, setOutputDir] = useState('');
-    const [trainRatio, setTrainRatio] = useState(70);
+    const [trainRatio, setTrainRatio] = useState(80);
     const [valRatio, setValRatio] = useState(20);
-    const [testRatio, setTestRatio] = useState(10);
+    const [testRatio, setTestRatio] = useState(0);
     const [useBackground, setUseBackground] = useState(true);
     const [randomSeed, setRandomSeed] = useState(42);
 
@@ -42,14 +42,44 @@ export default function SplitterTool() {
 
     // Normalize ratios to sum to 100
     const handleRatioChange = (type, value) => {
-        const val = parseInt(value) || 0;
+        let newVal = parseInt(value);
+        if (isNaN(newVal)) newVal = 0;
+        if (newVal < 0) newVal = 0;
+        if (newVal > 100) newVal = 100;
+
         if (type === 'train') {
-            setTrainRatio(val);
-            // Adjust others if needed? For now just let user adjust manually but show warning if != 100
+            setTrainRatio(newVal);
+            // Adjust val first, then test if needed
+            let remaining = 100 - newVal;
+            let newValRatio = remaining - testRatio;
+            if (newValRatio < 0) {
+                setValRatio(0);
+                setTestRatio(remaining);
+            } else {
+                setValRatio(newValRatio);
+            }
         } else if (type === 'val') {
-            setValRatio(val);
+            setValRatio(newVal);
+            // Adjust train first, then test if needed
+            let remaining = 100 - newVal;
+            let newTrainRatio = remaining - testRatio;
+            if (newTrainRatio < 0) {
+                setTrainRatio(0);
+                setTestRatio(remaining);
+            } else {
+                setTrainRatio(newTrainRatio);
+            }
         } else if (type === 'test') {
-            setTestRatio(val);
+            setTestRatio(newVal);
+            // Adjust train first, then val if needed
+            let remaining = 100 - newVal;
+            let newTrainRatio = remaining - valRatio;
+            if (newTrainRatio < 0) {
+                setTrainRatio(0);
+                setValRatio(remaining);
+            } else {
+                setTrainRatio(newTrainRatio);
+            }
         }
     };
 
@@ -103,23 +133,6 @@ export default function SplitterTool() {
             )
         ),
 
-        // Images Directory
-        e('div', { className: 'input-group' },
-            e('label', { className: 'input-label' },
-                '🖼️ 图片文件目录',
-                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(必填)')
-            ),
-            e('input',
-                {
-                    type: 'text',
-                    className: 'input-field',
-                    placeholder: '/path/to/images',
-                    value: imagesDir,
-                    onChange: (e) => setImagesDir(e.target.value),
-                }
-            )
-        ),
-
         // Annotations Directory
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' },
@@ -133,6 +146,23 @@ export default function SplitterTool() {
                     placeholder: '/path/to/annotations',
                     value: annotationsDir,
                     onChange: (e) => setAnnotationsDir(e.target.value),
+                }
+            )
+        ),
+
+        // Images Directory
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                '🖼️ 图片文件目录',
+                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(必填)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: '/path/to/images',
+                    value: imagesDir,
+                    onChange: (e) => setImagesDir(e.target.value),
                 }
             )
         ),

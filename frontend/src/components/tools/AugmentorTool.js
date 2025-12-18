@@ -110,12 +110,22 @@ export default function AugmentorTool() {
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
 
-        // Header
-        e('div',
-            { className: 'glass-card', style: { padding: 'var(--spacing-md)', background: 'rgba(138, 43, 226, 0.1)', border: '2px solid var(--neon-purple)' } },
-            e('h2', { style: { margin: 0, color: 'var(--neon-purple)' } }, '📊 数据集增强'),
-            e('p', { style: { margin: '0.5rem 0 0 0', color: 'var(--text-secondary)' } },
-                '通过图像变换扩充数据集，自动处理标注文件'
+
+
+        // Annotations Directory
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                '📁 标注目录',
+                e('span', { style: { color: 'var(--neon-green)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(自动推理)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: '/path/to/annotations',
+                    value: annotationsDir,
+                    onChange: (e) => setAnnotationsDir(e.target.value),
+                }
             )
         ),
 
@@ -132,23 +142,6 @@ export default function AugmentorTool() {
                     placeholder: '/path/to/images',
                     value: imagesDir,
                     onChange: (e) => setImagesDir(e.target.value),
-                }
-            )
-        ),
-
-        // Annotations Directory
-        e('div', { className: 'input-group' },
-            e('label', { className: 'input-label' },
-                '📁 标注目录',
-                e('span', { style: { color: 'var(--neon-green)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(自动推理)')
-            ),
-            e('input',
-                {
-                    type: 'text',
-                    className: 'input-field',
-                    placeholder: '/path/to/annotations',
-                    value: annotationsDir,
-                    onChange: (e) => setAnnotationsDir(e.target.value),
                 }
             )
         ),

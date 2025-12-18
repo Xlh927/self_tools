@@ -133,23 +133,6 @@ export default function GeneratorTool() {
             )
         ),
 
-        // Images Directory
-        e('div', { className: 'input-group' },
-            e('label', { className: 'input-label' },
-                '🖼️ 图片文件目录',
-                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(必填)')
-            ),
-            e('input',
-                {
-                    type: 'text',
-                    className: 'input-field',
-                    placeholder: '/path/to/images',
-                    value: imagesDir,
-                    onChange: (e) => setImagesDir(e.target.value),
-                }
-            )
-        ),
-
         // Annotations Directory
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' },
@@ -164,6 +147,23 @@ export default function GeneratorTool() {
                     value: annotationsDir,
                     onChange: (e) => setAnnotationsDir(e.target.value),
                     onBlur: scanClasses,
+                }
+            )
+        ),
+
+        // Images Directory
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                '🖼️ 图片文件目录',
+                e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } }, '(必填)')
+            ),
+            e('input',
+                {
+                    type: 'text',
+                    className: 'input-field',
+                    placeholder: '/path/to/images',
+                    value: imagesDir,
+                    onChange: (e) => setImagesDir(e.target.value),
                 }
             )
         ),
