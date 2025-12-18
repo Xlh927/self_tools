@@ -6,7 +6,7 @@ export default function AugmentorTool() {
     const [imagesDir, setImagesDir] = useState('');
     const [annotationsDir, setAnnotationsDir] = useState('');
     const [outputDir, setOutputDir] = useState('');
-    const [annotationFormat, setAnnotationFormat] = useState('voc');
+    const [annotationFormat, setAnnotationFormat] = useState('yolo');
     const [classesFile, setClassesFile] = useState('');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
@@ -26,7 +26,7 @@ export default function AugmentorTool() {
         blur: false,
     });
 
-    // Auto-infer paths
+    // Auto-infer paths from Images Directory
     useEffect(() => {
         if (imagesDir && !annotationsDir && !outputDir) {
             const parentDir = imagesDir.split('/').slice(0, -1).join('/');
@@ -37,6 +37,15 @@ export default function AugmentorTool() {
             setOutputDir(`${parentDir}/augmented`);
         }
     }, [imagesDir]);
+
+    // Auto-infer paths from Annotations Directory
+    useEffect(() => {
+        if (annotationsDir && !imagesDir && !outputDir) {
+            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
+            setImagesDir(`${parentDir}/images`);
+            setOutputDir(`${parentDir}/augmented`);
+        }
+    }, [annotationsDir]);
 
     const toggleAugmentation = (key) => {
         setSelectedAugmentations(prev => ({
