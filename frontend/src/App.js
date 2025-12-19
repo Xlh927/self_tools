@@ -95,31 +95,49 @@ const TOOLS = [
 ];
 
 function App() {
-    // State for active tools on the canvas
+    // State for helper data
     const [activeTools, setActiveTools] = useState([]);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [sidebarPosition, setSidebarPosition] = useState('top'); // left, right, top, bottom
-    const [currentTheme, setCurrentTheme] = useState(() => {
-        return localStorage.getItem('app-theme') || 'default';
-    });
+    const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('app-theme') || 'default');
     const [nextInstanceId, setNextInstanceId] = useState(1);
     const canvasRef = useRef(null);
 
+    // Tools Management State
+    const [toolList, setToolList] = useState(() => {
+        const savedOrder = localStorage.getItem('tool-order');
+        if (savedOrder) {
+            const orderIds = JSON.parse(savedOrder);
+            const orderedTools = orderIds.map(id => TOOLS.find(t => t.id === id)).filter(Boolean);
+            // Append any new tools that aren't in saved order
+            const newTools = TOOLS.filter(t => !orderIds.includes(t.id));
+            return [...orderedTools, ...newTools];
+        }
+        return TOOLS;
+    });
+
+    const [draggedToolId, setDraggedToolId] = useState(null);
+
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
-    // Apply theme to document root
+    // Persist settings
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', currentTheme);
         localStorage.setItem('app-theme', currentTheme);
     }, [currentTheme]);
 
+    useEffect(() => {
+        localStorage.setItem('tool-order', JSON.stringify(toolList.map(t => t.id)));
+    }, [toolList]);
+
+    // Handlers
     const addTool = (toolId) => {
         setActiveTools(prev => [...prev, { instanceId: nextInstanceId, toolId, resetKey: 0 }]);
         setNextInstanceId(prev => prev + 1);
         setTimeout(() => {
             if (canvasRef.current) {
                 canvasRef.current.scrollTo({
-                    left: canvasRef.current.scrollWidth, // Scroll horizontal
+                    left: canvasRef.current.scrollWidth,
                     behavior: 'smooth'
                 });
             }
@@ -136,6 +154,39 @@ function App() {
                 ? { ...t, resetKey: t.resetKey + 1 }
                 : t
         ));
+    };
+
+    // Drag and Drop Handlers
+    const handleDragStart = (e, toolId) => {
+        setDraggedToolId(toolId);
+        e.dataTransfer.effectAllowed = 'move';
+        // Hide the drag image for cleaner look (optional, but standard for custom DnD)
+        // const img = new Image();
+        // img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        // e.dataTransfer.setDragImage(img, 0, 0);
+    };
+
+    const handleDragOver = (e, targetToolId) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        if (!draggedToolId || draggedToolId === targetToolId) return;
+
+        const sourceIndex = toolList.findIndex(t => t.id === draggedToolId);
+        const targetIndex = toolList.findIndex(t => t.id === targetToolId);
+
+        if (sourceIndex === -1 || targetIndex === -1) return;
+
+        // Reorder list
+        const newList = [...toolList];
+        const [movedTool] = newList.splice(sourceIndex, 1);
+        newList.splice(targetIndex, 0, movedTool);
+        setToolList(newList);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setDraggedToolId(null);
     };
 
     // Layout configuration
@@ -175,7 +226,8 @@ function App() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         overflowX: 'auto',
-                        overflowY: 'hidden',
+                        overflowY: 'visible', // Allow lift/scale animations
+                        paddingTop: 'var(--spacing-md)', // Ensure space at the top
                     } : {
                         height: 'calc(100vh - var(--spacing-md) * 2)',
                         width: sidebarCollapsed ? '90px' : '280px',
@@ -292,55 +344,41 @@ function App() {
                         display: 'flex',
                         flexDirection: isHorizontal ? 'row' : 'column',
                         gap: 'var(--spacing-sm)',
+                        padding: '4px', // Add padding to allow for lift/scale
                         flex: 1,
-                        overflow: 'auto',
+                        overflow: isHorizontal ? 'visible' : 'auto', // Allow overflow in horizontal mode
                     }
                 },
-                ...TOOLS.map(tool =>
-                    e('button',
+                ...toolList.map(tool => {
+                    const isDragging = draggedToolId === tool.id;
+
+                    return e('button',
                         {
                             key: tool.id,
+                            draggable: true,
+                            onDragStart: (e) => handleDragStart(e, tool.id),
+                            onDragOver: (e) => handleDragOver(e, tool.id),
+                            onDrop: handleDrop,
                             onClick: () => addTool(tool.id),
-                            className: 'tool-btn',
+                            className: `tool-btn ${isDragging ? 'dragging' : ''}`,
                             title: tool.name,
                             style: {
-                                background: 'var(--bg-tertiary)',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: '0.4rem',
-                                cursor: 'pointer',
-                                display: 'flex',
                                 flexDirection: isHorizontal ? 'column' : 'row',
-                                alignItems: 'center',
-                                gap: '0.35rem',
-                                transition: 'all 0.2s',
                                 minWidth: isHorizontal ? '60px' : 'auto',
                                 justifyContent: isHorizontal || sidebarCollapsed ? 'center' : 'flex-start',
-                                position: 'relative',
-                                overflow: 'hidden',
-                            },
-                            onMouseEnter: (e) => {
-                                e.currentTarget.style.borderColor = 'var(--primary-blue)';
-                                e.currentTarget.style.background = 'var(--bg-secondary)';
-                                e.currentTarget.style.transform = 'scale(1.03)';
-                            },
-                            onMouseLeave: (e) => {
-                                e.currentTarget.style.borderColor = 'var(--glass-border)';
-                                e.currentTarget.style.background = 'var(--bg-tertiary)';
-                                e.currentTarget.style.transform = 'scale(1)';
                             }
                         },
                         e('span', { style: { fontSize: '1.2rem' } }, tool.icon),
                         (!sidebarCollapsed && !isHorizontal) && e('span',
-                            { style: { fontSize: '0.8rem', whiteSpace: 'nowrap', color: 'var(--text-primary)' } },
+                            { style: { fontSize: '0.8rem', whiteSpace: 'nowrap' } },
                             tool.name
                         ),
                         (isHorizontal) && e('span',
-                            { style: { fontSize: '0.65rem', whiteSpace: 'nowrap', color: 'var(--text-primary)' } },
+                            { style: { fontSize: '0.65rem', whiteSpace: 'nowrap' } },
                             tool.name
                         )
-                    )
-                )
+                    );
+                })
             ),
 
             !sidebarCollapsed && e('div',
@@ -450,20 +488,7 @@ function App() {
                                 {
                                     key: pos,
                                     onClick: () => setSidebarPosition(pos),
-                                    style: {
-                                        background: sidebarPosition === pos ? 'var(--primary-blue)' : 'transparent',
-                                        color: sidebarPosition === pos ? 'white' : 'var(--text-secondary)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: '4px',
-                                        width: '22px',
-                                        height: '22px',
-                                        cursor: 'pointer',
-                                        fontSize: '0.65rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transition: 'all 0.2s',
-                                    },
+                                    className: `pos-btn ${sidebarPosition === pos ? 'active' : ''}`,
                                 },
                                 pos[0].toUpperCase()
                             )

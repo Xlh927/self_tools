@@ -291,3 +291,66 @@ pre {
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
+
+/* Tool Button Styles */
+.tool-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 0.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all var(--transition-fast);
+    position: relative;
+    /* Removed overflow: hidden to prevent icon clipping on hover */
+    color: var(--text-primary);
+}
+
+.tool-btn:hover {
+    border-color: var(--primary-blue);
+    background: var(--bg-secondary);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+
+.tool-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.tool-btn span {
+    transition: transform var(--transition-fast);
+}
+
+.tool-btn:hover span:first-child {
+    transform: scale(1.2);
+}
+
+/* Sidebar Position Buttons */
+.pos-btn {
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.pos-btn:hover {
+    border-color: var(--primary-blue);
+    background: var(--bg-secondary);
+    color: var(--primary-blue);
+}
+
+.pos-btn.active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
