@@ -98,7 +98,7 @@ function App() {
     // State for active tools on the canvas
     const [activeTools, setActiveTools] = useState([]);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [sidebarPosition, setSidebarPosition] = useState('left'); // left, right, top, bottom
+    const [sidebarPosition, setSidebarPosition] = useState('top'); // left, right, top, bottom
     const [currentTheme, setCurrentTheme] = useState(() => {
         return localStorage.getItem('app-theme') || 'default';
     });
@@ -151,41 +151,6 @@ function App() {
     return e('div',
         { className: 'app-container', style: layoutStyle },
 
-        // Home button (floating)
-        e('a',
-            {
-                href: '/',
-                style: {
-                    position: 'fixed',
-                    top: 'var(--spacing-md)',
-                    left: 'var(--spacing-md)',
-                    zIndex: 1000,
-                    padding: '0.6rem 1rem',
-                    background: 'var(--glass-bg)',
-                    backdropFilter: 'var(--glass-blur)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--text-primary)',
-                    textDecoration: 'none',
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem'
-                },
-                onMouseEnter: (e) => {
-                    e.currentTarget.style.background = 'var(--bg-glass-hover)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                },
-                onMouseLeave: (e) => {
-                    e.currentTarget.style.background = 'var(--glass-bg)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                }
-            },
-            e('span', {}, '🏠'),
-            e('span', {}, '主页')
-        ),
 
         // Sidebar
         e('aside',
@@ -242,16 +207,61 @@ function App() {
                 !sidebarCollapsed && e('div',
                     {
                         style: {
-                            fontSize: '1.2rem',
-                            fontWeight: 'bold',
-                            background: 'var(--gradient-primary)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            whiteSpace: 'nowrap',
-                            writingMode: isHorizontal ? 'horizontal-tb' : 'horizontal-tb',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
                         }
                     },
-                    isHorizontal ? 'AI Toolkit' : 'AI Toolkit'
+                    e('div',
+                        {
+                            style: {
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }
+                        },
+                        e('a',
+                            {
+                                href: '/',
+                                title: '返回主页',
+                                style: {
+                                    textDecoration: 'none',
+                                    fontSize: '1.2rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'var(--bg-tertiary)',
+                                    padding: '4px',
+                                    borderRadius: ' var(--radius-sm)',
+                                    border: '1px solid var(--glass-border)',
+                                    color: 'var(--text-primary)',
+                                    transition: 'all 0.2s'
+                                },
+                                onMouseEnter: (e) => {
+                                    e.currentTarget.style.background = 'var(--bg-secondary)';
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                },
+                                onMouseLeave: (e) => {
+                                    e.currentTarget.style.background = 'var(--bg-tertiary)';
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }
+                            },
+                            '🏠'
+                        ),
+                        e('div',
+                            {
+                                style: {
+                                    fontSize: '1.2rem',
+                                    fontWeight: 'bold',
+                                    background: 'var(--gradient-primary)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    whiteSpace: 'nowrap',
+                                }
+                            },
+                            '图像处理工作台'
+                        )
+                    )
                 ),
 
                 // Collapse Button
@@ -333,44 +343,130 @@ function App() {
                 )
             ),
 
-            // Layout Controls (Bottom/End of sidebar)
             !sidebarCollapsed && e('div',
                 {
                     style: {
-                        display: 'flex',
-                        flexDirection: isHorizontal ? 'row' : 'column',
-                        gap: '5px',
                         marginTop: isHorizontal ? 0 : 'auto',
                         marginLeft: isHorizontal ? 'auto' : 0,
-                        paddingTop: isHorizontal ? 0 : 'var(--spacing-sm)',
-                        paddingLeft: isHorizontal ? 'var(--spacing-sm)' : 0,
+                        display: 'flex',
+                        flexDirection: isHorizontal ? 'row' : 'column',
+                        gap: 'var(--spacing-md)',
+                        paddingTop: isHorizontal ? 0 : 'var(--spacing-md)',
                         borderTop: isHorizontal ? 'none' : '1px solid var(--glass-border)',
-                        borderLeft: isHorizontal ? '1px solid var(--glass-border)' : 'none',
+                        alignItems: 'center', // Always center vertically
+                        justifyContent: isHorizontal ? 'flex-end' : 'stretch',
                     }
                 },
-                e('div', { style: { fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center' } }, '布局'),
-                e('div', { style: { display: 'flex', gap: '2px', flexDirection: isHorizontal ? 'row' : 'row', flexWrap: 'wrap', justifyContent: 'center' } },
-                    ['left', 'right', 'top', 'bottom'].map(pos =>
+                // Task Status & Clear All - Shared container with Theme Switcher for better alignment
+                e('div', {
+                    style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.2rem 0.6rem',
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--glass-border)',
+                        height: '36px', // Fixed height for alignment
+                    }
+                },
+                    e('span', { style: { color: 'var(--text-secondary)', fontSize: '0.75rem', whiteSpace: 'nowrap', fontWeight: 600 } },
+                        `${activeTools.length} 任务`
+                    ),
+                    activeTools.length > 0 && e('button',
+                        {
+                            onClick: () => {
+                                if (confirm(`确定要清除所有 ${activeTools.length} 个任务吗？`)) {
+                                    setActiveTools([]);
+                                }
+                            },
+                            title: '清除所有',
+                            style: {
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '2px',
+                                borderRadius: '4px',
+                                transition: 'all 0.2s'
+                            },
+                            onMouseEnter: (e) => e.currentTarget.style.background = 'rgba(255,100,100,0.1)',
+                            onMouseLeave: (e) => e.currentTarget.style.background = 'transparent',
+                        },
+                        '🗑️'
+                    ),
+                    // Vertical Divider
+                    e('div', { style: { width: '1px', height: '16px', background: 'var(--glass-border)', margin: '0 2px' } }),
+                    // Theme Switcher Integrated
+                    ...[
+                        { id: 'default', icon: '💎' },
+                        { id: 'douyin', icon: '🎵' },
+                        { id: 'youtube', icon: '📺' }
+                    ].map(theme =>
                         e('button',
                             {
-                                key: pos,
-                                onClick: () => setSidebarPosition(pos),
-                                title: `Dock ${pos}`,
+                                key: theme.id,
+                                onClick: () => setCurrentTheme(theme.id),
                                 style: {
-                                    background: sidebarPosition === pos ? 'var(--neon-blue)' : 'var(--bg-tertiary)',
-                                    color: sidebarPosition === pos ? 'black' : 'var(--text-secondary)',
+                                    padding: '0.3rem 0.6rem',
+                                    background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
+                                    color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
                                     border: 'none',
-                                    borderRadius: '4px',
-                                    width: '20px',
-                                    height: '20px',
+                                    borderRadius: 'var(--radius-sm)',
                                     cursor: 'pointer',
-                                    fontSize: '10px',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                }
+                                },
                             },
-                            pos[0].toUpperCase()
+                            theme.icon
+                        )
+                    )
+                ),
+                // Layout Control
+                e('div',
+                    {
+                        style: {
+                            display: 'flex',
+                            flexDirection: isHorizontal ? 'row' : 'column',
+                            gap: '8px',
+                            alignItems: 'center',
+                            background: 'var(--bg-tertiary)',
+                            padding: '0.2rem 0.6rem',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--glass-border)',
+                            height: '36px', // Match height
+                        }
+                    },
+                    e('div', { style: { fontSize: '0.65rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' } }, '固定位置'),
+                    e('div', { style: { display: 'flex', gap: '4px' } },
+                        ['left', 'right', 'top', 'bottom'].map(pos =>
+                            e('button',
+                                {
+                                    key: pos,
+                                    onClick: () => setSidebarPosition(pos),
+                                    style: {
+                                        background: sidebarPosition === pos ? 'var(--primary-blue)' : 'transparent',
+                                        color: sidebarPosition === pos ? 'white' : 'var(--text-secondary)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '4px',
+                                        width: '22px',
+                                        height: '22px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.65rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s',
+                                    },
+                                },
+                                pos[0].toUpperCase()
+                            )
                         )
                     )
                 )
@@ -393,130 +489,6 @@ function App() {
                     padding: 'var(--spacing-sm)',
                 }
             },
-            // Header
-            e('header',
-                {
-                    style: {
-                        background: 'var(--glass-bg)',
-                        backdropFilter: 'blur(20px)',
-                        borderRadius: 'var(--radius-lg)',
-                        border: '1px solid var(--glass-border)',
-                        padding: 'var(--spacing-md)',
-                        marginBottom: 'var(--spacing-md)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }
-                },
-                e('div', {},
-                    e('h1',
-                        {
-                            style: {
-                                fontSize: '1.5rem',
-                                margin: 0,
-                                background: 'var(--gradient-primary)',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                backgroundClip: 'text',
-                            }
-                        },
-                        '图像处理工作台'
-                    )
-                ),
-                e('div', { style: { display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' } },
-                    e('span', { style: { color: 'var(--text-secondary)', fontSize: '0.9rem' } },
-                        activeTools.length > 0 ? `当前运行: ${activeTools.length} 个任务` : '空闲'
-                    ),
-                    // Clear All Button
-                    activeTools.length > 0 && e('button',
-                        {
-                            onClick: () => {
-                                if (confirm(`确定要清除所有 ${activeTools.length} 个任务吗？`)) {
-                                    setActiveTools([]);
-                                }
-                            },
-                            title: '清除所有任务',
-                            style: {
-                                padding: '0.4rem 0.8rem',
-                                background: 'transparent',
-                                color: 'var(--text-secondary)',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: 'var(--radius-md)',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                transition: 'all 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.3rem',
-                            },
-                            onMouseEnter: (e) => {
-                                e.currentTarget.style.background = 'rgba(245, 87, 108, 0.1)';
-                                e.currentTarget.style.borderColor = 'var(--primary-blue)';
-                                e.currentTarget.style.color = 'var(--primary-blue)';
-                            },
-                            onMouseLeave: (e) => {
-                                e.currentTarget.style.background = 'transparent';
-                                e.currentTarget.style.borderColor = 'var(--glass-border)';
-                                e.currentTarget.style.color = 'var(--text-secondary)';
-                            }
-                        },
-                        e('span', {}, '🗑️'),
-                        e('span', {}, '清空')
-                    ),
-                    // Theme Switcher
-                    e('div',
-                        {
-                            style: {
-                                display: 'flex',
-                                gap: '0.4rem',
-                                padding: '0.3rem',
-                                background: 'var(--bg-tertiary)',
-                                borderRadius: 'var(--radius-md)',
-                                border: '1px solid var(--glass-border)',
-                            }
-                        },
-                        [
-                            { id: 'default', name: '默认', icon: '💎' },
-                            { id: 'douyin', name: 'TT', icon: '🎵' },
-                            { id: 'youtube', name: 'YT', icon: '📺' }
-                        ].map(theme =>
-                            e('button',
-                                {
-                                    key: theme.id,
-                                    onClick: () => setCurrentTheme(theme.id),
-                                    title: theme.name,
-                                    style: {
-                                        padding: '0.4rem 0.6rem',
-                                        background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
-                                        color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
-                                        border: 'none',
-                                        borderRadius: 'var(--radius-sm)',
-                                        cursor: 'pointer',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 600,
-                                        transition: 'all 0.2s',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.25rem',
-                                    },
-                                    onMouseEnter: (e) => {
-                                        if (currentTheme !== theme.id) {
-                                            e.currentTarget.style.background = 'var(--bg-secondary)';
-                                        }
-                                    },
-                                    onMouseLeave: (e) => {
-                                        if (currentTheme !== theme.id) {
-                                            e.currentTarget.style.background = 'transparent';
-                                        }
-                                    }
-                                },
-                                e('span', {}, theme.icon)
-                            )
-                        )
-                    )
-                )
-            ),
 
             // Canvas area
             e('div',
