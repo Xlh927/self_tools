@@ -137,9 +137,15 @@ class PaperGridGenerator:
                 if max_len > 0:
                     row_label_width = max_len + padding * 2
             
+            # Check if any subtitles exist
+            has_subtitles = any(cell.get('subtitle') for cell in cells)
+            subtitle_height = 0
+            if has_subtitles:
+                subtitle_height = font_size + int(padding / 2)
+
             # 总宽高
             total_width = margin * 2 + row_label_width + (base_w * cols) + (padding * (cols - 1))
-            total_height = margin * 2 + col_label_height + (base_h * rows) + (padding * (rows - 1))
+            total_height = margin * 2 + col_label_height + (base_h * rows) + (subtitle_height * rows) + (padding * (rows - 1))
             
             # 创建画布
             if bg_color == 'transparent':
@@ -204,16 +210,28 @@ class PaperGridGenerator:
                 
                 # 计算目标尺寸
                 target_w = (base_w * cs) + (padding * (cs - 1))
-                target_h = (base_h * rs) + (padding * (rs - 1))
+                target_h = (base_h * rs) + (subtitle_height * (rs - 1)) + (padding * (rs - 1))
                 
                 # 计算位置
                 pos_x = margin + row_label_width + (c * (base_w + padding))
-                pos_y = margin + col_label_height + (r * (base_h + padding))
+                pos_y = margin + col_label_height + (r * (base_h + subtitle_height + padding))
                 
                 try:
                     # 缩放
                     img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
                     canvas.paste(img, (pos_x, pos_y))
+
+                    # 绘制小标题
+                    subtitle = cell.get('subtitle')
+                    if subtitle:
+                        bbox = draw.textbbox((0, 0), subtitle, font=font)
+                        sw = bbox[2] - bbox[0]
+                        sh = bbox[3] - bbox[1]
+                        
+                        # 居中显示在图片下方
+                        sx = pos_x + (target_w - sw) // 2
+                        sy = pos_y + target_h + (subtitle_height - sh) // 2
+                        draw.text((sx, sy), subtitle, fill=text_color, font=font)
                 except Exception as e:
                     print(f"Error processing cell at ({r}, {c}): {e}")
             

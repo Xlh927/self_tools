@@ -11,6 +11,8 @@ export default function GridGeneratorTool() {
     const [selectedCells, setSelectedCells] = useState([]);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
+    const [activeCellId, setActiveCellId] = useState(null);
+    const fileInputRef = useRef(null);
 
     // Default style config (hidden from user in easy mode)
     const padding = 10;
@@ -43,7 +45,8 @@ export default function GridGeneratorTool() {
                         rowspan: 1,
                         colspan: 1,
                         file: null,
-                        preview: null
+                        preview: null,
+                        subtitle: ''
                     });
                 }
             }
@@ -80,6 +83,10 @@ export default function GridGeneratorTool() {
             setSelectedCells(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]);
         } else {
             setSelectedCells([id]);
+            setActiveCellId(id);
+            if (fileInputRef.current) {
+                fileInputRef.current.click();
+            }
         }
     };
 
@@ -132,7 +139,8 @@ export default function GridGeneratorTool() {
                     rowspan: 1,
                     colspan: 1,
                     file: null,
-                    preview: null
+                    preview: null,
+                    subtitle: ''
                 });
             }
         }
@@ -158,6 +166,7 @@ export default function GridGeneratorTool() {
                     col: c.col,
                     rowspan: c.rowspan,
                     colspan: c.colspan,
+                    subtitle: c.subtitle || '',
                     // Don't include file or preview
                 })),
                 row_labels: rowLabels,
@@ -322,15 +331,32 @@ export default function GridGeneratorTool() {
                                     e('span', { style: { fontSize: '2rem' } }, '+'),
                                     e('div', { style: { fontSize: '0.8rem' } }, '点击或拖拽')
                                 ),
-                            // Hidden file input
+                            // Subtitle Input
                             e('input', {
-                                type: 'file',
-                                accept: 'image/*',
-                                style: { position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' },
+                                type: 'text',
+                                className: 'input-field',
+                                style: {
+                                    position: 'absolute',
+                                    bottom: '5px',
+                                    left: '5px',
+                                    right: '5px',
+                                    height: '24px',
+                                    background: 'rgba(255, 255, 255, 0.8)',
+                                    color: '#333',
+                                    fontSize: '0.8rem',
+                                    padding: '0 5px',
+                                    border: '1px solid #ccc',
+                                    borderRadius: '4px',
+                                    zIndex: 10
+                                },
+                                placeholder: '请输入小标题...',
+                                value: cell.subtitle || '',
+                                onClick: (e) => e.stopPropagation(), // Prevent triggering cell click
                                 onChange: (e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                        handleFileSelect(e.target.files[0], cell.id);
-                                    }
+                                    const val = e.target.value;
+                                    setCells(prev => prev.map(c =>
+                                        c.id === cell.id ? { ...c, subtitle: val } : c
+                                    ));
                                 }
                             })
                         )
@@ -398,6 +424,20 @@ export default function GridGeneratorTool() {
                 e('p', { style: { fontSize: '0.9rem', color: '#666' } }, '(请在文件管理器中查看)')
             ),
             result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
-        )
+        ),
+
+        // Global hidden file input for grid cells
+        e('input', {
+            type: 'file',
+            ref: fileInputRef,
+            accept: 'image/*',
+            style: { display: 'none' },
+            onChange: (e) => {
+                if (e.target.files && e.target.files[0] && activeCellId) {
+                    handleFileSelect(e.target.files[0], activeCellId);
+                    e.target.value = ''; // Reset to allow same file selection
+                }
+            }
+        })
     );
 }
