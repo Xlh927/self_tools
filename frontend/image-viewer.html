@@ -1045,6 +1045,8 @@
                 <input type="color" value="${color}" class="class-color" style="width: 50px; height: 30px; padding: 0; border: none; background: none;">
                 <button onclick="this.parentElement.remove()" style="background-color: #d9534f;">X</button>
             `;
+            const keyInput = div.querySelector('.class-key');
+            setupKeyCapture(keyInput);
             classList.appendChild(div);
         }
 
@@ -1097,6 +1099,11 @@
         saveSettingsBtn.addEventListener('click', saveSettings);
         cancelSettingsBtn.addEventListener('click', () => settingsModal.style.display = 'none');
         addClassBtn.addEventListener('click', () => addClassRow());
+
+        // Initialize key capture for static inputs
+        setupKeyCapture(document.getElementById('key-next'));
+        setupKeyCapture(document.getElementById('key-prev'));
+        setupKeyCapture(document.getElementById('key-clear'));
 
         clearCacheBtn.addEventListener('click', async () => {
             if (!confirm('Clear all cached thumbnails? This will free up disk space but thumbnails will need to be regenerated.')) {
@@ -1177,6 +1184,29 @@
         function updateBrightness(val) {
             document.documentElement.style.setProperty('--brightness', val + '%');
             brightnessValue.textContent = val + '%';
+        }
+
+        // Shortcut Key Capture Logic
+        function setupKeyCapture(input) {
+            input.addEventListener('focus', () => {
+                input.style.backgroundColor = 'rgba(0, 123, 255, 0.2)';
+                input.placeholder = 'Press any key...';
+            });
+
+            input.addEventListener('blur', () => {
+                input.style.backgroundColor = '';
+                input.placeholder = input.classList.contains('class-key') ? 'Key' : '';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                // Prevent default behavior for special keys used in shortcuts
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Capture the key name
+                input.value = e.key;
+                input.blur(); // Auto-save and move focus out
+            });
         }
 
         // Keyboard navigation & Shortcuts
