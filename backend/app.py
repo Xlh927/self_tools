@@ -32,6 +32,8 @@ from modules.cv_tools import (
     PaperGridGenerator
 )
 from modules.notes import notes_manager
+from modules.image_viewer import viewer_manager
+from flask import send_file
 
 app = Flask(__name__, 
             template_folder='../frontend',
@@ -73,6 +75,69 @@ def cv_tools():
 def notes():
     """Serve the Notes application"""
     return render_template('notes.html')
+
+
+@app.route('/image-viewer')
+def image_viewer():
+    """Serve the Image Viewer application"""
+    return render_template('image-viewer.html')
+
+
+@app.route('/api/viewer/config', methods=['GET', 'POST'])
+def viewer_config():
+    if request.method == 'POST':
+        return jsonify(viewer_manager.update_config(request.get_json()))
+    return jsonify(viewer_manager.get_config())
+
+
+@app.route('/api/viewer/classify', methods=['POST'])
+def viewer_classify():
+    data = request.get_json()
+    result = viewer_manager.classify_image(data.get('image_path'), data.get('class_name'))
+    return jsonify(result)
+
+
+@app.route('/api/viewer/unclassify', methods=['POST'])
+def viewer_unclassify():
+    data = request.get_json()
+    result = viewer_manager.unclassify_image(data.get('image_path'), data.get('class_name'))
+    return jsonify(result)
+
+
+@app.route('/api/viewer/images')
+def viewer_list_images():
+    path = request.args.get('path')
+    sort = request.args.get('sort', 'name_desc')
+    result = viewer_manager.list_images(path, sort)
+    return jsonify(result)
+
+
+@app.route('/api/viewer/image')
+def viewer_get_image():
+    path = request.args.get('path')
+    if not path or not os.path.exists(path):
+        return "Image not found", 404
+    return send_file(path)
+
+
+@app.route('/api/viewer/thumbnail')
+def viewer_get_thumbnail():
+    path = request.args.get('path')
+    size = int(request.args.get('size', 300))
+    thumb_path = viewer_manager.get_thumbnail_path(path, size)
+    if not thumb_path:
+        return "Thumbnail failed", 500
+    return send_file(thumb_path, mimetype='image/jpeg')
+
+
+@app.route('/api/viewer/thumbnails', methods=['DELETE'])
+def viewer_clear_thumbnails():
+    return jsonify(viewer_manager.clear_thumbnails())
+
+
+@app.route('/api/viewer/thumbnail-stats')
+def viewer_get_thumbnail_stats():
+    return jsonify(viewer_manager.get_thumbnail_stats())
 
 
 @app.route('/legacy')
