@@ -124,7 +124,7 @@ class DevServerHandler(SimpleHTTPRequestHandler):
 
     def log_error(self, format, *args):
         # Silence broken pipe and connection reset errors in the logs
-        if "Broken pipe" in args[0] or "Connection reset by peer" in args[0]:
+        if args and isinstance(args[0], str) and ("Broken pipe" in args[0] or "Connection reset by peer" in args[0]):
             return
         super().log_error(format, *args)
 
