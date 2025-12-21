@@ -53,10 +53,10 @@
 
         .apps-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: var(--spacing-xl);
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: var(--spacing-lg);
             width: 100%;
-            max-width: 800px;
+            max-width: 1000px;
         }
 
         .app-card {
@@ -64,7 +64,7 @@
             backdrop-filter: var(--glass-blur);
             border: 1px solid var(--glass-border);
             border-radius: var(--radius-xl);
-            padding: var(--spacing-xl);
+            padding: var(--spacing-lg);
             cursor: pointer;
             transition: all var(--transition-normal);
             text-decoration: none;
@@ -92,19 +92,19 @@
         }
 
         .app-icon {
-            font-size: 4rem;
-            margin-bottom: var(--spacing-lg);
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
         }
 
         .app-title {
-            font-size: 1.8rem;
+            font-size: 1.4rem;
             font-weight: 700;
             margin-bottom: var(--spacing-sm);
             color: var(--text-primary);
         }
 
         .app-description {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-secondary);
             line-height: 1.6;
         }
