@@ -928,13 +928,16 @@ def remove_duplicates():
         # Create deduplicator
         deduplicator = ImageDeduplicator()
         
-        # Find duplicates
-        duplicates = deduplicator.find_duplicates(
-            folder_path=folder_path,
-            hash_algorithm=hash_algorithm,
-            use_md5=use_md5,
-            similarity_threshold=similarity_threshold
-        )
+        if 'duplicates' in data and data['duplicates']:
+            duplicates = data['duplicates']
+        else:
+            # Find duplicates
+            duplicates = deduplicator.find_duplicates(
+                folder_path=folder_path,
+                hash_algorithm=hash_algorithm,
+                use_md5=use_md5,
+                similarity_threshold=similarity_threshold
+            )
         
         # Remove duplicates
         result = deduplicator.remove_duplicates(

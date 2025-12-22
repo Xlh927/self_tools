@@ -51,6 +51,15 @@ export default function DeduplicatorTool() {
         setLoading(true);
         setRemoveResult(null);
 
+        // Construct duplicates map from report to avoid re-scanning
+        let duplicates = null;
+        if (report && report.groups) {
+            duplicates = {};
+            report.groups.forEach(group => {
+                duplicates[group.id] = group.files.map(f => f.path);
+            });
+        }
+
         try {
             const response = await fetch('/api/remove-duplicates', {
                 method: 'POST',
@@ -62,14 +71,16 @@ export default function DeduplicatorTool() {
                     similarity_threshold: parseInt(similarityThreshold),
                     keep_strategy: keepStrategy,
                     dry_run: dryRun,
+                    duplicates: duplicates,
                 }),
             });
 
             const data = await response.json();
             setRemoveResult(data);
-            // Refresh report if not dry run
+
+            // Clear report if actual deletion occurred (no need to re-scan)
             if (!dryRun && data.success) {
-                handleFindDuplicates();
+                setReport(null);
             }
         } catch (error) {
             setRemoveResult({ success: false, error: error.message });
