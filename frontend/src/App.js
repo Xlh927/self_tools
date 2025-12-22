@@ -189,6 +189,16 @@ function App() {
         setDraggedToolId(null);
     };
 
+    const handleHorizontalScroll = (e) => {
+        const container = e.currentTarget;
+        if (e.deltaY !== 0) {
+            container.scrollLeft += e.deltaY;
+            // Only prevent default if we actually scrolled, to allow page scroll if at ends
+            // But usually in a full-screen app we want to block it.
+            // e.preventDefault(); 
+        }
+    };
+
     // Layout configuration
     const layoutStyle = {
         display: 'flex',
@@ -235,7 +245,8 @@ function App() {
                         overflowY: 'auto',
                         overflowX: 'hidden',
                     })
-                }
+                },
+                onWheel: isHorizontal ? handleHorizontalScroll : undefined
             },
 
             // Header / Controls
@@ -519,6 +530,7 @@ function App() {
             e('div',
                 {
                     ref: canvasRef,
+                    onWheel: handleHorizontalScroll,
                     style: {
                         flex: 1,
                         overflowX: 'auto',

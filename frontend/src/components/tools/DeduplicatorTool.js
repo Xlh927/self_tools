@@ -194,6 +194,35 @@ export default function DeduplicatorTool() {
                 )
             ),
 
+            // Duplicate Groups List
+            report.groups && report.groups.length > 0 && e('div',
+                {
+                    style: {
+                        marginBottom: 'var(--spacing-lg)',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        padding: 'var(--spacing-sm)',
+                        background: 'rgba(0, 0, 0, 0.2)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--glass-border)',
+                    }
+                },
+                e('h4', { style: { marginTop: 0, marginBottom: 'var(--spacing-sm)', fontSize: '0.9rem', color: 'var(--text-secondary)' } }, '📄 重复文件列表'),
+                report.groups.map((group, gIdx) =>
+                    e('div', { key: group.id || gIdx, style: { marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)' } },
+                        e('div', { style: { fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px', color: 'var(--neon-blue)' } }, `第 ${gIdx + 1} 组 (${group.count} 个文件)`),
+                        e('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+                            group.files.map((file, fIdx) =>
+                                e('div', { key: fIdx, style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', opacity: 0.8 } },
+                                    e('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }, title: file.path }, file.path.split('/').pop()),
+                                    e('span', { style: { color: 'var(--text-tertiary)', flexShrink: 0 } }, file.size_mb + ' MB')
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+
             // Removal Options (only if duplicates found)
             report.duplicate_groups > 0 && e('div',
                 {
