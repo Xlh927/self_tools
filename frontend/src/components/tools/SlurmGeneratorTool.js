@@ -8,6 +8,7 @@ export default function SlurmGeneratorTool() {
     const [model, setModel] = useState('yolo11m.pt');
     const [epochs, setEpochs] = useState(150);
     const [imgsz, setImgsz] = useState(800);
+    const [batch, setBatch] = useState(24);
     const [project, setProject] = useState('runs/train');
     const [name, setName] = useState('baseline');
     const [command, setCommand] = useState('');
@@ -20,11 +21,12 @@ export default function SlurmGeneratorTool() {
         if (model) cmd += ` model=${model}`;
         if (epochs) cmd += ` epochs=${epochs}`;
         if (imgsz) cmd += ` imgsz=${imgsz}`;
+        if (batch) cmd += ` batch=${batch}`;
         if (project) cmd += ` project="${project}"`;
         if (name) cmd += ` name="${name}"`;
 
         setCommand(cmd);
-    }, [task, data, model, epochs, imgsz, project, name]);
+    }, [task, data, model, epochs, imgsz, batch, project, name]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(command);
@@ -137,6 +139,17 @@ export default function SlurmGeneratorTool() {
                     value: imgsz,
                     onChange: (e) => setImgsz(e.target.value),
                     placeholder: '800',
+                    style: inputStyle
+                })
+            ),
+            // Batch
+            e('div', { style: groupStyle },
+                e('label', { style: labelStyle }, '批次大小 (Batch)'),
+                e('input', {
+                    type: 'number',
+                    value: batch,
+                    onChange: (e) => setBatch(e.target.value),
+                    placeholder: '24',
                     style: inputStyle
                 })
             ),
