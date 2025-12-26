@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -12,25 +13,27 @@ export default function VisualizerTool() {
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (imagesDir && !annotationsDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            setAnnotationsDir(`${parentDir}/annotations`);
-            setOutputDir(`${parentDir}/visualized`);
-        } else if (imagesDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/visualized`);
+        const normalized = normalizePath(imagesDir);
+        if (normalized && !annotationsDir && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setAnnotationsDir(joinPaths(parentDir, 'annotations'));
+            setOutputDir(joinPaths(parentDir, 'visualized'));
+        } else if (normalized && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, 'visualized'));
         }
     }, [imagesDir]);
 
     // Auto-infer paths from annotationsDir
     useEffect(() => {
-        if (annotationsDir && !imagesDir && !outputDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setImagesDir(`${parentDir}/images`);
-            setOutputDir(`${parentDir}/visualized`);
-        } else if (annotationsDir && !outputDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/visualized`);
+        const normalized = normalizePath(annotationsDir);
+        if (normalized && !imagesDir && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setImagesDir(joinPaths(parentDir, 'images'));
+            setOutputDir(joinPaths(parentDir, 'visualized'));
+        } else if (normalized && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, 'visualized'));
         }
     }, [annotationsDir]);
 

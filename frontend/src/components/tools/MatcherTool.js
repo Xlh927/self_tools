@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -16,8 +17,9 @@ export default function MatcherTool() {
     // Auto-infer output path
     useEffect(() => {
         if (sourceDir && !outputDir) {
-            const parentDir = sourceDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/matched_images`);
+            const normalized = normalizePath(sourceDir);
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, 'matched_images'));
         }
     }, [sourceDir]);
 

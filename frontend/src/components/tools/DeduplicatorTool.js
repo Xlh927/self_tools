@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { basename } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook } = React;
 
@@ -214,7 +215,7 @@ export default function DeduplicatorTool() {
                         e('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
                             group.files.map((file, fIdx) =>
                                 e('div', { key: fIdx, style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', opacity: 0.8 } },
-                                    e('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }, title: file.path }, file.path.split('/').pop()),
+                                    e('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }, title: file.path }, basename(file.path)),
                                     e('span', { style: { color: 'var(--text-tertiary)', flexShrink: 0 } }, file.size_mb + ' MB')
                                 )
                             )

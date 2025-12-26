@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -15,8 +16,9 @@ export default function LabelModifierTool() {
     // Auto-infer output path
     useEffect(() => {
         if (labelDir && !outputDir && !overwrite) {
-            const parentDir = labelDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/labels_modified`);
+            const normalized = normalizePath(labelDir);
+            const parentDir = getParentDir(normalized);
+            setOutputDir(parentDir ? joinPaths(parentDir, 'labels_modified') : 'labels_modified');
         }
     }, [labelDir, overwrite]);
 

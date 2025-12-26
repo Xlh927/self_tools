@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ProgressBar from '../common/ProgressBar.js';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -21,16 +22,15 @@ export default function CropperTool() {
     // Auto-infer output path
     useEffect(() => {
         if (inputPath && !outputDir) {
-            const cleanPath = inputPath.endsWith('/') ? inputPath.slice(0, -1) : inputPath;
-            const parentDir = cleanPath.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/crops`);
+            const normalized = normalizePath(inputPath);
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, 'crops'));
         }
     }, [inputPath]);
 
     // Auto-infer annotations path if input is folder
     useEffect(() => {
         if (inputPath && !annotationsDir && processingMode === 'folder') {
-            const cleanPath = inputPath.endsWith('/') ? inputPath.slice(0, -1) : inputPath;
             // Try to guess annotations dir
             // This is just a guess, user can change it
             // setAnnotationsDir(`${parentDir}/annotations`); 

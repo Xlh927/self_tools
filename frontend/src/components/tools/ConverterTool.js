@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ProgressBar from '../common/ProgressBar.js';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -22,27 +23,29 @@ export default function ConverterTool() {
 
     // Auto-infer paths from annotationsDir
     useEffect(() => {
-        if (annotationsDir && !imagesDir && !outputDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setImagesDir(`${parentDir}/images`);
-            setOutputDir(`${parentDir}/output_${conversionType}`);
-        } else if (annotationsDir && !outputDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/output_${conversionType}`);
+        const normalized = normalizePath(annotationsDir);
+        if (normalized && !imagesDir && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setImagesDir(joinPaths(parentDir, 'images'));
+            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+        } else if (normalized && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
         }
     }, [annotationsDir, conversionType]);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
-        if (imagesDir && !annotationsDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
+        const normalized = normalizePath(imagesDir);
+        if (normalized && !annotationsDir && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
             // Try common annotation folder names
             const possibleNames = ['annotations', 'labels', 'Annotations', 'Labels'];
-            setAnnotationsDir(`${parentDir}/${possibleNames[0]}`);
-            setOutputDir(`${parentDir}/output_${conversionType}`);
-        } else if (imagesDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/output_${conversionType}`);
+            setAnnotationsDir(joinPaths(parentDir, possibleNames[0]));
+            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+        } else if (normalized && !outputDir) {
+            const parentDir = getParentDir(normalized) || normalized;
+            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
         }
     }, [imagesDir, conversionType]);
 

@@ -691,6 +691,25 @@
         };
         let classifications = {}; // filename -> class_name
 
+        const normalizePath = (value) => (value || '').replace(/\\/g, '/');
+        const trimTrailingSlash = (value) => {
+            if (!value) return '';
+            if (value === '/') return '/';
+            return value.replace(/\/+$/, '');
+        };
+        const joinPath = (...parts) => {
+            const cleaned = parts
+                .filter(Boolean)
+                .map((part, index) => {
+                    let normalized = normalizePath(part);
+                    if (index > 0) {
+                        normalized = normalized.replace(/^\/+/, '');
+                    }
+                    return trimTrailingSlash(normalized);
+                });
+            return cleaned.join('/');
+        };
+
         // Preload cache for single view images
         const preloadCache = new Map();
 
@@ -747,11 +766,12 @@
         }
 
         async function loadImages() {
-            const path = pathInput.value.trim();
-            if (!path) return;
+            const rawPath = pathInput.value.trim();
+            const normalizedPath = trimTrailingSlash(normalizePath(rawPath));
+            if (!normalizedPath) return;
 
             try {
-                const response = await fetch(`/api/viewer/images?path=${encodeURIComponent(path)}&sort=${currentSortMode}`);
+                const response = await fetch(`/api/viewer/images?path=${encodeURIComponent(normalizedPath)}&sort=${currentSortMode}`);
                 if (!response.ok) {
                     const err = await response.json();
                     alert(err.detail || 'Failed to load images');
@@ -759,7 +779,8 @@
                 }
                 const data = await response.json();
                 currentImages = data.images;
-                currentPath = data.path;
+                currentPath = trimTrailingSlash(normalizePath(data.path || normalizedPath));
+                pathInput.value = currentPath;
                 // Load historical classifications from backend
                 classifications = data.classifications || {};
                 renderGrid();
@@ -795,10 +816,11 @@
                 container.className = 'thumbnail-container';
 
                 const img = document.createElement('img');
+                const fullPath = joinPath(currentPath, filename);
                 // Use thumbnail or original image based on user preference
                 const imageUrl = useThumbnails
-                    ? `/api/viewer/thumbnail?path=${encodeURIComponent(currentPath + '/' + filename)}&size=300`
-                    : `/api/viewer/image?path=${encodeURIComponent(currentPath + '/' + filename)}`;
+                    ? `/api/viewer/thumbnail?path=${encodeURIComponent(fullPath)}&size=300`
+                    : `/api/viewer/image?path=${encodeURIComponent(fullPath)}`;
 
                 // Implement virtual scrolling: only load images near viewport
                 img.dataset.src = imageUrl;
@@ -893,7 +915,8 @@
 
         function updateSingleView() {
             const filename = currentImages[currentIndex];
-            singleImage.src = `/api/viewer/image?path=${encodeURIComponent(currentPath + '/' + filename)}`;
+            const fullPath = joinPath(currentPath, filename);
+            singleImage.src = `/api/viewer/image?path=${encodeURIComponent(fullPath)}`;
 
             let info = `${currentIndex + 1} / ${currentImages.length} - ${filename}`;
 
@@ -923,7 +946,7 @@
 
             toPreload.forEach(i => {
                 const filename = currentImages[i];
-                const imagePath = `${currentPath}/${filename}`;
+                const imagePath = joinPath(currentPath, filename);
 
                 // Skip if already preloaded
                 if (preloadCache.has(imagePath)) return;
@@ -973,7 +996,7 @@
             if (!className) return;
 
             const filename = currentImages[currentIndex];
-            const fullPath = currentPath + '/' + filename;
+            const fullPath = joinPath(currentPath, filename);
 
             try {
                 const res = await fetch('/api/viewer/classify', {
@@ -1001,7 +1024,7 @@
             const className = classifications[filename];
             if (!className) return; // Not classified
 
-            const fullPath = currentPath + '/' + filename;
+            const fullPath = joinPath(currentPath, filename);
 
             try {
                 const res = await fetch('/api/viewer/unclassify', {
@@ -1269,7 +1292,7 @@
             if (!className) return;
 
             const filename = currentImages[selectedGridIndex];
-            const fullPath = currentPath + '/' + filename;
+            const fullPath = joinPath(currentPath, filename);
             const currentIdx = selectedGridIndex; // preserve before render
             const nextIndex = Math.min(currentImages.length - 1, currentIdx + 1);
 
@@ -1303,7 +1326,7 @@
             const className = classifications[filename];
             if (!className) return;
 
-            const fullPath = currentPath + '/' + filename;
+            const fullPath = joinPath(currentPath, filename);
 
             try {
                 const res = await fetch('/api/viewer/unclassify', {

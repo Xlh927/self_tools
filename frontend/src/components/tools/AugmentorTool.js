@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e } = React;
 
@@ -28,22 +29,25 @@ export default function AugmentorTool() {
 
     // Auto-infer paths from Images Directory
     useEffect(() => {
-        if (imagesDir && !annotationsDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            setAnnotationsDir(`${parentDir}/annotations`);
-            setOutputDir(`${parentDir}/augmented`);
-        } else if (imagesDir && !outputDir) {
-            const parentDir = imagesDir.split('/').slice(0, -1).join('/');
-            setOutputDir(`${parentDir}/augmented`);
+        const normalizedImagesDir = normalizePath(imagesDir);
+        if (normalizedImagesDir && !annotationsDir && !outputDir) {
+            const parentDir = getParentDir(normalizedImagesDir);
+            const guessedParent = parentDir || normalizedImagesDir;
+            setAnnotationsDir(joinPaths(guessedParent, 'annotations'));
+            setOutputDir(joinPaths(guessedParent, 'augmented'));
+        } else if (normalizedImagesDir && !outputDir) {
+            const parentDir = getParentDir(normalizedImagesDir) || normalizedImagesDir;
+            setOutputDir(joinPaths(parentDir, 'augmented'));
         }
     }, [imagesDir]);
 
     // Auto-infer paths from Annotations Directory
     useEffect(() => {
-        if (annotationsDir && !imagesDir && !outputDir) {
-            const parentDir = annotationsDir.split('/').slice(0, -1).join('/');
-            setImagesDir(`${parentDir}/images`);
-            setOutputDir(`${parentDir}/augmented`);
+        const normalizedAnnotationsDir = normalizePath(annotationsDir);
+        if (normalizedAnnotationsDir && !imagesDir && !outputDir) {
+            const parentDir = getParentDir(normalizedAnnotationsDir) || normalizedAnnotationsDir;
+            setImagesDir(joinPaths(parentDir, 'images'));
+            setOutputDir(joinPaths(parentDir, 'augmented'));
         }
     }, [annotationsDir]);
 
