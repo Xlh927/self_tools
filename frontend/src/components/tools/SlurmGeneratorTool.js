@@ -15,6 +15,8 @@ export default function SlurmGeneratorTool() {
     const [exportFormat, setExportFormat] = useState('torchscript');
     const [half, setHalf] = useState(true);
     const [device, setDevice] = useState('0');
+    const [source, setSource] = useState('data/images');
+    const [saveTxt, setSaveTxt] = useState(false);
     const [command, setCommand] = useState('');
     const [copied, setCopied] = useState(false);
     const [showReference, setShowReference] = useState(false);
@@ -31,6 +33,24 @@ export default function SlurmGeneratorTool() {
             if (batch) cmd += ` batch=${batch}`;
             if (project) cmd += ` project="${project}"`;
             if (name) cmd += ` name="${name}"`;
+        } else if (mode === 'val') {
+            cmd += ' val';
+            if (model) cmd += ` model=${model}`;
+            if (data) cmd += ` data="${data}"`;
+            if (imgsz) cmd += ` imgsz=${imgsz}`;
+            if (batch) cmd += ` batch=${batch}`;
+            if (project) cmd += ` project="${project}"`;
+            if (name) cmd += ` name="${name}"`;
+            if (device !== undefined && device !== '') cmd += ` device=${device}`;
+        } else if (mode === 'predict') {
+            cmd += ' predict';
+            if (model) cmd += ` model=${model}`;
+            if (source) cmd += ` source="${source}"`;
+            if (imgsz) cmd += ` imgsz=${imgsz}`;
+            if (project) cmd += ` project="${project}"`;
+            if (name) cmd += ` name="${name}"`;
+            if (saveTxt) cmd += ` save_txt=True`;
+            if (device !== undefined && device !== '') cmd += ` device=${device}`;
         } else {
             cmd += ' export';
             if (model) cmd += ` model=${model}`;
@@ -40,7 +60,7 @@ export default function SlurmGeneratorTool() {
         }
 
         setCommand(cmd);
-    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device]);
+    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device, source, saveTxt]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(command);
@@ -116,10 +136,18 @@ export default function SlurmGeneratorTool() {
                 e('select',
                     {
                         value: mode,
-                        onChange: (e) => setMode(e.target.value),
+                        onChange: (e) => {
+                            setMode(e.target.value);
+                            // Auto-adjust project path based on mode
+                            if (e.target.value === 'train') setProject('runs/train');
+                            else if (e.target.value === 'val') setProject('runs/val');
+                            else if (e.target.value === 'predict') setProject('runs/predict');
+                        },
                         style: { ...inputStyle, cursor: 'pointer', border: '1px solid var(--primary-blue)' }
                     },
                     e('option', { value: 'train' }, 'Train (训练)'),
+                    e('option', { value: 'val' }, 'Val (验证)'),
+                    e('option', { value: 'predict' }, 'Predict (推理)'),
                     e('option', { value: 'export' }, 'Export (导出)')
                 )
             ),
@@ -148,9 +176,9 @@ export default function SlurmGeneratorTool() {
                 })
             ),
             // Conditionally render fields based on mode
-            ...(mode === 'train' ? [
-                // Epochs
-                e('div', { style: groupStyle },
+            ...(mode === 'train' || mode === 'val' ? [
+                // Epochs (Train only)
+                mode === 'train' && e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '训练轮数 (Epochs)'),
                     e('input', {
                         type: 'number',
@@ -200,7 +228,87 @@ export default function SlurmGeneratorTool() {
                         type: 'text',
                         value: project,
                         onChange: (e) => setProject(e.target.value),
-                        placeholder: 'runs/train',
+                        placeholder: mode === 'train' ? 'runs/train' : 'runs/val',
+                        style: inputStyle
+                    })
+                ),
+                // Device (Val only here, Train uses default but could show it)
+                mode === 'val' && e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '设备 ID (Device)'),
+                    e('input', {
+                        type: 'text',
+                        value: device,
+                        onChange: (e) => setDevice(e.target.value),
+                        placeholder: '0',
+                        style: inputStyle
+                    })
+                )
+            ].filter(Boolean) : (mode === 'predict' ? [
+                // Source
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '推理来源 (Source)'),
+                    e('input', {
+                        type: 'text',
+                        value: source,
+                        onChange: (e) => setSource(e.target.value),
+                        placeholder: 'data/images',
+                        style: inputStyle
+                    })
+                ),
+                // Imgsz
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '图像尺寸 (Imgsz)'),
+                    e('input', {
+                        type: 'number',
+                        value: imgsz,
+                        onChange: (e) => setImgsz(e.target.value),
+                        placeholder: '800',
+                        style: inputStyle
+                    })
+                ),
+                // Name
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '任务名称 (Name)'),
+                    e('input', {
+                        type: 'text',
+                        value: name,
+                        onChange: (e) => setName(e.target.value),
+                        placeholder: 'baseline',
+                        style: inputStyle
+                    })
+                ),
+                // Project
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '项目路径 (Project)'),
+                    e('input', {
+                        type: 'text',
+                        value: project,
+                        onChange: (e) => setProject(e.target.value),
+                        placeholder: 'runs/predict',
+                        style: inputStyle
+                    })
+                ),
+                // Save Txt
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '保存标签 (save_txt)'),
+                    e('select',
+                        {
+                            value: saveTxt.toString(),
+                            onChange: (e) => setSaveTxt(e.target.value === 'true'),
+                            style: { ...inputStyle, cursor: 'pointer' }
+                        },
+                        e('option', { value: 'false' }, 'False'),
+                        e('option', { value: 'true' }, 'True')
+                    )
+                ),
+                // Device
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '设备 ID (Device)'),
+                    e('input', {
+                        type: 'text',
+                        value: device,
+                        onChange: (e) => setDevice(e.target.value),
+                        placeholder: '0',
                         style: inputStyle
                     })
                 )
@@ -243,7 +351,7 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 )
-            ])
+            ]))
         ),
 
         // Data Path (Full Width) - Only for Train mode

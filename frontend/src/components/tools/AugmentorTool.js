@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ProgressBar from '../common/ProgressBar.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
-const { createElement: e } = React;
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
 export default function AugmentorTool() {
     const [imagesDir, setImagesDir] = useState('');
@@ -10,7 +11,47 @@ export default function AugmentorTool() {
     const [annotationFormat, setAnnotationFormat] = useState('yolo');
     const [classesFile, setClassesFile] = useState('');
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressMessage, setProgressMessage] = useState('');
     const [result, setResult] = useState(null);
+    const pollTimer = useRef(null);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimer.current) clearInterval(pollTimer.current);
+        };
+    }, []);
+
+    const pollTask = (taskId) => {
+        pollTimer.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/progress/${taskId}`);
+                if (res.status === 404) {
+                    clearInterval(pollTimer.current);
+                    return;
+                }
+                const data = await res.json();
+
+                setProgress(data.progress);
+                setProgressMessage(data.message);
+
+                if (data.status === 'completed') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult(data.result);
+                } else if (data.status === 'error') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setResult({ success: false, error: data.error });
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+                clearInterval(pollTimer.current);
+                setLoading(false);
+            }
+        }, 500);
+    };
 
     // Augmentation options
     const [selectedAugmentations, setSelectedAugmentations] = useState({
@@ -61,6 +102,8 @@ export default function AugmentorTool() {
     const handleAugment = async () => {
         setLoading(true);
         setResult(null);
+        setProgress(0);
+        setProgressMessage('Starting augmentation...');
 
         try {
             // Get selected augmentations
@@ -87,8 +130,15 @@ export default function AugmentorTool() {
             });
 
             const data = await response.json();
-            setResult(data);
-            setLoading(false);
+            if (data.success && data.task_id) {
+                pollTask(data.task_id);
+            } else if (data.success) {
+                setResult(data);
+                setLoading(false);
+            } else {
+                setResult(data);
+                setLoading(false);
+            }
         } catch (error) {
             setResult({ success: false, error: error.message });
             setLoading(false);
@@ -267,12 +317,8 @@ export default function AugmentorTool() {
             '🚀 开始增强'
         ),
 
-        // Loading
-        loading && e('div',
-            { style: { textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--neon-green)' } },
-            e('div', { className: 'spinner' }),
-            e('p', {}, '正在处理数据增强...')
-        ),
+        // Progress Bar
+        loading && e(ProgressBar, { progress, message: progressMessage }),
 
         // Result
         result && e('div',

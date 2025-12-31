@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 from PIL import Image
 import random
+import concurrent.futures
+import multiprocessing
+import shutil
 
 
 class DataAugmentor:
@@ -19,7 +22,76 @@ class DataAugmentor:
     def __init__(self):
         self.supported_formats = ['voc', 'yolo']
     
-    def augment_dataset(self, config: Dict) -> Dict:
+    @staticmethod
+    def _augment_single_image_task(img_file: Path, config: Dict) -> Dict:
+        """Helper task for multiprocessing to augment a single image"""
+        try:
+            images_dir = config['images_dir']
+            annotations_dir = config['annotations_dir']
+            output_dir = config['output_dir']
+            annotation_format = config.get('annotation_format', 'voc')
+            augmentations = config.get('augmentations', [])
+            
+            # Create sub-output directories (already created by main process but good to be sure if used independently)
+            images_output = Path(output_dir) / 'images'
+            if annotation_format == 'yolo':
+                annotations_output = Path(output_dir) / 'labels'
+            else:
+                annotations_output = Path(output_dir) / 'xmls'
+            
+            # Read image
+            image = cv2.imread(str(img_file))
+            if image is None:
+                return {'success': False, 'image': img_file.name, 'error': '无法读取图片'}
+            
+            # Read annotation
+            if annotation_format == 'voc':
+                annotation_file = Path(annotations_dir) / f'{img_file.stem}.xml'
+            else:
+                annotation_file = Path(annotations_dir) / f'{img_file.stem}.txt'
+            
+            if not annotation_file.exists():
+                return {'success': False, 'image': img_file.name, 'error': '未找到对应的标注文件'}
+            
+            # Create an instance of DataAugmentor for helper methods (non-multiprocessing methods are fine)
+            augmentor = DataAugmentor()
+            generated_count = 0
+            
+            # Copy original image and annotation
+            cv2.imwrite(str(images_output / img_file.name), image)
+            shutil.copy(annotation_file, annotations_output / annotation_file.name)
+            
+            # Apply augmentations
+            for aug_name in augmentations:
+                aug_image, aug_annotations = augmentor.apply_augmentation(
+                    image, annotation_file, aug_name, annotation_format
+                )
+                
+                if aug_image is not None:
+                    aug_filename = f'{img_file.stem}_{aug_name}{img_file.suffix}'
+                    cv2.imwrite(str(images_output / aug_filename), aug_image)
+                    
+                    if annotation_format == 'voc':
+                        augmentor.save_voc_annotation(
+                            aug_annotations, 
+                            annotations_output / f'{img_file.stem}_{aug_name}.xml',
+                            aug_filename,
+                            aug_image.shape
+                        )
+                    else:
+                        augmentor.save_yolo_annotation(
+                            aug_annotations,
+                            annotations_output / f'{img_file.stem}_{aug_name}.txt',
+                            aug_image.shape
+                        )
+                    generated_count += 1
+            
+            return {'success': True, 'image': img_file.name, 'generated': generated_count}
+            
+        except Exception as e:
+            return {'success': False, 'image': img_file.name, 'error': str(e)}
+
+    def augment_dataset(self, config: Dict, progress_callback=None) -> Dict:
         """
         批量增强数据集
         
@@ -75,69 +147,28 @@ class DataAugmentor:
             generated = 0
             errors = []
             
-            for img_file in image_files:
-                try:
-                    # 读取图片
-                    image = cv2.imread(str(img_file))
-                    if image is None:
-                        errors.append(f'{img_file.name}: 无法读取图片')
-                        continue
+            # Use ProcessPoolExecutor for parallel processing
+            num_workers = min(multiprocessing.cpu_count(), len(image_files))
+            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+                future_to_img = {executor.submit(self._augment_single_image_task, img_file, config): img_file for img_file in image_files}
+                
+                for future in concurrent.futures.as_completed(future_to_img):
+                    img_file = future_to_img[future]
+                    try:
+                        result = future.result()
+                        if result['success']:
+                            processed += 1
+                            generated += result['generated']
+                        else:
+                            errors.append(f"{result['image']}: {result['error']}")
+                    except Exception as e:
+                        errors.append(f"{img_file.name}: {str(e)}")
                     
-                    # 读取标注
-                    if annotation_format == 'voc':
-                        annotation_file = Path(annotations_dir) / f'{img_file.stem}.xml'
-                    else:  # yolo
-                        annotation_file = Path(annotations_dir) / f'{img_file.stem}.txt'
-                    
-                    if not annotation_file.exists():
-                        errors.append(f'{img_file.name}: 未找到对应的标注文件')
-                        continue
-                    
-                    # 复制原始文件
-                    cv2.imwrite(str(images_output / img_file.name), image)
-                    if annotation_format == 'voc':
-                        import shutil
-                        shutil.copy(annotation_file, annotations_output / annotation_file.name)
-                    else:
-                        import shutil
-                        shutil.copy(annotation_file, annotations_output / annotation_file.name)
-                    
-                    # 应用每种增强方法
-                    for aug_name in augmentations:
-                        aug_image, aug_annotations = self.apply_augmentation(
-                            image, annotation_file, aug_name, annotation_format
-                        )
-                        
-                        if aug_image is not None:
-                            # 保存增强后的图片
-                            aug_filename = f'{img_file.stem}_{aug_name}{img_file.suffix}'
-                            cv2.imwrite(str(images_output / aug_filename), aug_image)
-                            
-                            # 保存增强后的标注
-                            if annotation_format == 'voc':
-                                self.save_voc_annotation(
-                                    aug_annotations, 
-                                    annotations_output / f'{img_file.stem}_{aug_name}.xml',
-                                    aug_filename,
-                                    aug_image.shape
-                                )
-                            else:  # yolo
-                                self.save_yolo_annotation(
-                                    aug_annotations,
-                                    annotations_output / f'{img_file.stem}_{aug_name}.txt',
-                                    aug_image.shape
-                                )
-                            
-                            generated += 1
-                    
-                    processed += 1
-                    
-                except Exception as e:
-                    errors.append(f'{img_file.name}: {str(e)}')
+                    if progress_callback:
+                        progress_callback(processed, len(image_files), f"Augmenting {img_file.name}")
             
-            # 如果是YOLO格式，复制classes.txt
+            # If YOLO format, copy classes.txt
             if annotation_format == 'yolo' and classes_file and os.path.exists(classes_file):
-                import shutil
                 shutil.copy(classes_file, annotations_output / 'classes.txt')
             
             return {

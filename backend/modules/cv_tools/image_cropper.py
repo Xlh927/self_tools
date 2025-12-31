@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 from PIL import Image
+import concurrent.futures
+import multiprocessing
 
 
 class ImageCropper:
@@ -134,6 +136,23 @@ class ImageCropper:
                 'error': str(e)
             }
     
+    @staticmethod
+    def _crop_single_image_task(image_file: Path, output_dir: str, window_width: int, window_height: int, overlap_x: int, overlap_y: int) -> Dict:
+        """Helper task for multiprocessing to crop a single image"""
+        try:
+            # Create an instance for helper method
+            cropper = ImageCropper()
+            return cropper.crop_image_sliding_window(
+                image_path=str(image_file),
+                output_dir=output_dir,
+                window_width=window_width,
+                window_height=window_height,
+                overlap_x=overlap_x,
+                overlap_y=overlap_y
+            )
+        except Exception as e:
+            return {'success': False, 'image': image_file.name, 'error': str(e)}
+
     def crop_folder_sliding_window(
         self,
         input_dir: str,
@@ -182,32 +201,39 @@ class ImageCropper:
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
             
-            # Process each image
-            results = []
+            # Process images in parallel
             total_crops = 0
             processed_count = 0
             failed_count = 0
             errors = []
+            results = []
             
-            for i, image_file in enumerate(image_files):
-                if progress_callback:
-                    progress_callback(i, len(image_files), f"Cropping {image_file.name}")
-                result = self.crop_image_sliding_window(
-                    image_path=str(image_file),
-                    output_dir=output_dir,
-                    window_width=window_width,
-                    window_height=window_height,
-                    overlap_x=overlap_x,
-                    overlap_y=overlap_y
-                )
+            num_workers = min(multiprocessing.cpu_count(), len(image_files))
+            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+                future_to_img = {
+                    executor.submit(
+                        self._crop_single_image_task, 
+                        image_file, output_dir, window_width, window_height, overlap_x, overlap_y
+                    ): image_file for image_file in image_files
+                }
                 
-                if result['success']:
-                    results.append(result)
-                    total_crops += result['crops_count']
-                    processed_count += 1
-                else:
-                    failed_count += 1
-                    errors.append(f"{image_file.name}: {result['error']}")
+                for future in concurrent.futures.as_completed(future_to_img):
+                    image_file = future_to_img[future]
+                    try:
+                        result = future.result()
+                        if result['success']:
+                            results.append(result)
+                            total_crops += result['crops_count']
+                            processed_count += 1
+                        else:
+                            failed_count += 1
+                            errors.append(f"{image_file.name}: {result['error']}")
+                    except Exception as e:
+                        failed_count += 1
+                        errors.append(f"{image_file.name}: {str(e)}")
+                    
+                    if progress_callback:
+                        progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
             
             return {
                 'success': True,

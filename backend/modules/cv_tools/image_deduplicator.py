@@ -9,6 +9,8 @@ from PIL import Image
 import imagehash
 from collections import defaultdict
 from typing import List, Dict, Tuple, Optional
+import concurrent.futures
+import multiprocessing
 
 
 class ImageDeduplicator:
@@ -26,6 +28,30 @@ class ImageDeduplicator:
         """
         self.hash_size = hash_size
         self.supported_formats = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
+
+    @staticmethod
+    def _calculate_hash_task(file_path: str, hash_algorithm: str, use_md5: bool, hash_size: int) -> Tuple[str, Optional[str]]:
+        """Helper task for multiprocessing to calculate hash of a single file"""
+        try:
+            if use_md5:
+                with open(file_path, 'rb') as f:
+                    return file_path, hashlib.md5(f.read()).hexdigest()
+            else:
+                img = Image.open(file_path)
+                if hash_algorithm == 'average':
+                    img_hash = imagehash.average_hash(img, hash_size=hash_size)
+                elif hash_algorithm == 'perceptual':
+                    img_hash = imagehash.phash(img, hash_size=hash_size)
+                elif hash_algorithm == 'difference':
+                    img_hash = imagehash.dhash(img, hash_size=hash_size)
+                elif hash_algorithm == 'wavelet':
+                    img_hash = imagehash.whash(img, hash_size=hash_size)
+                else:
+                    return file_path, None
+                return file_path, str(img_hash)
+        except Exception as e:
+            print(f"Error processing {file_path}: {str(e)}")
+            return file_path, None
 
     def calculate_hash(self, image_path: str, hash_algorithm: str = 'average') -> Optional[str]:
         """
@@ -78,15 +104,17 @@ class ImageDeduplicator:
                        folder_path: str, 
                        hash_algorithm: str = 'average',
                        use_md5: bool = False,
-                       similarity_threshold: int = 5) -> Dict[str, List[str]]:
+                       similarity_threshold: int = 5,
+                       progress_callback=None) -> Dict[str, List[str]]:
         """
-        Find duplicate images in a folder.
+        Find duplicate images in a folder using multiprocessing.
         
         Args:
             folder_path: Path to the folder containing images
             hash_algorithm: Hash algorithm to use for perceptual hashing
             use_md5: If True, use MD5 for exact duplicates; if False, use perceptual hashing
             similarity_threshold: Maximum hamming distance for considering images as duplicates (for perceptual hash)
+            progress_callback: Optional callback(current, total, message)
             
         Returns:
             Dictionary mapping hash values to list of image paths with that hash
@@ -94,37 +122,52 @@ class ImageDeduplicator:
         if not os.path.exists(folder_path):
             raise ValueError(f"Folder not found: {folder_path}")
         
+        # Collect all image files
+        image_files = []
+        for root, dirs, files in os.walk(folder_path):
+            for filename in files:
+                ext = os.path.splitext(filename)[1].lower()
+                if ext in self.supported_formats:
+                    image_files.append(os.path.join(root, filename))
+        
+        total_files = len(image_files)
+        if total_files == 0:
+            return {}
+
         hash_map = defaultdict(list)
         processed = 0
         errors = 0
         
-        print(f"🔍 Scanning folder: {folder_path}")
+        print(f"🔍 Scanning folder: {folder_path} ({total_files} images)")
         print(f"Algorithm: {'MD5 (exact)' if use_md5 else f'{hash_algorithm} hash (similarity)'}")
         
-        # Walk through all files in the folder
-        for root, dirs, files in os.walk(folder_path):
-            for filename in files:
-                file_path = os.path.join(root, filename)
-                ext = os.path.splitext(filename)[1].lower()
-                
-                # Check if file is a supported image format
-                if ext not in self.supported_formats:
-                    continue
-                
-                # Calculate hash
-                if use_md5:
-                    file_hash = self.calculate_md5(file_path)
-                else:
-                    file_hash = self.calculate_hash(file_path, hash_algorithm)
+        # Multi-processing for hash calculation
+        num_workers = min(multiprocessing.cpu_count(), total_files)
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+            future_to_file = {
+                executor.submit(
+                    self._calculate_hash_task, 
+                    file_path, 
+                    hash_algorithm, 
+                    use_md5, 
+                    self.hash_size
+                ): file_path for file_path in image_files
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                file_path, file_hash = future.result()
+                processed += 1
                 
                 if file_hash:
                     hash_map[file_hash].append(file_path)
-                    processed += 1
                 else:
                     errors += 1
                 
+                if progress_callback and processed % 10 == 0:
+                    progress_callback(processed, total_files, f"Computed hash for {os.path.basename(file_path)}")
+                
                 if processed % 100 == 0:
-                    print(f"Processed {processed} images...")
+                    print(f"Processed {processed}/{total_files} images...")
         
         print(f"✅ Processed {processed} images, {errors} errors")
         
@@ -133,6 +176,8 @@ class ImageDeduplicator:
         
         # For perceptual hashing, also check for similar hashes
         if not use_md5 and similarity_threshold > 0:
+            # Similar hashes logic (hamming distance) might still be a bit slow if hash_map is huge,
+            # but usually duplicates are fewer.
             duplicates = self._find_similar_hashes(hash_map, similarity_threshold)
         
         return duplicates

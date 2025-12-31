@@ -860,23 +860,64 @@ def find_duplicates():
                 'error': f'Path is not a directory: {folder_path}'
             }), 400
         
-        # Create deduplicator
-        deduplicator = ImageDeduplicator()
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        # Find duplicates
-        duplicates = deduplicator.find_duplicates(
-            folder_path=folder_path,
-            hash_algorithm=hash_algorithm,
-            use_md5=use_md5,
-            similarity_threshold=similarity_threshold
-        )
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Scanning for duplicates...',
+            'result': None
+        }
         
-        # Generate report
-        report = deduplicator.get_duplicate_report(duplicates)
+        def run_deduplication():
+            try:
+                # Create deduplicator
+                deduplicator = ImageDeduplicator()
+                
+                def progress_callback(current, total, message):
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+                
+                # Find duplicates
+                duplicates = deduplicator.find_duplicates(
+                    folder_path=folder_path,
+                    hash_algorithm=hash_algorithm,
+                    use_md5=use_md5,
+                    similarity_threshold=similarity_threshold,
+                    progress_callback=progress_callback
+                )
+                
+                # Generate report
+                report = deduplicator.get_duplicate_report(duplicates)
+                
+                # Update task status
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Scan completed',
+                    'result': {'report': report}
+                })
+                
+            except Exception as e:
+                TASK_PROGRESS[task_id].update({
+                    'status': 'error',
+                    'error': str(e)
+                })
+
+        # Start thread
+        thread = threading.Thread(target=run_deduplication)
+        thread.start()
         
         return jsonify({
             'success': True,
-            'report': report
+            'task_id': task_id,
+            'status': 'started'
         })
         
     except Exception as e:
@@ -1183,13 +1224,59 @@ def augment_dataset():
                 'error': f'Annotations directory does not exist: {data["annotations_dir"]}'
             }), 400
         
-        # Create augmentor
-        augmentor = DataAugmentor()
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        # Perform augmentation
-        result = augmentor.augment_dataset(data)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting augmentation...',
+            'result': None
+        }
         
-        return jsonify(result)
+        def run_augmentation():
+            try:
+                # Create augmentor
+                augmentor = DataAugmentor()
+                
+                def progress_callback(current, total, message):
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+                
+                # Perform augmentation
+                result = augmentor.augment_dataset(
+                    config=data,
+                    progress_callback=progress_callback
+                )
+                
+                # Update task status
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Augmentation completed',
+                    'result': result
+                })
+                
+            except Exception as e:
+                TASK_PROGRESS[task_id].update({
+                    'status': 'error',
+                    'error': str(e)
+                })
+
+        # Start thread
+        thread = threading.Thread(target=run_augmentation)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
         
     except Exception as e:
         return jsonify({

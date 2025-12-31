@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import ProgressBar from '../common/ProgressBar.js';
 import { basename } from '../../utils/path.js';
 
-const { createElement: e, useState: useStateHook } = React;
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
 export default function DeduplicatorTool() {
     const [folderPath, setFolderPath] = useState('');
@@ -13,13 +14,55 @@ export default function DeduplicatorTool() {
     const [dryRun, setDryRun] = useState(true);
 
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressMessage, setProgressMessage] = useState('');
     const [report, setReport] = useState(null);
     const [removeResult, setRemoveResult] = useState(null);
+    const pollTimer = useRef(null);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (pollTimer.current) clearInterval(pollTimer.current);
+        };
+    }, []);
+
+    const pollTask = (taskId) => {
+        pollTimer.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/progress/${taskId}`);
+                if (res.status === 404) {
+                    clearInterval(pollTimer.current);
+                    return;
+                }
+                const data = await res.json();
+
+                setProgress(data.progress);
+                setProgressMessage(data.message);
+
+                if (data.status === 'completed') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setReport(data.result.report);
+                } else if (data.status === 'error') {
+                    clearInterval(pollTimer.current);
+                    setLoading(false);
+                    setReport({ error: data.error });
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+                clearInterval(pollTimer.current);
+                setLoading(false);
+            }
+        }, 500);
+    };
 
     const handleFindDuplicates = async () => {
         setLoading(true);
         setReport(null);
         setRemoveResult(null);
+        setProgress(0);
+        setProgressMessage('Starting scan...');
 
         try {
             const response = await fetch('/api/find-duplicates', {
@@ -34,14 +77,18 @@ export default function DeduplicatorTool() {
             });
 
             const data = await response.json();
-            if (data.success) {
+            if (data.success && data.task_id) {
+                pollTask(data.task_id);
+            } else if (data.success) {
+                // Should not happen with new API but for safety
                 setReport(data.report);
+                setLoading(false);
             } else {
                 setReport({ error: data.error });
+                setLoading(false);
             }
         } catch (error) {
             setReport({ error: error.message });
-        } finally {
             setLoading(false);
         }
     };
@@ -150,6 +197,9 @@ export default function DeduplicatorTool() {
                 '使用 MD5 精确匹配 (仅检测完全相同的文件)'
             )
         ),
+
+        // Progress Bar
+        loading && e(ProgressBar, { progress, message: progressMessage }),
 
         // Find Button
         e('button',
