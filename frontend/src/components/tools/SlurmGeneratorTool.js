@@ -11,22 +11,36 @@ export default function SlurmGeneratorTool() {
     const [batch, setBatch] = useState(24);
     const [project, setProject] = useState('runs/train');
     const [name, setName] = useState('baseline');
+    const [mode, setMode] = useState('train');
+    const [exportFormat, setExportFormat] = useState('torchscript');
+    const [half, setHalf] = useState(true);
+    const [device, setDevice] = useState('0');
     const [command, setCommand] = useState('');
     const [copied, setCopied] = useState(false);
     const [showReference, setShowReference] = useState(false);
 
     useEffect(() => {
-        let cmd = `subyolo ${task} train`;
-        if (data) cmd += ` data="${data}"`;
-        if (model) cmd += ` model=${model}`;
-        if (epochs) cmd += ` epochs=${epochs}`;
-        if (imgsz) cmd += ` imgsz=${imgsz}`;
-        if (batch) cmd += ` batch=${batch}`;
-        if (project) cmd += ` project="${project}"`;
-        if (name) cmd += ` name="${name}"`;
+        let cmd = `subyolo ${task}`;
+
+        if (mode === 'train') {
+            cmd += ' train';
+            if (data) cmd += ` data="${data}"`;
+            if (model) cmd += ` model=${model}`;
+            if (epochs) cmd += ` epochs=${epochs}`;
+            if (imgsz) cmd += ` imgsz=${imgsz}`;
+            if (batch) cmd += ` batch=${batch}`;
+            if (project) cmd += ` project="${project}"`;
+            if (name) cmd += ` name="${name}"`;
+        } else {
+            cmd += ' export';
+            if (model) cmd += ` model=${model}`;
+            if (exportFormat) cmd += ` format=${exportFormat}`;
+            if (half) cmd += ` half=True`;
+            if (device !== undefined && device !== '') cmd += ` device=${device}`;
+        }
 
         setCommand(cmd);
-    }, [task, data, model, epochs, imgsz, batch, project, name]);
+    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(command);
@@ -96,6 +110,19 @@ export default function SlurmGeneratorTool() {
                     gap: 'var(--spacing-md)'
                 }
             },
+            // Operation Mode
+            e('div', { style: groupStyle },
+                e('label', { style: labelStyle }, '运行模式 (Mode)'),
+                e('select',
+                    {
+                        value: mode,
+                        onChange: (e) => setMode(e.target.value),
+                        style: { ...inputStyle, cursor: 'pointer', border: '1px solid var(--primary-blue)' }
+                    },
+                    e('option', { value: 'train' }, 'Train (训练)'),
+                    e('option', { value: 'export' }, 'Export (导出)')
+                )
+            ),
             // Task
             e('div', { style: groupStyle },
                 e('label', { style: labelStyle }, '任务类型 (Task)'),
@@ -109,76 +136,118 @@ export default function SlurmGeneratorTool() {
                     e('option', { value: 'segment' }, 'Segment (实例分割)')
                 )
             ),
-            // Model
+            // Model / best.pt
             e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '模型 (Model)'),
+                e('label', { style: labelStyle }, mode === 'train' ? '模型 (Model)' : '权重路径 (model: best.pt)'),
                 e('input', {
                     type: 'text',
                     value: model,
                     onChange: (e) => setModel(e.target.value),
-                    placeholder: 'yolo11m.pt',
+                    placeholder: mode === 'train' ? 'yolo11m.pt' : 'runs/train/baseline/weights/best.pt',
                     style: inputStyle
                 })
             ),
-            // Epochs
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '训练轮数 (Epochs)'),
-                e('input', {
-                    type: 'number',
-                    value: epochs,
-                    onChange: (e) => setEpochs(e.target.value),
-                    placeholder: '150',
-                    style: inputStyle
-                })
-            ),
-            // Imgsz
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '图像尺寸 (Imgsz)'),
-                e('input', {
-                    type: 'number',
-                    value: imgsz,
-                    onChange: (e) => setImgsz(e.target.value),
-                    placeholder: '800',
-                    style: inputStyle
-                })
-            ),
-            // Batch
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '批次大小 (Batch)'),
-                e('input', {
-                    type: 'number',
-                    value: batch,
-                    onChange: (e) => setBatch(e.target.value),
-                    placeholder: '24',
-                    style: inputStyle
-                })
-            ),
-            // Name
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '任务名称 (Name)'),
-                e('input', {
-                    type: 'text',
-                    value: name,
-                    onChange: (e) => setName(e.target.value),
-                    placeholder: 'baseline',
-                    style: inputStyle
-                })
-            ),
-            // Project
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '项目路径 (Project)'),
-                e('input', {
-                    type: 'text',
-                    value: project,
-                    onChange: (e) => setProject(e.target.value),
-                    placeholder: 'runs/train',
-                    style: inputStyle
-                })
-            )
+            // Conditionally render fields based on mode
+            ...(mode === 'train' ? [
+                // Epochs
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '训练轮数 (Epochs)'),
+                    e('input', {
+                        type: 'number',
+                        value: epochs,
+                        onChange: (e) => setEpochs(e.target.value),
+                        placeholder: '150',
+                        style: inputStyle
+                    })
+                ),
+                // Imgsz
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '图像尺寸 (Imgsz)'),
+                    e('input', {
+                        type: 'number',
+                        value: imgsz,
+                        onChange: (e) => setImgsz(e.target.value),
+                        placeholder: '800',
+                        style: inputStyle
+                    })
+                ),
+                // Batch
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '批次大小 (Batch)'),
+                    e('input', {
+                        type: 'number',
+                        value: batch,
+                        onChange: (e) => setBatch(e.target.value),
+                        placeholder: '24',
+                        style: inputStyle
+                    })
+                ),
+                // Name
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '任务名称 (Name)'),
+                    e('input', {
+                        type: 'text',
+                        value: name,
+                        onChange: (e) => setName(e.target.value),
+                        placeholder: 'baseline',
+                        style: inputStyle
+                    })
+                ),
+                // Project
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '项目路径 (Project)'),
+                    e('input', {
+                        type: 'text',
+                        value: project,
+                        onChange: (e) => setProject(e.target.value),
+                        placeholder: 'runs/train',
+                        style: inputStyle
+                    })
+                )
+            ] : [
+                // Export Format
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '导出格式 (Format)'),
+                    e('select',
+                        {
+                            value: exportFormat,
+                            onChange: (e) => setExportFormat(e.target.value),
+                            style: { ...inputStyle, cursor: 'pointer' }
+                        },
+                        e('option', { value: 'torchscript' }, 'TorchScript'),
+                        e('option', { value: 'onnx' }, 'ONNX'),
+                        e('option', { value: 'engine' }, 'TensorRT (Engine)')
+                    )
+                ),
+                // Half Precision
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '半精度 (half=True)'),
+                    e('select',
+                        {
+                            value: half.toString(),
+                            onChange: (e) => setHalf(e.target.value === 'true'),
+                            style: { ...inputStyle, cursor: 'pointer' }
+                        },
+                        e('option', { value: 'true' }, 'True'),
+                        e('option', { value: 'false' }, 'False')
+                    )
+                ),
+                // Device
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '设备 ID (Device)'),
+                    e('input', {
+                        type: 'text',
+                        value: device,
+                        onChange: (e) => setDevice(e.target.value),
+                        placeholder: '0',
+                        style: inputStyle
+                    })
+                )
+            ])
         ),
 
-        // Data Path (Full Width)
-        e('div', { style: groupStyle },
+        // Data Path (Full Width) - Only for Train mode
+        mode === 'train' && e('div', { style: groupStyle },
             e('label', { style: labelStyle }, '📂 数据配置文件路径 (Data YAML)'),
             e('div', { style: { position: 'relative' } },
                 e('input', {
