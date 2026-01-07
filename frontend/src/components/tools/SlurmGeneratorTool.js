@@ -9,7 +9,7 @@ export default function SlurmGeneratorTool() {
     const [epochs, setEpochs] = useState(150);
     const [imgsz, setImgsz] = useState(800);
     const [batch, setBatch] = useState(24);
-    const [project, setProject] = useState('runs/train');
+    const [project, setProject] = useState('/runs/train');
     const [name, setName] = useState('baseline');
     const [mode, setMode] = useState('train');
     const [exportFormat, setExportFormat] = useState('torchscript');
@@ -66,6 +66,30 @@ export default function SlurmGeneratorTool() {
         navigator.clipboard.writeText(command);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDataChange = (e) => {
+        const val = e.target.value;
+        setData(val);
+
+        // Auto-populate Project and Name if path contains '/dataset/'
+        if (val && val.includes('/dataset/')) {
+            // Extract base path (content before /dataset/)
+            const parts = val.split('/dataset/');
+            const basePath = parts[0];
+
+            // Determine suffix based on mode
+            let suffix = 'runs/train';
+            if (mode === 'val') suffix = 'runs/val';
+            else if (mode === 'predict') suffix = 'runs/predict';
+
+            setProject(`${basePath}/${suffix}`);
+
+            // Extract filename for Name field (dataset + _ + filename)
+            const fileNameWithExt = val.split('/').pop();
+            const fileName = fileNameWithExt.replace('.yaml', '').replace('.yml', '');
+            setName(fileName);
+        }
     };
 
     const inputStyle = {
@@ -139,9 +163,9 @@ export default function SlurmGeneratorTool() {
                         onChange: (e) => {
                             setMode(e.target.value);
                             // Auto-adjust project path based on mode
-                            if (e.target.value === 'train') setProject('runs/train');
-                            else if (e.target.value === 'val') setProject('runs/val');
-                            else if (e.target.value === 'predict') setProject('runs/predict');
+                            if (e.target.value === 'train') setProject('/runs/train');
+                            else if (e.target.value === 'val') setProject('/runs/val');
+                            else if (e.target.value === 'predict') setProject('/runs/predict');
                         },
                         style: { ...inputStyle, cursor: 'pointer', border: '1px solid var(--primary-blue)' }
                     },
@@ -221,17 +245,7 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 ),
-                // Project
-                e('div', { style: groupStyle },
-                    e('label', { style: labelStyle }, '项目路径 (Project)'),
-                    e('input', {
-                        type: 'text',
-                        value: project,
-                        onChange: (e) => setProject(e.target.value),
-                        placeholder: mode === 'train' ? 'runs/train' : 'runs/val',
-                        style: inputStyle
-                    })
-                ),
+
                 // Device (Val only here, Train uses default but could show it)
                 mode === 'val' && e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '设备 ID (Device)'),
@@ -277,17 +291,7 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 ),
-                // Project
-                e('div', { style: groupStyle },
-                    e('label', { style: labelStyle }, '项目路径 (Project)'),
-                    e('input', {
-                        type: 'text',
-                        value: project,
-                        onChange: (e) => setProject(e.target.value),
-                        placeholder: 'runs/predict',
-                        style: inputStyle
-                    })
-                ),
+
                 // Save Txt
                 e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '保存标签 (save_txt)'),
@@ -354,6 +358,31 @@ export default function SlurmGeneratorTool() {
             ]))
         ),
 
+        // Project Path (Full Width) - For Train, Val, Predict
+        mode !== 'export' && e('div', { style: groupStyle },
+            e('label', { style: labelStyle }, '📂 项目路径 (Project)'),
+            e('div', { style: { position: 'relative' } },
+                e('input', {
+                    type: 'text',
+                    value: project,
+                    onChange: (e) => setProject(e.target.value),
+                    placeholder: '/runs/train',
+                    style: { ...inputStyle, paddingRight: '40px' }
+                }),
+                e('span', {
+                    style: {
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '1.2rem',
+                        pointerEvents: 'none',
+                        opacity: 0.5
+                    }
+                }, '📂')
+            )
+        ),
+
         // Data Path (Full Width) - Only for Train mode
         mode === 'train' && e('div', { style: groupStyle },
             e('label', { style: labelStyle }, '📂 数据配置文件路径 (Data YAML)'),
@@ -361,7 +390,7 @@ export default function SlurmGeneratorTool() {
                 e('input', {
                     type: 'text',
                     value: data,
-                    onChange: (e) => setData(e.target.value),
+                    onChange: handleDataChange,
                     placeholder: '/mnt/usrhome/sk/ndata/TFDS/dataset/baseline.yaml',
                     style: { ...inputStyle, paddingRight: '40px' }
                 }),
