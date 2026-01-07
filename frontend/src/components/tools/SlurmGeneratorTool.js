@@ -6,7 +6,7 @@ export default function SlurmGeneratorTool() {
     const [task, setTask] = useState('detect');
     const [data, setData] = useState('');
     const [model, setModel] = useState('yolo11m.pt');
-    const [epochs, setEpochs] = useState(150);
+    const [epochs, setEpochs] = useState(200);
     const [imgsz, setImgsz] = useState(800);
     const [batch, setBatch] = useState(24);
     const [project, setProject] = useState('/runs/train');
@@ -20,6 +20,20 @@ export default function SlurmGeneratorTool() {
     const [command, setCommand] = useState('');
     const [copied, setCopied] = useState(false);
     const [showReference, setShowReference] = useState(false);
+
+    // SubFP Mode States
+    const [inputList, setInputList] = useState('imageFolders.txt');
+    const [inputBase, setInputBase] = useState('');
+    const [handler, setHandler] = useState('tv');
+    const [conf, setConf] = useState(0.25);
+    const [iou, setIoU] = useState(0.5);
+    const [classes, setClasses] = useState('');
+    const [view, setView] = useState('L1,L2,L3,L4,L5');
+    const [saveDir, setSaveDir] = useState('');
+    const [fpTxt, setFpTxt] = useState(false);
+    const [fpPlot, setFpPlot] = useState(false);
+    const [fpSource, setFpSource] = useState(false);
+    const [fpCsv, setFpCsv] = useState(false);
 
     useEffect(() => {
         let cmd = `subyolo ${task}`;
@@ -51,6 +65,23 @@ export default function SlurmGeneratorTool() {
             if (name) cmd += ` name="${name}"`;
             if (saveTxt) cmd += ` save_txt=True`;
             if (device !== undefined && device !== '') cmd += ` device=${device}`;
+        } else if (mode === 'subfp') {
+            cmd = 'subfp';
+            if (inputList) cmd += ` --input_list ${inputList}`;
+            if (inputBase) cmd += ` --input_base ${inputBase}`;
+            if (handler) cmd += ` --handler ${handler}`;
+            if (model) cmd += ` --weights ${model}`; // Reusing model state for weights
+            if (imgsz) cmd += ` --imgsz ${imgsz}`;
+            if (conf !== undefined && conf !== '') cmd += ` --conf ${conf}`;
+            if (iou !== undefined && iou !== '') cmd += ` --iou ${iou}`;
+            if (classes) cmd += ` --classes ${classes}`;
+            if (view) cmd += ` --view ${view}`;
+            if (saveDir) cmd += ` --save_dir ${saveDir}`;
+
+            if (fpTxt) cmd += ` --txt True`;
+            if (fpPlot) cmd += ` --plot True`;
+            if (fpSource) cmd += ` --source True`;
+            if (fpCsv) cmd += ` --csv True`;
         } else {
             cmd += ' export';
             if (model) cmd += ` model=${model}`;
@@ -60,7 +91,24 @@ export default function SlurmGeneratorTool() {
         }
 
         setCommand(cmd);
-    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device, source, saveTxt]);
+    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device, source, saveTxt,
+        inputList, inputBase, handler, conf, iou, classes, view, saveDir, fpTxt, fpPlot, fpSource, fpCsv]);
+
+    const handleSubfpPreset = (type) => {
+        if (type === 'false_alarm') {
+            // 压误报: All 4 True
+            setFpTxt(true);
+            setFpPlot(true);
+            setFpSource(true);
+            setFpCsv(true);
+        } else if (type === 'threshold') {
+            // 测阈值: Only CSV True
+            setFpTxt(false);
+            setFpPlot(false);
+            setFpSource(false);
+            setFpCsv(true);
+        }
+    };
 
     const handleCopy = () => {
         navigator.clipboard.writeText(command);
@@ -163,20 +211,33 @@ export default function SlurmGeneratorTool() {
                         onChange: (e) => {
                             setMode(e.target.value);
                             // Auto-adjust project path based on mode
-                            if (e.target.value === 'train') setProject('/runs/train');
-                            else if (e.target.value === 'val') setProject('/runs/val');
-                            else if (e.target.value === 'predict') setProject('/runs/predict');
+                            if (e.target.value === 'train') {
+                                setProject('/runs/train');
+                                setModel('yolo11m.pt');
+                            }
+                            else if (e.target.value === 'val') {
+                                setProject('/runs/val');
+                                setModel('');
+                            }
+                            else if (e.target.value === 'predict') {
+                                setProject('/runs/predict');
+                                setModel('');
+                            }
+                            else if (e.target.value === 'export') setModel('');
+                            else if (e.target.value === 'subfp') setModel('');
                         },
                         style: { ...inputStyle, cursor: 'pointer', border: '1px solid var(--primary-blue)' }
                     },
                     e('option', { value: 'train' }, 'Train (训练)'),
                     e('option', { value: 'val' }, 'Val (验证)'),
+
                     e('option', { value: 'predict' }, 'Predict (推理)'),
-                    e('option', { value: 'export' }, 'Export (导出)')
+                    e('option', { value: 'export' }, 'Export (导出)'),
+                    e('option', { value: 'subfp' }, 'SubFP (压误报/测阈值)')
                 )
             ),
             // Task
-            e('div', { style: groupStyle },
+            mode !== 'subfp' && e('div', { style: groupStyle },
                 e('label', { style: labelStyle }, '任务类型 (Task)'),
                 e('select',
                     {
@@ -188,14 +249,14 @@ export default function SlurmGeneratorTool() {
                     e('option', { value: 'segment' }, 'Segment (实例分割)')
                 )
             ),
-            // Model / best.pt
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, mode === 'train' ? '模型 (Model)' : '权重路径 (model: best.pt)'),
+            // Model / best.pt / weights
+            e('div', { style: ['subfp', 'val', 'predict', 'export'].includes(mode) ? { ...groupStyle, gridColumn: '1 / -1' } : groupStyle },
+                e('label', { style: labelStyle }, mode === 'train' ? '模型 (Model)' : (mode === 'subfp' ? '权重 (Weights)' : '权重路径 (model: best.pt)')),
                 e('input', {
                     type: 'text',
                     value: model,
                     onChange: (e) => setModel(e.target.value),
-                    placeholder: mode === 'train' ? 'yolo11m.pt' : 'runs/train/baseline/weights/best.pt',
+                    placeholder: mode === 'train' ? 'yolo11m.pt' : (mode === 'subfp' ? '.torchscript' : 'runs/train/baseline/weights/best.pt'),
                     style: inputStyle
                 })
             ),
@@ -208,7 +269,7 @@ export default function SlurmGeneratorTool() {
                         type: 'number',
                         value: epochs,
                         onChange: (e) => setEpochs(e.target.value),
-                        placeholder: '150',
+                        placeholder: '200',
                         style: inputStyle
                     })
                 ),
@@ -316,6 +377,140 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 )
+            ] : (mode === 'subfp' ? [
+                // Input List
+                e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                    e('label', { style: labelStyle }, '输入列表 (Input List)'),
+                    e('input', {
+                        type: 'text',
+                        value: inputList,
+                        onChange: (e) => setInputList(e.target.value),
+                        placeholder: 'imageFolders.txt',
+                        style: inputStyle
+                    })
+                ),
+                // Input Base
+                e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                    e('label', { style: labelStyle }, '路径前缀 (Input Base)'),
+                    e('input', {
+                        type: 'text',
+                        value: inputBase,
+                        onChange: (e) => setInputBase(e.target.value),
+                        placeholder: '/mnt/projects/tv/TV/训练测试/普客/',
+                        style: inputStyle
+                    })
+                ),
+                // Save Dir (Moved here)
+                e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                    e('label', { style: labelStyle }, '保存目录 (Save Dir)'),
+                    e('input', {
+                        type: 'text',
+                        value: saveDir,
+                        onChange: (e) => setSaveDir(e.target.value),
+                        placeholder: '结果默认保存在.torchscrit同级目录中',
+                        style: inputStyle
+                    })
+                ),
+                // Handler
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '处理类型 (Handler)'),
+                    e('select',
+                        {
+                            value: handler,
+                            onChange: (e) => setHandler(e.target.value),
+                            style: { ...inputStyle, cursor: 'pointer' }
+                        },
+                        e('option', { value: 'tv' }, 'tv'),
+                        e('option', { value: 'tf' }, 'tf')
+                    )
+                ),
+                // Imgsz
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '图像尺寸 (Imgsz)'),
+                    e('input', {
+                        type: 'number',
+                        value: imgsz,
+                        onChange: (e) => setImgsz(e.target.value),
+                        placeholder: '800',
+                        style: inputStyle
+                    })
+                ),
+                // Conf
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '置信度 (Conf)'),
+                    e('input', {
+                        type: 'number',
+                        value: conf,
+                        onChange: (e) => setConf(e.target.value),
+                        step: '0.01',
+                        placeholder: '0.25',
+                        style: inputStyle
+                    })
+                ),
+                // IoU
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, 'IoU 阈值'),
+                    e('input', {
+                        type: 'number',
+                        value: iou,
+                        onChange: (e) => setIoU(e.target.value),
+                        step: '0.01',
+                        placeholder: '0.5',
+                        style: inputStyle
+                    })
+                ),
+                // Classes
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '类别 (Classes)'),
+                    e('input', {
+                        type: 'text',
+                        value: classes,
+                        onChange: (e) => setClasses(e.target.value),
+                        placeholder: 'Leave empty for all',
+                        style: inputStyle
+                    })
+                ),
+                // View
+                e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '视图 (View)'),
+                    e('input', {
+                        type: 'text',
+                        value: view,
+                        onChange: (e) => setView(e.target.value),
+                        placeholder: 'L1,L2,L3,L4,L5',
+                        style: inputStyle
+                    })
+                ),
+
+                // Presets Buttons
+                e('div', { style: { ...groupStyle, gridColumn: '1 / -1', marginTop: '10px' } },
+                    e('label', { style: labelStyle }, '快速预设 (Presets)'),
+                    e('div', { style: { display: 'flex', gap: '10px' } },
+                        e('button', {
+                            onClick: () => handleSubfpPreset('false_alarm'),
+                            style: { ...inputStyle, background: 'var(--primary-blue)', color: 'white', cursor: 'pointer', textAlign: 'center' }
+                        }, '🔍 压误报 (False Alarm)'),
+                        e('button', {
+                            onClick: () => handleSubfpPreset('threshold'),
+                            style: { ...inputStyle, background: 'var(--primary-blue)', color: 'white', cursor: 'pointer', textAlign: 'center' }
+                        }, '📊 测阈值 (Threshold)')
+                    )
+                ),
+                // Checkboxes
+                e('div', { style: { ...groupStyle, gridColumn: '1 / -1', display: 'flex', flexDirection: 'row', gap: '20px', flexWrap: 'wrap' } },
+                    e('label', { style: { display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px', color: 'var(--text-primary)' } },
+                        e('input', { type: 'checkbox', checked: fpTxt, onChange: (e) => setFpTxt(e.target.checked) }), 'txt'
+                    ),
+                    e('label', { style: { display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px', color: 'var(--text-primary)' } },
+                        e('input', { type: 'checkbox', checked: fpPlot, onChange: (e) => setFpPlot(e.target.checked) }), 'plot'
+                    ),
+                    e('label', { style: { display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px', color: 'var(--text-primary)' } },
+                        e('input', { type: 'checkbox', checked: fpSource, onChange: (e) => setFpSource(e.target.checked) }), 'source'
+                    ),
+                    e('label', { style: { display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '5px', color: 'var(--text-primary)' } },
+                        e('input', { type: 'checkbox', checked: fpCsv, onChange: (e) => setFpCsv(e.target.checked) }), 'csv'
+                    )
+                )
             ] : [
                 // Export Format
                 e('div', { style: groupStyle },
@@ -355,11 +550,11 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 )
-            ]))
+            ])))
         ),
 
         // Project Path (Full Width) - For Train, Val, Predict
-        mode !== 'export' && e('div', { style: groupStyle },
+        (mode !== 'export' && mode !== 'subfp') && e('div', { style: groupStyle },
             e('label', { style: labelStyle }, '📂 项目路径 (Project)'),
             e('div', { style: { position: 'relative' } },
                 e('input', {
