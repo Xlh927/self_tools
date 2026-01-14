@@ -8,6 +8,7 @@ from .annotation_visualizer import AnnotationVisualizer
 from .label_modifier import LabelModifier
 from .data_augmentor import DataAugmentor
 from .paper_grid_generator import PaperGridGenerator
+from .dataset_cleaner import DatasetCleaner
 
 __all__ = [
     'DatasetConverter',
@@ -20,4 +21,5 @@ __all__ = [
     'LabelModifier',
     'DataAugmentor',
     'PaperGridGenerator',
+    'DatasetCleaner',
 ]

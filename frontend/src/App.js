@@ -10,6 +10,7 @@ import LabelModifierTool from './components/tools/LabelModifierTool.js';
 import AugmentorTool from './components/tools/AugmentorTool.js';
 import GridGeneratorTool from './components/tools/GridGeneratorTool.js';
 import SlurmGeneratorTool from './components/tools/SlurmGeneratorTool.js';
+import CleanerTool from './components/tools/CleanerTool.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -91,6 +92,13 @@ const TOOLS = [
         icon: '🚀',
         description: '生成 YOLO 训练的 Slurm 提交命令',
         gradient: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
+    },
+    {
+        id: 'cleaner',
+        name: '数据集清洗',
+        icon: '🧹',
+        description: '筛选并移动无标注图像到背景目录',
+        gradient: 'linear-gradient(135deg, #7028e4 0%, #e5b2ca 100%)',
     },
 ];
 
@@ -767,7 +775,8 @@ function ToolWorkspace({ instanceId, toolId, resetKey, onClose, onReset, style }
             toolId === 'label-modifier' && e(LabelModifierTool, { key: resetKey }),
             toolId === 'augmentor' && e(AugmentorTool, { key: resetKey }),
             toolId === 'grid-generator' && e(GridGeneratorTool, { key: resetKey }),
-            toolId === 'slurm-generator' && e(SlurmGeneratorTool, { key: resetKey })
+            toolId === 'slurm-generator' && e(SlurmGeneratorTool, { key: resetKey }),
+            toolId === 'cleaner' && e(CleanerTool, { key: resetKey })
         )
     );
 }

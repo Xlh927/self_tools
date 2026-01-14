@@ -29,7 +29,8 @@ from modules.cv_tools import (
     AnnotationVisualizer,
     LabelModifier,
     DataAugmentor,
-    PaperGridGenerator
+    PaperGridGenerator,
+    DatasetCleaner
 )
 from modules.notes import notes_manager
 from modules.image_viewer import viewer_manager
@@ -764,20 +765,6 @@ def generate():
 def split():
     """
     Handle dataset splitting requests
-    
-    Expected JSON payload:
-    {
-        "format": "voc" or "yolo",
-        "format": "voc" or "yolo",
-        "images_dir": "path/to/images",
-        "annotations_dir": "path/to/annotations",
-        "output_dir": "path/to/output",
-        "train_ratio": 70,
-        "val_ratio": 20,
-        "test_ratio": 10,
-        "use_background": true,
-        "random_seed": 42
-    }
     """
     try:
         data = request.get_json()
@@ -791,12 +778,38 @@ def split():
                     'error': f'Missing required field: {field}'
                 }), 400
         
-        # Validate paths
-        if not os.path.exists(data['images_dir']):
+        splitter = DatasetSplitter()
+        result = splitter.split_dataset(data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/clean-dataset', methods=['POST'])
+def clean_dataset():
+    """
+    Handle dataset cleaning requests (moving unlabeled images to background)
+    """
+    try:
+        data = request.get_json()
+        
+        images_dir = data.get('images_dir')
+        labels_dir = data.get('labels_dir')
+        output_dir = data.get('output_dir')
+        dry_run = data.get('dry_run', False)
+        
+        if not images_dir or not labels_dir or not output_dir:
             return jsonify({
                 'success': False,
-                'error': f'Images directory does not exist: {data["images_dir"]}'
+                'error': 'Missing required fields: images_dir, labels_dir, or output_dir'
             }), 400
+            
+        cleaner = DatasetCleaner()
+        result = cleaner.clean(images_dir, labels_dir, output_dir, dry_run)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
         if not os.path.exists(data['annotations_dir']):
             return jsonify({
