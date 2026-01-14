@@ -40,9 +40,6 @@ class DevServerHandler(SimpleHTTPRequestHandler):
                 # Handle /cv-tools route
                 elif self.path == '/cv-tools':
                     self.path = '/cv-tools.html'
-                # Handle /notes route
-                elif self.path == '/notes':
-                    self.path = '/notes.html'
                 # Handle /image-viewer route
                 elif self.path == '/image-viewer':
                     self.path = '/image-viewer.html'

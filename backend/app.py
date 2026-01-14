@@ -32,7 +32,6 @@ from modules.cv_tools import (
     PaperGridGenerator,
     DatasetCleaner
 )
-from modules.notes import notes_manager
 from modules.image_viewer import viewer_manager
 from flask import send_file
 
@@ -70,12 +69,6 @@ def dashboard():
 def cv_tools():
     """Serve the CV Tools application"""
     return render_template('cv-tools.html')
-
-
-@app.route('/notes')
-def notes():
-    """Serve the Notes application"""
-    return render_template('notes.html')
 
 
 @app.route('/image-viewer')
@@ -1010,142 +1003,6 @@ def remove_duplicates():
             'success': False,
             'error': str(e)
         }), 500
-
-
-# ==================== NOTES API ROUTES ====================
-# notes_manager is imported at top level
-
-@app.route('/api/notes', methods=['GET'])
-def get_notes():
-    """Get all notes with optional filtering"""
-    try:
-        category = request.args.get('category')
-        search = request.args.get('search')
-        
-        notes = notes_manager.get_all_notes(category=category, search=search)
-        
-        return jsonify({
-            'success': True,
-            'notes': notes,
-            'count': len(notes)
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/notes/<note_id>', methods=['GET'])
-def get_note(note_id):
-    """Get a single note by ID"""
-    try:
-        note = notes_manager.get_note_by_id(note_id)
-        
-        if note:
-            return jsonify({
-                'success': True,
-                'note': note
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Note not found'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/notes', methods=['POST'])
-def create_note():
-    """Create a new note"""
-    try:
-        data = request.json
-        
-        title = data.get('title')
-        category = data.get('category', 'general')
-        command = data.get('command')
-        description = data.get('description', '')
-        tags = data.get('tags', [])
-        
-        if not title or not command:
-            return jsonify({
-                'success': False,
-                'error': 'Title and command are required'
-            }), 400
-        
-        note = notes_manager.create_note(
-            title=title,
-            category=category,
-            command=command,
-            description=description,
-            tags=tags
-        )
-        
-        return jsonify({
-            'success': True,
-            'note': note
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/notes/<note_id>', methods=['PUT'])
-def update_note(note_id):
-    """Update an existing note"""
-    try:
-        data = request.json
-        
-        note = notes_manager.update_note(note_id, **data)
-        
-        if note:
-            return jsonify({
-                'success': True,
-                'note': note
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Note not found'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/notes/<note_id>', methods=['DELETE'])
-def delete_note(note_id):
-    """Delete a note"""
-    try:
-        success = notes_manager.delete_note(note_id)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Note deleted successfully'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Note not found'
-            }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-
-
 
 
 @app.route('/api/scan-yolo-classes', methods=['POST'])
