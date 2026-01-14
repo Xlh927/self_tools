@@ -27,10 +27,12 @@ export default function ConverterTool() {
         if (normalized && !imagesDir && !outputDir) {
             const parentDir = getParentDir(normalized) || normalized;
             setImagesDir(joinPaths(parentDir, 'images'));
-            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
+            setOutputDir(joinPaths(parentDir, defaultOut));
         } else if (normalized && !outputDir) {
             const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
+            setOutputDir(joinPaths(parentDir, defaultOut));
         }
     }, [annotationsDir, conversionType]);
 
@@ -40,12 +42,14 @@ export default function ConverterTool() {
         if (normalized && !annotationsDir && !outputDir) {
             const parentDir = getParentDir(normalized) || normalized;
             // Try common annotation folder names
-            const possibleNames = ['annotations', 'labels', 'Annotations', 'Labels'];
+            const possibleNames = ['annotations', 'labels', 'Annotations', 'Labels', 'xml'];
             setAnnotationsDir(joinPaths(parentDir, possibleNames[0]));
-            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
+            setOutputDir(joinPaths(parentDir, defaultOut));
         } else if (normalized && !outputDir) {
             const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, `output_${conversionType}`));
+            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
+            setOutputDir(joinPaths(parentDir, defaultOut));
         }
     }, [imagesDir, conversionType]);
 
