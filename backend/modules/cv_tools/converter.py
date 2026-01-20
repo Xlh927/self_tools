@@ -312,8 +312,12 @@ class DatasetConverter:
                     
                     xmin = max(0, xmin); ymin = max(0, ymin); xmax = min(img_width, xmax); ymax = min(img_height, ymax)
                     
-                    if class_id >= len(classes): continue
-                    class_name = classes[class_id]
+                    # 如果classes列表为空，直接使用索引作为类别名
+                    if classes:
+                        if class_id >= len(classes): continue
+                        class_name = classes[class_id]
+                    else:
+                        class_name = str(class_id)
                     
                     obj = ET.SubElement(annotation, 'object')
                     ET.SubElement(obj, 'name').text = class_name
@@ -359,12 +363,11 @@ class DatasetConverter:
             elif classes_file and os.path.exists(classes_file):
                 with open(classes_file, 'r', encoding='utf-8') as f:
                     self.classes = [line.strip() for line in f if line.strip()]
+            # 如果没有提供类别信息，保持self.classes为空列表，后续将直接使用索引作为类别名
             elif not self.classes:
-                # 如果没有提供类别信息，使用默认命名
+                # 检查是否有标注文件
                 class_counts = self.scan_yolo_classes(yolo_txt_dir)
-                if class_counts:
-                    self.classes = [f'class_{i}' for i in range(max(class_counts.keys()) + 1)]
-                else:
+                if not class_counts:
                     return {
                         'success': False,
                         'error': 'No annotations found in YOLO files'

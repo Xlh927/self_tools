@@ -375,7 +375,7 @@ def convert():
                         yolo_txt_dir=annotations_dir,
                         images_dir=images_dir,
                         output_dir=output_dir,
-                        classes_file=classes_file,
+                        classes_file=classes_file if classes_file else None,
                         custom_classes=custom_classes,
                         progress_callback=progress_callback
                     )

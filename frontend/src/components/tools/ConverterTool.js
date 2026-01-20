@@ -360,7 +360,7 @@ export default function ConverterTool() {
             e('label', { className: 'input-label' },
                 '🏷️ 类别文件',
                 e('span', { style: { color: 'var(--text-tertiary)', marginLeft: '0.5rem', fontSize: '0.8rem' } },
-                    conversionType === 'yolo_to_voc' ? '(必填)' : '(可选，自动生成)'
+                    conversionType === 'yolo_to_voc' ? '(可选，留空使用索引)' : '(可选，自动生成)'
                 )
             ),
             e('input',
