@@ -5,7 +5,8 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from pathlib import Path
 import random
-
+import concurrent.futures
+from PIL import Image
 
 class AnnotationVisualizer:
     def __init__(self):
@@ -27,15 +28,17 @@ class AnnotationVisualizer:
         if not annotations_path.exists():
             return None
         
-        files = list(annotations_path.iterdir())
-        
-        for f in files:
+        # Check first few files
+        count = 0
+        for f in annotations_path.iterdir():
+            if count > 100: break # optimize
             if f.suffix.lower() == '.xml':
                 return 'voc'
-            elif f.suffix.lower() == '.txt':
+            elif f.suffix.lower() == '.txt' and f.name != 'classes.txt':
                 return 'yolo'
             elif f.suffix.lower() == '.json':
                 return 'json'
+            count += 1
         
         return None
     
@@ -53,11 +56,15 @@ class AnnotationVisualizer:
         try:
             if annotation_format == 'voc':
                 for xml_file in annotations_path.glob('*.xml'):
-                    tree = ET.parse(xml_file)
-                    root = tree.getroot()
-                    for obj in root.findall('object'):
-                        name = obj.find('name').text
-                        classes.add(name)
+                    try:
+                        tree = ET.parse(xml_file)
+                        root = tree.getroot()
+                        for obj in root.findall('object'):
+                            name_elem = obj.find('name')
+                            if name_elem is not None and name_elem.text:
+                                classes.add(name_elem.text)
+                    except:
+                        continue
             
             elif annotation_format == 'yolo':
                 # Try to find classes.txt
@@ -66,34 +73,58 @@ class AnnotationVisualizer:
                     classes_file = annotations_path / 'classes.txt'
                 
                 if classes_file.exists():
-                    with open(classes_file, 'r') as f:
+                    with open(classes_file, 'r', encoding='utf-8') as f:
                         classes = set(line.strip() for line in f if line.strip())
                 else:
                     # Return indices if no classes.txt found
                     max_class_id = -1
-                    for txt_file in annotations_path.glob('*.txt'):
-                        with open(txt_file, 'r') as f:
-                            for line in f:
-                                parts = line.strip().split()
-                                if parts:
-                                    class_id = int(parts[0])
-                                    max_class_id = max(max_class_id, class_id)
+                    files = list(annotations_path.glob('*.txt'))
+                    # Sample some files if too many
+                    if len(files) > 1000:
+                        files = files[:1000]
+                        
+                    for txt_file in files:
+                        try:
+                            with open(txt_file, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    parts = line.strip().split()
+                                    if parts:
+                                        class_id = int(parts[0])
+                                        max_class_id = max(max_class_id, class_id)
+                        except:
+                            continue
                     
                     if max_class_id >= 0:
                         classes = set(str(i) for i in range(max_class_id + 1))
             
             elif annotation_format == 'json':
-                for json_file in annotations_path.glob('*.json'):
-                    with open(json_file, 'r') as f:
-                        data = json.load(f)
-                        if 'shapes' in data:  # LabelMe format
-                            for shape in data['shapes']:
-                                classes.add(shape['label'])
+                files = list(annotations_path.glob('*.json'))
+                if len(files) > 1000: files = files[:1000]
+                
+                for json_file in files:
+                    try:
+                        with open(json_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            if 'shapes' in data:  # LabelMe format
+                                for shape in data['shapes']:
+                                    classes.add(shape['label'])
+                    except:
+                        continue
             
+            # Sort naturally
+            sorted_classes = sorted(list(classes))
+            
+            # Re-sort if they are all integers
+            try:
+                if all(c.isdigit() for c in sorted_classes):
+                    sorted_classes = sorted(sorted_classes, key=int)
+            except:
+                pass
+                
             return {
                 'success': True,
                 'format': annotation_format,
-                'classes': sorted(list(classes))
+                'classes': sorted_classes
             }
         
         except Exception as e:
@@ -109,32 +140,43 @@ class AnnotationVisualizer:
             name = obj.find('name').text
             bndbox = obj.find('bndbox')
             
-            xmin = int(float(bndbox.find('xmin').text))
-            ymin = int(float(bndbox.find('ymin').text))
-            xmax = int(float(bndbox.find('xmax').text))
-            ymax = int(float(bndbox.find('ymax').text))
-            
-            # Check for polygon/segmentation
-            polygon = obj.find('polygon')
-            if polygon is not None:
-                points = []
-                for pt in polygon.findall('pt'):
-                    x = int(float(pt.find('x').text))
-                    y = int(float(pt.find('y').text))
-                    points.append([x, y])
+            if bndbox is not None:
+                xmin = float(bndbox.find('xmin').text)
+                ymin = float(bndbox.find('ymin').text)
+                xmax = float(bndbox.find('xmax').text)
+                ymax = float(bndbox.find('ymax').text)
                 
-                annotations.append({
-                    'class': name,
-                    'type': 'polygon',
-                    'bbox': [xmin, ymin, xmax, ymax],
-                    'points': points
-                })
-            else:
                 annotations.append({
                     'class': name,
                     'type': 'bbox',
                     'bbox': [xmin, ymin, xmax, ymax]
                 })
+            
+            # Check for polygon/segmentation (uncommon in standard VOC but possible)
+            polygon = obj.find('polygon')
+            if polygon is not None:
+                points = []
+                for pt in polygon.findall('pt'):
+                    x = float(pt.find('x').text)
+                    y = float(pt.find('y').text)
+                    points.append([x, y])
+                
+                # If we have points, update the entry to include them
+                # Note: bndbox might not exist for some polygon formats, handle accordingly
+                # For now assume mixed
+                if len(annotations) > 0 and annotations[-1]['class'] == name:
+                    annotations[-1]['type'] = 'polygon'
+                    annotations[-1]['points'] = points
+                else:
+                    # Calculate bbox from points if missing
+                    xs = [p[0] for p in points]
+                    ys = [p[1] for p in points]
+                    annotations.append({
+                        'class': name,
+                        'type': 'polygon',
+                        'bbox': [min(xs), min(ys), max(xs), max(ys)],
+                        'points': points
+                    })
         
         return annotations
     
@@ -143,59 +185,67 @@ class AnnotationVisualizer:
         h, w = image_shape[:2]
         annotations = []
         
-        with open(txt_path, 'r') as f:
+        if not classes_list:
+            # Fallback to string indices if no classes provided
+            classes_list = [str(i) for i in range(1000)]
+            
+        with open(txt_path, 'r', encoding='utf-8') as f:
             for line in f:
                 parts = line.strip().split()
                 if not parts:
                     continue
                 
-                class_id = int(parts[0])
-                class_name = classes_list[class_id] if class_id < len(classes_list) else str(class_id)
-                
-                if len(parts) == 5:  # bbox format
-                    x_center, y_center, width, height = map(float, parts[1:5])
+                try:
+                    class_id = int(parts[0])
+                    class_name = classes_list[class_id] if class_id < len(classes_list) else str(class_id)
                     
-                    x_center *= w
-                    y_center *= h
-                    width *= w
-                    height *= h
+                    if len(parts) == 5:  # bbox format
+                        x_center, y_center, width, height = map(float, parts[1:5])
+                        
+                        x_center *= w
+                        y_center *= h
+                        width *= w
+                        height *= h
+                        
+                        xmin = x_center - width / 2
+                        ymin = y_center - height / 2
+                        xmax = x_center + width / 2
+                        ymax = y_center + height / 2
+                        
+                        annotations.append({
+                            'class': class_name,
+                            'type': 'bbox',
+                            'bbox': [xmin, ymin, xmax, ymax]
+                        })
                     
-                    xmin = int(x_center - width / 2)
-                    ymin = int(y_center - height / 2)
-                    xmax = int(x_center + width / 2)
-                    ymax = int(y_center + height / 2)
-                    
-                    annotations.append({
-                        'class': class_name,
-                        'type': 'bbox',
-                        'bbox': [xmin, ymin, xmax, ymax]
-                    })
-                
-                elif len(parts) > 5:  # segmentation format
-                    points = []
-                    for i in range(1, len(parts), 2):
-                        x = int(float(parts[i]) * w)
-                        y = int(float(parts[i + 1]) * h)
-                        points.append([x, y])
-                    
-                    # Calculate bbox from polygon
-                    xs = [p[0] for p in points]
-                    ys = [p[1] for p in points]
-                    xmin, xmax = min(xs), max(xs)
-                    ymin, ymax = min(ys), max(ys)
-                    
-                    annotations.append({
-                        'class': class_name,
-                        'type': 'polygon',
-                        'bbox': [xmin, ymin, xmax, ymax],
-                        'points': points
-                    })
+                    elif len(parts) > 5:  # segmentation format
+                        points = []
+                        for i in range(1, len(parts), 2):
+                            x = float(parts[i]) * w
+                            y = float(parts[i + 1]) * h
+                            points.append([x, y])
+                        
+                        # Calculate bbox from polygon
+                        xs = [p[0] for p in points]
+                        ys = [p[1] for p in points]
+                        xmin, xmax = min(xs), max(xs)
+                        ymin, ymax = min(ys), max(ys)
+                        
+                        annotations.append({
+                            'class': class_name,
+                            'type': 'polygon',
+                            'bbox': [xmin, ymin, xmax, ymax],
+                            'points': points
+                        })
+                except Exception as e:
+                    # Skip malformed lines
+                    continue
         
         return annotations
     
     def parse_json_annotation(self, json_path, image_shape):
         """Parse JSON annotation (LabelMe format)"""
-        with open(json_path, 'r') as f:
+        with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         annotations = []
@@ -203,14 +253,16 @@ class AnnotationVisualizer:
         if 'shapes' in data:
             for shape in data['shapes']:
                 label = shape['label']
-                shape_type = shape['shape_type']
+                shape_type = shape.get('shape_type', 'points') # default
                 points = shape['points']
+                
+                if not points: continue
                 
                 if shape_type == 'rectangle':
                     x1, y1 = points[0]
                     x2, y2 = points[1]
-                    xmin, xmax = int(min(x1, x2)), int(max(x1, x2))
-                    ymin, ymax = int(min(y1, y2)), int(max(y1, y2))
+                    xmin, xmax = min(x1, x2), max(x1, x2)
+                    ymin, ymax = min(y1, y2), max(y1, y2)
                     
                     annotations.append({
                         'class': label,
@@ -218,10 +270,9 @@ class AnnotationVisualizer:
                         'bbox': [xmin, ymin, xmax, ymax]
                     })
                 
-                elif shape_type == 'polygon':
-                    points_int = [[int(p[0]), int(p[1])] for p in points]
-                    xs = [p[0] for p in points_int]
-                    ys = [p[1] for p in points_int]
+                elif shape_type in ['polygon', 'points']:
+                    xs = [p[0] for p in points]
+                    ys = [p[1] for p in points]
                     xmin, xmax = min(xs), max(xs)
                     ymin, ymax = min(ys), max(ys)
                     
@@ -229,12 +280,177 @@ class AnnotationVisualizer:
                         'class': label,
                         'type': 'polygon',
                         'bbox': [xmin, ymin, xmax, ymax],
-                        'points': points_int
+                        'points': points
                     })
         
         return annotations
     
-    def visualize(self, config):
+    def _process_single_image(self, img_file, annotations_dir, output_dir, annotation_format, 
+                               all_classes, selected_classes, draw_mode, class_colors, box_thickness, text_size,
+                               rename_mode='none', rename_content='name'):
+        """Process a single image for visualization"""
+        try:
+            # Robust image reading
+            # ... (image reading code remains same, omitted for brevity in diff but must be preserved)
+            # Actually I need to be careful with replace_file_content context. 
+            # I will use the surrounding context to target the right place.
+            
+            # ... Image loading ...
+            try:
+                # First try cv2
+                image = cv2.imread(str(img_file))
+                if image is None:
+                    pil_img = Image.open(img_file)
+                    image = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            except Exception:
+                pil_img = Image.open(img_file)
+                if pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+                image = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            
+            if image is None:
+               return False, f"Failed to load image: {img_file.name}"
+            
+            h, w = image.shape[:2]
+            
+            # Find corresponding annotation
+            ann_file = None
+            if annotation_format == 'voc':
+                ann_file = annotations_dir / f"{img_file.stem}.xml"
+            elif annotation_format == 'yolo':
+                ann_file = annotations_dir / f"{img_file.stem}.txt"
+            elif annotation_format == 'json':
+                ann_file = annotations_dir / f"{img_file.stem}.json"
+            
+            # Determine initial output filename (default same as input)
+            output_filename = img_file.name
+            
+            if not ann_file or not ann_file.exists():
+                output_path = output_dir / output_filename
+                cv2.imwrite(str(output_path), image)
+                return True, None
+            
+            # Parse annotations
+            annotations = []
+            if annotation_format == 'voc':
+                annotations = self.parse_voc_annotation(ann_file, image.shape)
+            elif annotation_format == 'yolo':
+                annotations = self.parse_yolo_annotation(ann_file, image.shape, all_classes)
+            elif annotation_format == 'json':
+                annotations = self.parse_json_annotation(ann_file, image.shape)
+            
+            # Determine visualization parameters
+            # If valid box_thickness provided (>=1), use it. Else use dynamic.
+            if box_thickness and box_thickness > 0:
+                thickness = int(box_thickness)
+            else:
+                scale_factor = max(w, h) / 1000.0
+                thickness = max(1, int(scale_factor))
+            
+            # If valid text_size provided (>=1), use it as level (size/10). Else use dynamic.
+            if text_size and text_size > 0:
+                font_scale = text_size / 10.0
+            else:
+                scale_factor = max(w, h) / 1000.0
+                font_scale = max(0.3, 0.3 * scale_factor)
+            
+            # Draw annotations and collect present classes
+            present_classes = set()
+            for ann in annotations:
+                if ann['class'] not in selected_classes:
+                    continue
+                
+                present_classes.add(ann['class'])
+                
+                color = class_colors.get(ann['class'], (0, 255, 0))
+                
+                # Clip bbox to image boundaries
+                bbox = ann['bbox']
+                xmin = max(0, min(w - 1, int(bbox[0])))
+                ymin = max(0, min(h - 1, int(bbox[1])))
+                xmax = max(0, min(w - 1, int(bbox[2])))
+                ymax = max(0, min(h - 1, int(bbox[3])))
+                
+                if xmin >= xmax or ymin >= ymax:
+                    continue
+                
+                if draw_mode == 'bbox' or ann['type'] == 'bbox':
+                    # Draw bounding box
+                    cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, thickness)
+                    
+                    # Draw label
+                    label = ann['class']
+                    (label_w, label_h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+                    
+                    # Ensure label is within image
+                    # Default: top-left of bbox. If it goes above image, put it inside bbox.
+                    label_y_bott = ymin - 4
+                    if label_y_bott - label_h < 0:
+                        label_y_bott = ymin + label_h + 4
+                    
+                    # Also check right boundary
+                    label_x_left = xmin
+                    if label_x_left + label_w > w:
+                        label_x_left = w - label_w
+                    
+                    # Draw label background
+                    cv2.rectangle(image, (label_x_left, label_y_bott - label_h - baseline), (label_x_left + label_w, label_y_bott + baseline), color, -1)
+                    cv2.putText(image, label, (label_x_left, label_y_bott), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), max(1, thickness//2))
+                
+                elif draw_mode == 'mask' and 'points' in ann:
+                    # Draw polygon/mask
+                    points = np.array(ann['points'], dtype=np.int32)
+                    cv2.polylines(image, [points], True, color, thickness)
+                    
+                    # Draw label at bbox top-left (same logic as above)
+                    label = ann['class']
+                    (label_w, label_h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+                    
+                    label_y_bott = ymin - 4
+                    if label_y_bott - label_h < 0:
+                        label_y_bott = ymin + label_h + 4
+                    
+                    label_x_left = xmin
+                    if label_x_left + label_w > w:
+                        label_x_left = w - label_w
+
+                    cv2.rectangle(image, (label_x_left, label_y_bott - label_h - baseline), (label_x_left + label_w, label_y_bott + baseline), color, -1)
+                    cv2.putText(image, label, (label_x_left, label_y_bott), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), max(1, thickness//2))
+
+            # Handle Renaming Logic
+            if rename_mode in ['prefix', 'suffix'] and present_classes:
+                tags = []
+                # Sort for determinism
+                sorted_classes = sorted(list(present_classes))
+                
+                if rename_content == 'id':
+                    # Convert names to IDs
+                    for cls_name in sorted_classes:
+                        try:
+                            idx = all_classes.index(cls_name)
+                            tags.append(str(idx))
+                        except ValueError:
+                            tags.append(cls_name) # Fallback
+                else:
+                    tags = sorted_classes
+                
+                tag_str = '_'.join(tags)
+                
+                if rename_mode == 'prefix':
+                    output_filename = f"{tag_str}_{img_file.name}"
+                elif rename_mode == 'suffix':
+                    output_filename = f"{img_file.stem}_{tag_str}{img_file.suffix}"
+            
+            # Save visualized image
+            output_path = output_dir / output_filename
+            cv2.imwrite(str(output_path), image)
+            return True, None
+            return True, None
+            
+        except Exception as e:
+            return False, f"Error processing {img_file.name}: {str(e)}"
+
+    def visualize(self, config, progress_callback=None, cancel_event=None):
         """
         Visualize annotations on images
         
@@ -271,8 +487,12 @@ class AnnotationVisualizer:
             return classes_result
         
         all_classes = classes_result['classes']
-        selected_classes = config.get('selected_classes', all_classes)
+        selected_classes = set(config.get('selected_classes', all_classes))
         draw_mode = config.get('draw_mode', 'bbox')
+        box_thickness = config.get('box_thickness')
+        text_size = config.get('text_size')
+        rename_mode = config.get('rename_mode', 'none')
+        rename_content = config.get('rename_content', 'name')
         
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -283,76 +503,53 @@ class AnnotationVisualizer:
         processed_count = 0
         errors = []
         
-        # Process images
-        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp'}
-        for img_file in images_dir.iterdir():
-            if img_file.suffix.lower() not in image_extensions:
-                continue
+        # Collect image files
+        image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
+        image_files = [f for f in images_dir.iterdir() if f.suffix.lower() in image_extensions]
+        total_files = len(image_files)
+        
+        # Multi-threading
+        # Use simple ThreadPoolExecutor. 
+        # Note: CV2 is GIL-releasing for heavy ops, but python logic isn't. 
+        # But reading/writing files is IO bound so threads help.
+        import multiprocessing
+        max_workers = min(multiprocessing.cpu_count() * 2, 8) 
+        
+        completed_files = 0
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    self._process_single_image,
+                    img_file, annotations_dir, output_dir, annotation_format,
+                    all_classes, selected_classes, draw_mode, class_colors,
+                    box_thickness, text_size, rename_mode, rename_content
+                ): img_file for img_file in image_files
+            }
             
-            # Find corresponding annotation
-            ann_file = None
-            if annotation_format == 'voc':
-                ann_file = annotations_dir / f"{img_file.stem}.xml"
-            elif annotation_format == 'yolo':
-                ann_file = annotations_dir / f"{img_file.stem}.txt"
-            elif annotation_format == 'json':
-                ann_file = annotations_dir / f"{img_file.stem}.json"
-            
-            if not ann_file or not ann_file.exists():
-                continue
-            
-            try:
-                # Load image
-                image = cv2.imread(str(img_file))
-                if image is None:
-                    errors.append(f"Failed to load image: {img_file.name}")
-                    continue
+            for future in concurrent.futures.as_completed(futures):
+                # Check for cancellation
+                if cancel_event and cancel_event.is_set():
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    return {
+                        'success': False, 
+                        'error': 'Operation cancelled by user',
+                        'processed_count': processed_count,
+                        'total_classes': len(all_classes),
+                        'selected_classes': len(selected_classes),
+                        'errors': errors
+                    }
+
+                success, error_msg = future.result()
+                completed_files += 1
                 
-                # Parse annotations
-                if annotation_format == 'voc':
-                    annotations = self.parse_voc_annotation(ann_file, image.shape)
-                elif annotation_format == 'yolo':
-                    annotations = self.parse_yolo_annotation(ann_file, image.shape, all_classes)
-                elif annotation_format == 'json':
-                    annotations = self.parse_json_annotation(ann_file, image.shape)
+                if success:
+                    processed_count += 1
+                elif error_msg:
+                    errors.append(error_msg)
                 
-                # Draw annotations
-                for ann in annotations:
-                    if ann['class'] not in selected_classes:
-                        continue
-                    
-                    color = class_colors[ann['class']]
-                    
-                    if draw_mode == 'bbox' or ann['type'] == 'bbox':
-                        # Draw bounding box
-                        xmin, ymin, xmax, ymax = ann['bbox']
-                        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, 2)
-                        
-                        # Draw label
-                        label = ann['class']
-                        (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                        cv2.rectangle(image, (xmin, ymin - label_h - 4), (xmin + label_w, ymin), color, -1)
-                        cv2.putText(image, label, (xmin, ymin - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    
-                    elif draw_mode == 'mask' and 'points' in ann:
-                        # Draw polygon/mask
-                        points = np.array(ann['points'], dtype=np.int32)
-                        cv2.polylines(image, [points], True, color, 2)
-                        
-                        # Draw label at bbox top-left
-                        xmin, ymin = ann['bbox'][:2]
-                        label = ann['class']
-                        (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                        cv2.rectangle(image, (xmin, ymin - label_h - 4), (xmin + label_w, ymin), color, -1)
-                        cv2.putText(image, label, (xmin, ymin - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                
-                # Save visualized image
-                output_path = output_dir / img_file.name
-                cv2.imwrite(str(output_path), image)
-                processed_count += 1
-            
-            except Exception as e:
-                errors.append(f"Error processing {img_file.name}: {str(e)}")
+                if progress_callback:
+                    progress_callback(completed_files, total_files, f"Processed {futures[future].name}")
         
         return {
             'success': True,

@@ -209,9 +209,21 @@ def detect_classes():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Global dictionary to store task events (e.g. for cancellation)
+TASK_EVENTS = {}
+
+@app.route('/api/stop-task/<task_id>', methods=['POST'])
+def stop_task(task_id):
+    """Stop a running background task"""
+    if task_id in TASK_EVENTS:
+        TASK_EVENTS[task_id].set()
+        return jsonify({'success': True, 'message': 'Task cancellation requested'})
+    return jsonify({'success': False, 'error': 'Task not found or not cancellable'}), 404
+
+
 @app.route('/api/visualize', methods=['POST'])
 def visualize_annotations():
-    """Visualize annotations on images"""
+    """Visualize annotations on images (Async)"""
     try:
         data = request.get_json()
         
@@ -220,10 +232,71 @@ def visualize_annotations():
             if field not in data or not data[field]:
                 return jsonify({'success': False, 'error': f'Missing {field}'}), 400
         
-        visualizer = AnnotationVisualizer()
-        result = visualizer.visualize(data)
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        return jsonify(result)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting visualization...',
+            'result': None
+        }
+        
+        # Create cancellation event
+        cancel_event = threading.Event()
+        TASK_EVENTS[task_id] = cancel_event
+        
+        def run_visualization():
+            try:
+                visualizer = AnnotationVisualizer()
+                
+                def progress_callback(current, total, message):
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+                
+                result = visualizer.visualize(
+                    data, 
+                    progress_callback=progress_callback,
+                    cancel_event=cancel_event
+                )
+                
+                # Update task status
+                status = 'cancelled' if not result['success'] and result.get('error') == 'Operation cancelled by user' else 'completed'
+                if not result['success'] and status != 'cancelled':
+                    status = 'error'
+                
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'progress': 100,
+                    'message': 'Visualization completed' if status == 'completed' else f"Visualization {status}",
+                    'result': result
+                })
+                
+            except Exception as e:
+                TASK_PROGRESS[task_id].update({
+                    'status': 'error',
+                    'error': str(e)
+                })
+            finally:
+                # Clean up event
+                if task_id in TASK_EVENTS:
+                    del TASK_EVENTS[task_id]
+
+        # Start thread
+        thread = threading.Thread(target=run_visualization)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
