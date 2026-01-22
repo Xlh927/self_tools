@@ -66,3 +66,7 @@ build/
 dist/
 *.manifest
 *.exe.log
+
+#skills
+.agent/
+.shared/
