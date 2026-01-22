@@ -6,6 +6,7 @@ const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useR
 
 export default function CropperTool() {
     const [processingMode, setProcessingMode] = useState('folder');
+    const [cropMode, setCropMode] = useState('adaptive'); // 'adaptive' or 'fixed'
     const [inputPath, setInputPath] = useState('');
     const [annotationsDir, setAnnotationsDir] = useState('');
     const [outputDir, setOutputDir] = useState('');
@@ -13,6 +14,7 @@ export default function CropperTool() {
     const [windowHeight, setWindowHeight] = useState(1024);
     const [overlapX, setOverlapX] = useState(512);
     const [overlapY, setOverlapY] = useState(512);
+    const [overlapRatio, setOverlapRatio] = useState(0.3); // For adaptive mode
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [progressMessage, setProgressMessage] = useState('');
@@ -84,6 +86,7 @@ export default function CropperTool() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: processingMode,
+                    crop_mode: cropMode,
                     input_path: inputPath,
                     annotations_dir: annotationsDir || undefined,
                     output_dir: outputDir,
@@ -91,6 +94,7 @@ export default function CropperTool() {
                     window_height: parseInt(windowHeight),
                     overlap_x: parseInt(overlapX),
                     overlap_y: parseInt(overlapY),
+                    overlap_ratio: parseFloat(overlapRatio),
                 }),
             });
 
@@ -123,6 +127,31 @@ export default function CropperTool() {
                 e('option', { value: 'folder' }, '📁 文件夹批量'),
                 e('option', { value: 'single' }, '📄 单张图片')
             )
+        ),
+
+        // Crop Mode
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' }, '裁剪模式'),
+            e('select',
+                {
+                    className: 'select-field',
+                    value: cropMode,
+                    onChange: (ev) => setCropMode(ev.target.value),
+                },
+                e('option', { value: 'adaptive' }, '🎯 自适应模式（横向长条图像优化）'),
+                e('option', { value: 'fixed' }, '📐 固定窗口模式')
+            ),
+            cropMode === 'adaptive' && e('div', {
+                style: {
+                    marginTop: 'var(--spacing-xs)',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-tertiary)',
+                    padding: 'var(--spacing-sm)',
+                    background: 'rgba(67, 233, 123, 0.1)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(67, 233, 123, 0.2)'
+                }
+            }, '💡 使用图像高度作为正方形裁剪边长，默认重叠度30%，适合横向长条图像')
         ),
 
         // Input Path
@@ -176,8 +205,33 @@ export default function CropperTool() {
             )
         ),
 
-        // Parameters Grid
-        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
+        // Adaptive Mode Parameters
+        cropMode === 'adaptive' && e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
+            e('h4', { style: { marginTop: 0, color: 'var(--neon-green)' } }, '🎯 自适应参数'),
+            e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                e('label', { className: 'input-label' }, '重叠比例'),
+                e('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' } },
+                    e('input', {
+                        type: 'range',
+                        min: 0.1,
+                        max: 0.5,
+                        step: 0.05,
+                        value: overlapRatio,
+                        onChange: (ev) => setOverlapRatio(ev.target.value),
+                        style: { flex: 1 }
+                    }),
+                    e('span', { style: { minWidth: '50px', textAlign: 'right', fontWeight: 'bold', color: 'var(--neon-green)' } },
+                        `${Math.round(overlapRatio * 100)}%`
+                    )
+                )
+            ),
+            e('div', { style: { marginTop: 'var(--spacing-sm)', fontSize: '0.85rem', color: 'var(--text-tertiary)' } },
+                '边长 = 图像高度，重叠 = 边长 × 重叠比例'
+            )
+        ),
+
+        // Fixed Mode Parameters Grid
+        cropMode === 'fixed' && e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
             // Window Size
             e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
                 e('h4', { style: { marginTop: 0, color: 'var(--neon-blue)' } }, '窗口大小'),
@@ -185,14 +239,14 @@ export default function CropperTool() {
                     e('label', { className: 'input-label' }, '宽度 (px)'),
                     e('input', {
                         type: 'number', className: 'input-field', value: windowWidth,
-                        onChange: (e) => setWindowWidth(e.target.value)
+                        onChange: (ev) => setWindowWidth(ev.target.value)
                     })
                 ),
                 e('div', { className: 'input-group', style: { marginBottom: 0 } },
                     e('label', { className: 'input-label' }, '高度 (px)'),
                     e('input', {
                         type: 'number', className: 'input-field', value: windowHeight,
-                        onChange: (e) => setWindowHeight(e.target.value)
+                        onChange: (ev) => setWindowHeight(ev.target.value)
                     })
                 )
             ),
@@ -203,21 +257,21 @@ export default function CropperTool() {
                     e('label', { className: 'input-label' }, '横向 (px)'),
                     e('input', {
                         type: 'number', className: 'input-field', value: overlapX,
-                        onChange: (e) => setOverlapX(e.target.value)
+                        onChange: (ev) => setOverlapX(ev.target.value)
                     })
                 ),
                 e('div', { className: 'input-group', style: { marginBottom: 0 } },
                     e('label', { className: 'input-label' }, '纵向 (px)'),
                     e('input', {
                         type: 'number', className: 'input-field', value: overlapY,
-                        onChange: (e) => setOverlapY(e.target.value)
+                        onChange: (ev) => setOverlapY(ev.target.value)
                     })
                 )
             )
         ),
 
-        // Visual Preview (Simple text for now)
-        e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
+        // Visual Preview (Simple text for now) - only for fixed mode
+        cropMode === 'fixed' && e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
             e('div', { style: { display: 'flex', justifyContent: 'space-around', fontSize: '0.9rem' } },
                 e('span', {}, `步长: ${windowWidth - overlapX} × ${windowHeight - overlapY} px`),
                 e('span', {}, `有效区域: ${(windowWidth - overlapX) * (windowHeight - overlapY)} px²`)
