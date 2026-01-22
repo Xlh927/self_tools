@@ -612,6 +612,7 @@ def crop():
                 }), 400
         
         mode = data['mode']
+        crop_mode = data.get('crop_mode', 'adaptive')  # 'adaptive' or 'fixed'
         input_path = data['input_path']
         annotations_dir = data.get('annotations_dir')
         output_dir = data['output_dir']
@@ -619,6 +620,7 @@ def crop():
         window_height = int(data.get('window_height', 1024))
         overlap_x = int(data.get('overlap_x', 512))
         overlap_y = int(data.get('overlap_y', 512))
+        overlap_ratio = float(data.get('overlap_ratio', 0.3))
         
         # Validate input path
         if not os.path.exists(input_path):
@@ -627,24 +629,32 @@ def crop():
                 'error': f'Input path does not exist: {input_path}'
             }), 400
         
-        # Validate parameters
-        if window_width <= 0 or window_height <= 0:
-            return jsonify({
-                'success': False,
-                'error': 'Window size must be positive'
-            }), 400
-        
-        if overlap_x < 0 or overlap_y < 0:
-            return jsonify({
-                'success': False,
-                'error': 'Overlap must be non-negative'
-            }), 400
-        
-        if overlap_x >= window_width or overlap_y >= window_height:
-            return jsonify({
-                'success': False,
-                'error': 'Overlap must be less than window size'
-            }), 400
+        # Validate parameters only for fixed mode
+        if crop_mode == 'fixed':
+            if window_width <= 0 or window_height <= 0:
+                return jsonify({
+                    'success': False,
+                    'error': 'Window size must be positive'
+                }), 400
+            
+            if overlap_x < 0 or overlap_y < 0:
+                return jsonify({
+                    'success': False,
+                    'error': 'Overlap must be non-negative'
+                }), 400
+            
+            if overlap_x >= window_width or overlap_y >= window_height:
+                return jsonify({
+                    'success': False,
+                    'error': 'Overlap must be less than window size'
+                }), 400
+        else:
+            # Adaptive mode: validate overlap_ratio
+            if overlap_ratio <= 0 or overlap_ratio >= 1:
+                return jsonify({
+                    'success': False,
+                    'error': 'Overlap ratio must be between 0 and 1'
+                }), 400
         
         # Generate task ID
         task_id = str(uuid.uuid4())
@@ -713,27 +723,42 @@ def crop():
                     if not os.path.isfile(input_path):
                         raise ValueError('Input path must be a file for single mode')
                     
-                    result = cropper.crop_image_sliding_window(
-                        image_path=input_path,
-                        output_dir=output_dir,
-                        window_width=window_width,
-                        window_height=window_height,
-                        overlap_x=overlap_x,
-                        overlap_y=overlap_y
-                    )
+                    if crop_mode == 'adaptive':
+                        result = cropper.crop_image_adaptive(
+                            image_path=input_path,
+                            output_dir=output_dir,
+                            overlap_ratio=overlap_ratio
+                        )
+                    else:
+                        result = cropper.crop_image_sliding_window(
+                            image_path=input_path,
+                            output_dir=output_dir,
+                            window_width=window_width,
+                            window_height=window_height,
+                            overlap_x=overlap_x,
+                            overlap_y=overlap_y
+                        )
                 elif mode == 'folder':
                     if not os.path.isdir(input_path):
                         raise ValueError('Input path must be a directory for folder mode')
                     
-                    result = cropper.crop_folder_sliding_window(
-                        input_dir=input_path,
-                        output_dir=output_dir,
-                        window_width=window_width,
-                        window_height=window_height,
-                        overlap_x=overlap_x,
-                        overlap_y=overlap_y,
-                        progress_callback=progress_callback
-                    )
+                    if crop_mode == 'adaptive':
+                        result = cropper.crop_folder_adaptive(
+                            input_dir=input_path,
+                            output_dir=output_dir,
+                            overlap_ratio=overlap_ratio,
+                            progress_callback=progress_callback
+                        )
+                    else:
+                        result = cropper.crop_folder_sliding_window(
+                            input_dir=input_path,
+                            output_dir=output_dir,
+                            window_width=window_width,
+                            window_height=window_height,
+                            overlap_x=overlap_x,
+                            overlap_y=overlap_y,
+                            progress_callback=progress_callback
+                        )
                 else:
                     raise ValueError(f'Invalid mode: {mode}')
                 

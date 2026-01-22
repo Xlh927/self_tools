@@ -17,6 +17,165 @@ class ImageCropper:
     def __init__(self):
         self.supported_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']
     
+    def crop_image_adaptive(
+        self,
+        image_path: str,
+        output_dir: str,
+        overlap_ratio: float = 0.3
+    ) -> Dict:
+        """
+        Adaptive cropping for horizontal long images.
+        Uses image height as the side length for square cropping.
+        
+        Args:
+            image_path: Path to input image
+            output_dir: Directory to save cropped images
+            overlap_ratio: Overlap ratio relative to side length (default 0.3)
+            
+        Returns:
+            Dictionary with cropping results
+        """
+        try:
+            # Validate image path
+            if not os.path.exists(image_path):
+                return {
+                    'success': False,
+                    'error': f'Image not found: {image_path}'
+                }
+            
+            # Open image to get dimensions
+            img = Image.open(image_path)
+            img_width, img_height = img.size
+            img.close()
+            
+            # Use image height as square side length
+            side_length = img_height
+            overlap = int(side_length * overlap_ratio)
+            
+            # Delegate to the sliding window method
+            return self.crop_image_sliding_window(
+                image_path=image_path,
+                output_dir=output_dir,
+                window_width=side_length,
+                window_height=side_length,
+                overlap_x=overlap,
+                overlap_y=overlap
+            )
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    @staticmethod
+    def _crop_single_image_adaptive_task(image_file: Path, output_dir: str, overlap_ratio: float) -> Dict:
+        """Helper task for multiprocessing to crop a single image adaptively"""
+        try:
+            cropper = ImageCropper()
+            return cropper.crop_image_adaptive(
+                image_path=str(image_file),
+                output_dir=output_dir,
+                overlap_ratio=overlap_ratio
+            )
+        except Exception as e:
+            return {'success': False, 'image': image_file.name, 'error': str(e)}
+    
+    def crop_folder_adaptive(
+        self,
+        input_dir: str,
+        output_dir: str,
+        overlap_ratio: float = 0.3,
+        progress_callback=None
+    ) -> Dict:
+        """
+        Adaptive cropping for all images in a folder.
+        Uses each image's height as the side length for square cropping.
+        
+        Args:
+            input_dir: Directory containing input images
+            output_dir: Directory to save cropped images
+            overlap_ratio: Overlap ratio relative to side length (default 0.3)
+            progress_callback: Optional function(current, total, message)
+            
+        Returns:
+            Dictionary with cropping results
+        """
+        try:
+            # Validate input directory
+            if not os.path.exists(input_dir):
+                return {
+                    'success': False,
+                    'error': f'Input directory not found: {input_dir}'
+                }
+            
+            # Get all image files
+            image_files = []
+            for ext in self.supported_formats:
+                image_files.extend(Path(input_dir).glob(f'*{ext}'))
+                image_files.extend(Path(input_dir).glob(f'*{ext.upper()}'))
+            
+            if not image_files:
+                return {
+                    'success': False,
+                    'error': f'No images found in {input_dir}'
+                }
+            
+            # Create output directory
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Process images in parallel
+            total_crops = 0
+            processed_count = 0
+            failed_count = 0
+            errors = []
+            results = []
+            
+            num_workers = min(multiprocessing.cpu_count(), len(image_files))
+            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+                future_to_img = {
+                    executor.submit(
+                        self._crop_single_image_adaptive_task, 
+                        image_file, output_dir, overlap_ratio
+                    ): image_file for image_file in image_files
+                }
+                
+                for future in concurrent.futures.as_completed(future_to_img):
+                    image_file = future_to_img[future]
+                    try:
+                        result = future.result()
+                        if result['success']:
+                            results.append(result)
+                            total_crops += result['crops_count']
+                            processed_count += 1
+                        else:
+                            failed_count += 1
+                            errors.append(f"{image_file.name}: {result['error']}")
+                    except Exception as e:
+                        failed_count += 1
+                        errors.append(f"{image_file.name}: {str(e)}")
+                    
+                    if progress_callback:
+                        progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
+            
+            return {
+                'success': True,
+                'processed': processed_count,
+                'failed': failed_count,
+                'total_images': len(image_files),
+                'total_crops': total_crops,
+                'crop_mode': 'adaptive',
+                'overlap_ratio': overlap_ratio,
+                'results': results,
+                'errors': errors
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
     def crop_image_sliding_window(
         self,
         image_path: str,
@@ -72,6 +231,7 @@ class ImageCropper:
             # Generate crops
             crops = []
             crop_count = 0
+            cropped_regions = set()  # Track cropped regions to avoid duplicates
             
             y = 0
             row = 0
@@ -88,25 +248,33 @@ class ImageCropper:
                     x_end = min(x + window_width, img_width)
                     x_start = max(0, x_end - window_width) if x_end == img_width else x
                     
-                    # Crop image
-                    crop = img.crop((x_start, y_start, x_end, y_end))
+                    # Create region key to check for duplicates
+                    region_key = (x_start, y_start, x_end, y_end)
                     
-                    # Generate output filename
-                    output_filename = f"{image_name}_r{row}_c{col}_x{x_start}_y{y_start}{image_ext}"
-                    output_path = os.path.join(output_dir, output_filename)
+                    # Skip if this exact region has already been cropped
+                    if region_key not in cropped_regions:
+                        cropped_regions.add(region_key)
+                        
+                        # Crop image
+                        crop = img.crop((x_start, y_start, x_end, y_end))
+                        
+                        # Generate output filename
+                        output_filename = f"{image_name}_r{row}_c{col}_x{x_start}_y{y_start}{image_ext}"
+                        output_path = os.path.join(output_dir, output_filename)
+                        
+                        # Save crop
+                        crop.save(output_path)
+                        
+                        crops.append({
+                            'filename': output_filename,
+                            'x': x_start,
+                            'y': y_start,
+                            'width': x_end - x_start,
+                            'height': y_end - y_start
+                        })
+                        
+                        crop_count += 1
                     
-                    # Save crop
-                    crop.save(output_path)
-                    
-                    crops.append({
-                        'filename': output_filename,
-                        'x': x_start,
-                        'y': y_start,
-                        'width': x_end - x_start,
-                        'height': y_end - y_start
-                    })
-                    
-                    crop_count += 1
                     col += 1
                     
                     # Move to next column
