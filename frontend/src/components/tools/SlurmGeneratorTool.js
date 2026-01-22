@@ -9,6 +9,7 @@ export default function SlurmGeneratorTool() {
     const [epochs, setEpochs] = useState(200);
     const [imgsz, setImgsz] = useState(800);
     const [batch, setBatch] = useState(24);
+    const [cache, setCache] = useState(true);  // New cache parameter
     const [project, setProject] = useState('/runs/train');
     const [name, setName] = useState('baseline');
     const [mode, setMode] = useState('train');
@@ -45,6 +46,7 @@ export default function SlurmGeneratorTool() {
             if (epochs) cmd += ` epochs=${epochs}`;
             if (imgsz) cmd += ` imgsz=${imgsz}`;
             if (batch) cmd += ` batch=${batch}`;
+            if (cache) cmd += ` cache=True`;
             if (project) cmd += ` project="${project}"`;
             if (name) cmd += ` name="${name}"`;
         } else if (mode === 'val') {
@@ -91,7 +93,7 @@ export default function SlurmGeneratorTool() {
         }
 
         setCommand(cmd);
-    }, [task, data, model, epochs, imgsz, batch, project, name, mode, exportFormat, half, device, source, saveTxt,
+    }, [task, data, model, epochs, imgsz, batch, cache, project, name, mode, exportFormat, half, device, source, saveTxt,
         inputList, inputBase, handler, conf, iou, classes, view, saveDir, fpTxt, fpPlot, fpSource, fpCsv]);
 
     const handleSubfpPreset = (type) => {
@@ -294,6 +296,19 @@ export default function SlurmGeneratorTool() {
                         placeholder: '24',
                         style: inputStyle
                     })
+                ),
+                // Cache (Train only)
+                mode === 'train' && e('div', { style: groupStyle },
+                    e('label', { style: labelStyle }, '缓存数据 (Cache)'),
+                    e('select',
+                        {
+                            value: cache.toString(),
+                            onChange: (e) => setCache(e.target.value === 'true'),
+                            style: { ...inputStyle, cursor: 'pointer' }
+                        },
+                        e('option', { value: 'true' }, 'True'),
+                        e('option', { value: 'false' }, 'False')
+                    )
                 ),
                 // Name
                 e('div', { style: groupStyle },
