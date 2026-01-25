@@ -49,7 +49,7 @@ class LabelModifier:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def modify_labels(self, label_dir, class_mapping, overwrite=False, output_dir=None):
+    def modify_labels(self, label_dir, class_mapping, overwrite=False, output_dir=None, progress_callback=None):
         """
         Modify YOLO labels in a directory by mapping old class IDs to new ones.
         
@@ -58,6 +58,7 @@ class LabelModifier:
             class_mapping (dict): Dictionary mapping old_class_id (int) to new_class_id (int).
             overwrite (bool): If True, overwrite original files. If False, save to output_dir.
             output_dir (str): Directory to save modified files if overwrite is False.
+            progress_callback: Optional function(current, total, message)
             
         Returns:
             dict: A summary of the operation.
@@ -81,10 +82,10 @@ class LabelModifier:
              return {'success': False, 'error': 'Class mapping keys and values must be integers'}
         
         try:
-            for file_name in os.listdir(label_dir):
-                if not file_name.endswith(".txt"):
-                    continue
-                
+            txt_files = [f for f in os.listdir(label_dir) if f.endswith(".txt")]
+            total_files = len(txt_files)
+            
+            for file_name in txt_files:
                 label_path = os.path.join(label_dir, file_name)
                 save_path = label_path if overwrite else os.path.join(output_dir, file_name)
                 
@@ -124,6 +125,9 @@ class LabelModifier:
                 except Exception as e:
                     print(f"Error processing file {file_name}: {e}")
                     error_count += 1
+                
+                if progress_callback:
+                    progress_callback(processed_count + error_count, total_files, f"Processed {file_name}")
                     
             return {
                 'success': True,

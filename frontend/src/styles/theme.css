@@ -160,6 +160,30 @@
     --z-modal: 1050;
     --z-popover: 1060;
     --z-tooltip: 1070;
+
+    /* Tool UI Specifics */
+    --nav-btn-width: 68px;
+    --nav-btn-height: 68px;
+    --nav-btn-collapsed-width: 50px;
+    --nav-btn-collapsed-height: 50px;
+    --tool-header-height: 60px;
+    --tool-workspace-min-width: 380px;
+
+    /* Action Colors */
+    --color-danger: #ff4d4f;
+    --color-danger-bg: rgba(255, 77, 79, 0.1);
+    --color-warning: #faad14;
+    --color-warning-bg: rgba(250, 173, 20, 0.1);
+    --color-success: #52c41a;
+    --color-success-bg: rgba(82, 196, 26, 0.1);
+    --color-info: #1890ff;
+    --color-info-bg: rgba(24, 144, 255, 0.1);
+
+    /* Form Visibility & Consistency */
+    --form-bg: rgba(241, 243, 249, 0.8);
+    --form-border: rgba(102, 126, 234, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
 }
 
 /* Dark mode support for default theme */

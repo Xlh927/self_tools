@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
@@ -14,8 +15,9 @@ export default function SplitterTool() {
     const [useBackground, setUseBackground] = useState(true);
     const [randomSeed, setRandomSeed] = useState(42);
 
-    const [loading, setLoading] = useState(false);
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
@@ -89,34 +91,41 @@ export default function SplitterTool() {
     const totalRatio = trainRatio + valRatio + testRatio;
     const isRatioValid = totalRatio === 100;
 
-    const handleSplit = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
 
-        try {
-            const response = await fetch('/api/split', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    format: format,
-                    images_dir: imagesDir,
-                    annotations_dir: annotationsDir,
-                    output_dir: outputDir,
-                    train_ratio: trainRatio,
-                    val_ratio: valRatio,
-                    test_ratio: testRatio,
-                    use_background: useBackground,
-                    random_seed: parseInt(randomSeed),
-                }),
-            });
+        const response = await fetch('/api/split', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                format: format,
+                images_dir: imagesDir,
+                annotations_dir: annotationsDir,
+                output_dir: outputDir,
+                train_ratio: trainRatio,
+                val_ratio: valRatio,
+                test_ratio: testRatio,
+                use_background: useBackground,
+                random_seed: parseInt(randomSeed),
+            }),
+        });
 
-            const data = await response.json();
-            setResult(data);
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
-            setLoading(false);
-        }
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -188,8 +197,8 @@ export default function SplitterTool() {
         ),
 
         // Ratios
-        e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
-            e('h4', { style: { marginTop: 0, color: 'var(--neon-pink)' } }, '划分比例 (%)'),
+        e('div', { className: 'result-box info', style: { padding: 'var(--spacing-md)', borderColor: 'var(--accent-purple)' } },
+            e('h4', { style: { marginTop: 0, color: 'var(--accent-purple)' } }, '划分比例 (%)'),
             e('div', { style: { display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-end' } },
                 e('div', { style: { flex: 1 } },
                     e('label', { className: 'input-label', style: { fontSize: '0.8rem' } }, '训练集 (Train)'),
@@ -213,14 +222,14 @@ export default function SplitterTool() {
                     })
                 )
             ),
-            !isRatioValid && e('p', { style: { color: 'var(--neon-orange)', marginTop: '0.5rem', fontSize: '0.9rem' } },
+            !isRatioValid && e('p', { style: { color: 'var(--color-danger)', marginTop: '0.5rem', fontSize: '0.9rem', fontWeight: 600 } },
                 `⚠️ 总和必须为 100% (当前: ${totalRatio}%)`
             ),
             // Visual bar
-            e('div', { style: { height: '10px', width: '100%', display: 'flex', marginTop: '1rem', borderRadius: '5px', overflow: 'hidden' } },
-                e('div', { style: { width: `${trainRatio}%`, background: 'var(--neon-blue)' } }),
-                e('div', { style: { width: `${valRatio}%`, background: 'var(--neon-purple)' } }),
-                e('div', { style: { width: `${testRatio}%`, background: 'var(--neon-pink)' } })
+            e('div', { style: { height: '12px', width: '100%', display: 'flex', marginTop: '1rem', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--form-border)' } },
+                e('div', { style: { width: `${trainRatio}%`, background: 'var(--color-info)' } }),
+                e('div', { style: { width: `${valRatio}%`, background: 'var(--color-warning)' } }),
+                e('div', { style: { width: `${testRatio}%`, background: 'var(--color-danger)' } })
             )
         ),
 
@@ -245,40 +254,31 @@ export default function SplitterTool() {
             )
         ),
 
-        // Submit Button
-        e('button',
-            {
-                className: 'btn btn-secondary',
-                onClick: handleSplit,
-                disabled: loading || !imagesDir || !annotationsDir || !outputDir || !isRatioValid,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                    marginTop: 'var(--spacing-md)',
-                }
-            },
-            loading ? '划分中...' : '📊 开始划分'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(imagesDir && annotationsDir && outputDir && isRatioValid)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 划分完成！' : '❌ 划分失败'),
+            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 划分完成！' : '❌ 划分失败'),
             result.success && e('div', {},
-                e('p', {}, `训练集: ${result.train_count || 0}`),
-                e('p', {}, `验证集: ${result.val_count || 0}`),
-                e('p', {}, `测试集: ${result.test_count || 0}`),
-                result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`)
+                e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', {}, `训练集: ${result.train_count || 0}`),
+                    e('div', {}, `验证集: ${result.val_count || 0}`),
+                    e('div', {}, `测试集: ${result.test_count || 0}`),
+                ),
+                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

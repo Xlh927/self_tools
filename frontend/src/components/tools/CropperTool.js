@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ProgressBar from '../common/ProgressBar.js';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
@@ -15,11 +15,10 @@ export default function CropperTool() {
     const [overlapX, setOverlapX] = useState(512);
     const [overlapY, setOverlapY] = useState(512);
     const [overlapRatio, setOverlapRatio] = useState(0.3); // For adaptive mode
-    const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [progressMessage, setProgressMessage] = useState('');
+
+    // Result state
     const [result, setResult] = useState(null);
-    const pollTimer = useRef(null);
+    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer output path
     useEffect(() => {
@@ -39,77 +38,40 @@ export default function CropperTool() {
         }
     }, [inputPath, processingMode]);
 
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (pollTimer.current) clearInterval(pollTimer.current);
-        };
-    }, []);
-
-    const startPolling = (taskId) => {
-        pollTimer.current = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/progress/${taskId}`);
-                if (res.status === 404) {
-                    clearInterval(pollTimer.current);
-                    return;
-                }
-                const data = await res.json();
-
-                setProgress(data.progress);
-                setProgressMessage(data.message);
-
-                if (data.status === 'completed') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult(data.result);
-                } else if (data.status === 'error') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult({ success: false, error: data.error });
-                }
-            } catch (err) {
-                console.error('Polling error:', err);
-            }
-        }, 500);
+    const handleStartTask = async () => {
+        setResult(null);
+        const response = await fetch('/api/crop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: processingMode,
+                crop_mode: cropMode,
+                input_path: inputPath,
+                annotations_dir: annotationsDir || undefined,
+                output_dir: outputDir,
+                window_width: parseInt(windowWidth),
+                window_height: parseInt(windowHeight),
+                overlap_x: parseInt(overlapX),
+                overlap_y: parseInt(overlapY),
+                overlap_ratio: parseFloat(overlapRatio),
+            }),
+        });
+        const data = await response.json();
+        return data; // { success: true, task_id: '...' } or { success: false, error: '...' }
     };
 
-    const handleCrop = async () => {
-        setLoading(true);
-        setResult(null);
-        setProgress(0);
-        setProgressMessage('Starting...');
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null); // Reset task ID to allow new tasks
+    };
 
-        try {
-            const response = await fetch('/api/crop', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: processingMode,
-                    crop_mode: cropMode,
-                    input_path: inputPath,
-                    annotations_dir: annotationsDir || undefined,
-                    output_dir: outputDir,
-                    window_width: parseInt(windowWidth),
-                    window_height: parseInt(windowHeight),
-                    overlap_x: parseInt(overlapX),
-                    overlap_y: parseInt(overlapY),
-                    overlap_ratio: parseFloat(overlapRatio),
-                }),
-            });
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
 
-            const data = await response.json();
-
-            if (data.success && data.task_id) {
-                startPolling(data.task_id);
-            } else {
-                setLoading(false);
-                setResult(data);
-            }
-        } catch (error) {
-            setLoading(false);
-            setResult({ success: false, error: error.message });
-        }
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -142,14 +104,15 @@ export default function CropperTool() {
                 e('option', { value: 'fixed' }, '📐 固定窗口模式')
             ),
             cropMode === 'adaptive' && e('div', {
+                className: 'info-box',
                 style: {
                     marginTop: 'var(--spacing-xs)',
                     fontSize: '0.85rem',
                     color: 'var(--text-tertiary)',
+                    background: 'var(--color-success-bg)',
+                    borderColor: 'var(--color-success)',
                     padding: 'var(--spacing-sm)',
-                    background: 'rgba(67, 233, 123, 0.1)',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid rgba(67, 233, 123, 0.2)'
+                    borderWidth: '1px'
                 }
             }, '💡 使用图像高度作为正方形裁剪边长，默认重叠度30%，适合横向长条图像')
         ),
@@ -270,7 +233,7 @@ export default function CropperTool() {
             )
         ),
 
-        // Visual Preview (Simple text for now) - only for fixed mode
+        // Visual Preview
         cropMode === 'fixed' && e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
             e('div', { style: { display: 'flex', justifyContent: 'space-around', fontSize: '0.9rem' } },
                 e('span', {}, `步长: ${windowWidth - overlapX} × ${windowHeight - overlapY} px`),
@@ -278,42 +241,30 @@ export default function CropperTool() {
             )
         ),
 
-        // Progress Bar
-        loading && e(ProgressBar, { progress, message: progressMessage }),
-
-        // Submit Button
-        !loading && e('button',
-            {
-                className: 'btn btn-secondary',
-                onClick: handleCrop,
-                disabled: !inputPath || !outputDir,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                    marginTop: 'var(--spacing-md)',
-                }
-            },
-            '✂️ 开始裁剪'
-        ),
+        // Task Controller (replaces Progress Bar and Submit Button)
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(inputPath && outputDir)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
             e('h3', {}, result.success ? '✅ 裁剪完成！' : '❌ 裁剪失败'),
             result.success && e('div', {},
-                e('p', {}, `处理文件数: ${result.total_files || result.total_images || 1}`),
-                e('p', {}, `生成图片数: ${result.total_crops || result.crops_generated || 0}`),
-                result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`)
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', { style: { color: 'var(--color-info)' } }, `处理文件数: ${result.total_files || result.total_images || 1}`),
+                    e('div', { style: { color: 'var(--color-success)' } }, `生成图片数: ${result.total_crops || result.crops_generated || 0}`),
+                ),
+                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

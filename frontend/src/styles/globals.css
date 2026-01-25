@@ -91,21 +91,30 @@ pre {
     background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple));
 }
 
-/* Glass Card - Enhanced frosted glass */
+/* Glass Card - Enhanced frosted glass with stronger boundaries */
 .glass-card {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    border: 1.5px solid var(--glass-border);
+    /* Slightly thicker border */
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06),
+        var(--glass-shadow);
+    /* Layered shadows for better depth */
     padding: var(--spacing-md);
     transition: all var(--transition-normal);
 }
 
 .glass-card:hover {
     background: var(--bg-glass-hover);
-    box-shadow: var(--shadow-lg);
+    border-color: rgba(255, 255, 255, 0.45);
+    box-shadow:
+        0 10px 15px -3px rgba(0, 0, 0, 0.1),
+        0 4px 6px -2px rgba(0, 0, 0, 0.05),
+        var(--glass-shadow);
     transform: translateY(-2px);
 }
 
@@ -183,22 +192,33 @@ pre {
     letter-spacing: 0.01em;
 }
 
-.input-field {
+/* Input & Select Styles - Clean modern with high visibility */
+.input-field,
+.select-field {
     width: 100%;
-    padding: 0.75rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
+    padding: 0.75rem 1rem;
+    background: var(--form-bg);
+    border: 1.5px solid var(--form-border);
     border-radius: var(--radius-md);
-    color: var(--text-primary);
+    color: var(--form-text);
     font-family: inherit;
     font-size: 0.95rem;
+    font-weight: 500;
     transition: all var(--transition-normal);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.input-field:focus {
+.input-field:hover,
+.select-field:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-tertiary);
+}
+
+.input-field:focus,
+.select-field:focus {
     outline: none;
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--form-border-focus);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
     background: var(--bg-secondary);
 }
 
@@ -206,24 +226,83 @@ pre {
     color: var(--text-tertiary);
 }
 
-/* Select Styles */
-.select-field {
-    width: 100%;
-    padding: 0.75rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 0.95rem;
+/* Checkbox & Radio Styles */
+input[type="checkbox"],
+input[type="radio"] {
+    width: 1.2rem;
+    height: 1.2rem;
     cursor: pointer;
-    transition: all var(--transition-normal);
+    accent-color: var(--primary-blue);
+    border: 1.5px solid var(--form-border);
+    border-radius: 4px;
+    transition: all 0.2s;
 }
 
-.select-field:focus {
-    outline: none;
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+    transform: scale(1.1);
+}
+
+/* Unified Button Styles for Tools (e.g., Scan, Start) */
+.btn-primary {
+    background: var(--gradient-primary);
+    color: white !important;
+    border-color: rgba(255, 255, 255, 0.1);
+    font-weight: 700;
+    padding: 0.7rem 1.4rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    filter: brightness(1.1);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary) !important;
+    border: 1.5px solid var(--form-border);
+    font-weight: 600;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--bg-secondary);
     border-color: var(--primary-blue);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    color: var(--primary-blue) !important;
+    transform: translateY(-2px);
+}
+
+/* Tool Results & Info States with clear boundaries */
+.result-box,
+.info-box,
+.glass-card.result-card {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 2px solid var(--glass-border);
+    margin-top: var(--spacing-md);
+    transition: all 0.3s ease;
+    background: var(--form-bg);
+}
+
+.result-box.success {
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
+    border-width: 2px;
+}
+
+.result-box.error {
+    background: var(--color-danger-bg);
+    border-color: var(--color-danger);
+    border-width: 2px;
+}
+
+.result-box h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* Utility Classes */
@@ -292,65 +371,187 @@ pre {
     background-clip: text;
 }
 
-/* Tool Button Styles */
+/* Tool Button Styles - Unified & Clean */
 .tool-btn {
     background: var(--bg-tertiary);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    padding: 0.4rem;
+    padding: var(--spacing-sm);
     cursor: pointer;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
+    justify-content: center;
+    gap: 4px;
     transition: all var(--transition-fast);
     position: relative;
-    /* Removed overflow: hidden to prevent icon clipping on hover */
     color: var(--text-primary);
+    width: var(--nav-btn-width);
+    height: var(--nav-btn-height);
+    flex-shrink: 0;
 }
 
-.tool-btn:hover {
-    border-color: var(--primary-blue);
-    background: var(--bg-secondary);
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: var(--shadow-md);
-}
-
-.tool-btn:active {
-    transform: translateY(0) scale(0.98);
-}
-
-.tool-btn span {
+.tool-btn span:first-child {
+    font-size: 1.5rem;
     transition: transform var(--transition-fast);
 }
 
-.tool-btn:hover span:first-child {
-    transform: scale(1.2);
+.tool-btn span:last-child {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.2;
 }
 
-/* Sidebar Position Buttons */
-.pos-btn {
-    border: 1px solid var(--glass-border);
-    border-radius: 4px;
-    width: 22px;
-    height: 22px;
-    cursor: pointer;
-    font-size: 0.65rem;
+.tool-btn:hover {
+    border-color: var(--primary-purple);
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-lg);
+    z-index: 10;
+    animation: bounce 0.4s ease-out;
+    /* Bouncy jump effect */
+}
+
+@keyframes bounce {
+    0% {
+        transform: translateY(0);
+    }
+
+    30% {
+        transform: translateY(-6px);
+    }
+
+    50% {
+        transform: translateY(0);
+    }
+
+    75% {
+        transform: translateY(-2px);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.tool-btn:hover span:first-child {
+    transform: scale(1.15);
+}
+
+.tool-btn:hover span:last-child {
+    color: white;
+}
+
+.tool-btn:active {
+    transform: translateY(0) scale(0.95);
+}
+
+/* Tool Workspace Layout */
+.tool-workspace-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    height: var(--tool-header-height);
+    padding: 0 var(--spacing-md);
+    border-bottom: 2px solid var(--glass-border);
+    margin-bottom: var(--spacing-md);
+    background: rgba(255, 255, 255, 0.03);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-shrink: 0;
+}
+
+.tool-header-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    overflow: hidden;
+}
+
+.tool-header-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.tool-header-title {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tool-header-title h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tool-header-title p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tool-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: var(--spacing-md);
+}
+
+/* Action Buttons - Simple but Elegant (简洁大方) */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    transition: all var(--transition-fast);
-    background: transparent;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--bg-tertiary);
     color: var(--text-secondary);
+    box-shadow: var(--shadow-xs);
 }
 
-.pos-btn:hover {
-    border-color: var(--primary-blue);
-    background: var(--bg-secondary);
-    color: var(--primary-blue);
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
 }
 
-.pos-btn.active {
-    background: var(--primary-blue);
+.action-btn.reset {
+    color: var(--color-success);
+    border-color: rgba(82, 196, 26, 0.2);
+    background: rgba(82, 196, 26, 0.05);
+}
+
+.action-btn.reset:hover {
+    background: var(--color-success);
     color: white;
-    border-color: var(--primary-blue);
+    border-color: var(--color-success);
+}
+
+.action-btn.close {
+    color: var(--color-danger);
+    border-color: rgba(255, 77, 79, 0.2);
+    background: rgba(255, 77, 79, 0.05);
+}
+
+.action-btn.close:hover {
+    background: var(--color-danger);
+    color: white;
+    border-color: var(--color-danger);
+}
+
+.action-btn span {
+    font-size: 1rem;
 }

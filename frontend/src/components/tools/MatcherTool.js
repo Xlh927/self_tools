@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
@@ -11,8 +12,9 @@ export default function MatcherTool() {
     const [copyDifference, setCopyDifference] = useState(false);
     const [dryRun, setDryRun] = useState(false);
 
-    const [loading, setLoading] = useState(false);
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer output path
     useEffect(() => {
@@ -23,31 +25,38 @@ export default function MatcherTool() {
         }
     }, [sourceDir]);
 
-    const handleMatch = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
 
-        try {
-            const response = await fetch('/api/match', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    source_dir: sourceDir,
-                    reference_dir: referenceDir,
-                    output_dir: outputDir,
-                    copy_intersection: copyIntersection,
-                    copy_difference: copyDifference,
-                    dry_run: dryRun,
-                }),
-            });
+        const response = await fetch('/api/match', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_dir: sourceDir,
+                reference_dir: referenceDir,
+                output_dir: outputDir,
+                copy_intersection: copyIntersection,
+                copy_difference: copyDifference,
+                dry_run: dryRun,
+            }),
+        });
 
-            const data = await response.json();
-            setResult(data);
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
-            setLoading(false);
-        }
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -132,40 +141,32 @@ export default function MatcherTool() {
             )
         ),
 
-        // Match Button
-        e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleMatch,
-                disabled: loading || !sourceDir || !referenceDir || !outputDir,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                }
-            },
-            loading ? '匹配中...' : '🔍 开始匹配并复制'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(sourceDir && referenceDir && outputDir)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 匹配完成！' : '❌ 匹配失败'),
+            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 匹配完成！' : '❌ 匹配失败'),
             result.success && e('div', {},
-                e('p', {}, `扫描总数: ${result.total_scanned}`),
-                e('p', {}, `交集匹配: ${result.matched_count} (已复制: ${result.copied_intersection_count})`),
-                e('p', {}, `差集数量: ${result.unmatched_count} (已复制: ${result.copied_difference_count})`),
-                result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`),
-                dryRun && e('p', { style: { color: 'var(--neon-yellow)', fontSize: '0.9rem' } }, '注意：这是测试运行，没有实际复制文件')
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', {}, `扫描总数: ${result.total_scanned}`),
+                    e('div', { style: { color: 'var(--color-info)', fontWeight: 600 } }, `交集匹配: ${result.matched_count}`),
+                    e('div', { style: { color: 'var(--color-warning)', fontWeight: 600 } }, `差集数量: ${result.unmatched_count}`),
+                ),
+                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`),
+                dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际复制文件')
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

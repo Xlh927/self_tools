@@ -6,7 +6,7 @@ class ImageMatcher:
     def __init__(self):
         pass
 
-    def match_and_copy(self, source_dir, reference_dir, output_dir, copy_intersection=True, copy_difference=False, dry_run=False):
+    def match_and_copy(self, source_dir, reference_dir, output_dir, copy_intersection=True, copy_difference=False, dry_run=False, progress_callback=None):
         """
         Find images in source_dir that have the same stem as files in reference_dir.
         
@@ -79,6 +79,9 @@ class ImageMatcher:
                         stats['copied_difference'].append(str(file_path.name))
                     except Exception as e:
                         stats['errors'].append(f"Failed to copy difference {file_path.name}: {str(e)}")
+            
+            if progress_callback:
+                progress_callback(stats['total_scanned'], len(list(source_path.iterdir())), f"Processed {file_path.name}")
 
         return {
             'success': True,

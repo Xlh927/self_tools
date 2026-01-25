@@ -50,7 +50,7 @@ class DatasetCleaner:
         
         return labeled_images, unlabeled_images
 
-    def clean(self, images_dir: str, labels_dir: str, output_dir: str, dry_run: bool = False) -> Dict:
+    def clean(self, images_dir: str, labels_dir: str, output_dir: str, dry_run: bool = False, progress_callback=None) -> Dict:
         """
         Move unlabeled images to output_dir
         
@@ -59,6 +59,7 @@ class DatasetCleaner:
             labels_dir: Directory containing YOLO labels
             output_dir: Directory to move background images to
             dry_run: If True, don't actually move files
+            progress_callback: Optional function(current, total, message)
             
         Returns:
             Result dictionary with statistics
@@ -89,6 +90,9 @@ class DatasetCleaner:
                     
                     shutil.move(str(img_path), str(dest_path))
                     move_count += 1
+                    
+                    if progress_callback:
+                        progress_callback(move_count, len(unlabeled), f"Moving {img_path.name}...")
             else:
                 move_count = len(unlabeled)
             

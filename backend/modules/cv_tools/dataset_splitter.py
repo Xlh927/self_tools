@@ -87,7 +87,7 @@ class DatasetSplitter:
         return train_count, val_count, test_count
     
     def copy_files(self, basenames: List[str], images_dir: str, annotations_dir: str, 
-                   output_dir: str, split_name: str, format_type: str):
+                   output_dir: str, split_name: str, format_type: str, progress_callback=None, offset=0, total=0):
         """
         Copy image and annotation files to output directory
         
@@ -131,6 +131,10 @@ class DatasetSplitter:
             annotation_file = annotations_path / f'{basename}{annotation_ext}'
             if annotation_file.exists():
                 shutil.copy2(annotation_file, labels_dir / annotation_file.name)
+            
+            # Report progress
+            if progress_callback:
+                progress_callback(offset + basenames.index(basename) + 1, total, f"Copying {split_name} files...")
     
     def copy_background_files(self, basenames: List[str], images_dir: str, output_dir: str):
         """
@@ -171,12 +175,13 @@ class DatasetSplitter:
                 - test_ratio: Test percentage (0-100)
                 - use_background: Whether to move unlabeled to background
                 - random_seed: Random seed for reproducibility
+            progress_callback: Optional function(current, total, message)
         
         Returns:
             Result dictionary with statistics
         """
         try:
-            format_type = config['format']
+            annotation_format = config['format']
             images_dir = config['images_dir']
             annotations_dir = config['annotations_dir']
             output_dir = config['output_dir']
@@ -233,11 +238,18 @@ class DatasetSplitter:
             os.makedirs(output_dir, exist_ok=True)
             
             # Copy files
-            self.copy_files(train_images, images_dir, annotations_dir, output_dir, 'train', format_type)
-            self.copy_files(val_images, images_dir, annotations_dir, output_dir, 'val', format_type)
+            total_work = len(labeled)
+            current_work = 0
+            
+            self.copy_files(train_images, images_dir, annotations_dir, output_dir, 'train', format_type, progress_callback, current_work, total_work)
+            current_work += len(train_images)
+            
+            self.copy_files(val_images, images_dir, annotations_dir, output_dir, 'val', format_type, progress_callback, current_work, total_work)
+            current_work += len(val_images)
             
             if test_count > 0:
-                self.copy_files(test_images, images_dir, annotations_dir, output_dir, 'test', format_type)
+                self.copy_files(test_images, images_dir, annotations_dir, output_dir, 'test', format_type, progress_callback, current_work, total_work)
+                current_work += len(test_images)
             
             # Handle background images
             background_count = 0

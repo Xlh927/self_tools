@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ProgressBar from '../common/ProgressBar.js';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
@@ -10,48 +10,10 @@ export default function AugmentorTool() {
     const [outputDir, setOutputDir] = useState('');
     const [annotationFormat, setAnnotationFormat] = useState('yolo');
     const [classesFile, setClassesFile] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [progressMessage, setProgressMessage] = useState('');
+
+    // Result state
     const [result, setResult] = useState(null);
-    const pollTimer = useRef(null);
-
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (pollTimer.current) clearInterval(pollTimer.current);
-        };
-    }, []);
-
-    const pollTask = (taskId) => {
-        pollTimer.current = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/progress/${taskId}`);
-                if (res.status === 404) {
-                    clearInterval(pollTimer.current);
-                    return;
-                }
-                const data = await res.json();
-
-                setProgress(data.progress);
-                setProgressMessage(data.message);
-
-                if (data.status === 'completed') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult(data.result);
-                } else if (data.status === 'error') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult({ success: false, error: data.error });
-                }
-            } catch (err) {
-                console.error('Polling error:', err);
-                clearInterval(pollTimer.current);
-                setLoading(false);
-            }
-        }, 500);
-    };
+    const [taskId, setTaskId] = useState(null);
 
     // Augmentation options
     const [selectedAugmentations, setSelectedAugmentations] = useState({
@@ -99,50 +61,46 @@ export default function AugmentorTool() {
         }));
     };
 
-    const handleAugment = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
-        setProgress(0);
-        setProgressMessage('Starting augmentation...');
 
-        try {
-            // Get selected augmentations
-            const augmentations = Object.keys(selectedAugmentations)
-                .filter(key => selectedAugmentations[key]);
+        // Get selected augmentations
+        const augmentations = Object.keys(selectedAugmentations)
+            .filter(key => selectedAugmentations[key]);
 
-            if (augmentations.length === 0) {
-                setResult({ success: false, error: '请至少选择一种增强方法' });
-                setLoading(false);
-                return;
-            }
-
-            const response = await fetch('/api/augment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    images_dir: imagesDir,
-                    annotations_dir: annotationsDir,
-                    output_dir: outputDir,
-                    annotation_format: annotationFormat,
-                    augmentations: augmentations,
-                    classes_file: classesFile || undefined,
-                }),
-            });
-
-            const data = await response.json();
-            if (data.success && data.task_id) {
-                pollTask(data.task_id);
-            } else if (data.success) {
-                setResult(data);
-                setLoading(false);
-            } else {
-                setResult(data);
-                setLoading(false);
-            }
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-            setLoading(false);
+        if (augmentations.length === 0) {
+            throw new Error('请至少选择一种增强方法');
         }
+
+        const response = await fetch('/api/augment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                images_dir: imagesDir,
+                annotations_dir: annotationsDir,
+                output_dir: outputDir,
+                annotation_format: annotationFormat,
+                augmentations: augmentations,
+                classes_file: classesFile || undefined,
+            }),
+        });
+
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     const augmentationOptions = [
@@ -163,8 +121,6 @@ export default function AugmentorTool() {
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
-
-
 
         // Annotations Directory
         e('div', { className: 'input-group' },
@@ -251,15 +207,14 @@ export default function AugmentorTool() {
         // Augmentation Options
         e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info',
                 style: {
-                    padding: 'var(--spacing-md)',
-                    background: 'rgba(67, 233, 123, 0.05)',
-                    border: '2px solid var(--neon-green)',
+                    margin: 'var(--spacing-md) 0',
+                    borderColor: 'var(--color-info)'
                 }
             },
             e('h3',
-                { style: { marginBottom: 'var(--spacing-md)', color: 'var(--neon-green)' } },
+                { style: { color: 'var(--color-info)' } },
                 `增强方法 (已选择: ${selectedCount})`
             ),
             e('div',
@@ -273,13 +228,13 @@ export default function AugmentorTool() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: 'var(--spacing-sm)',
-                                padding: 'var(--spacing-sm)',
-                                background: selectedAugmentations[option.key] ? 'rgba(67, 233, 123, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: `2px solid ${selectedAugmentations[option.key] ? 'var(--neon-green)' : 'rgba(255, 255, 255, 0.1)'}`,
+                                padding: 'var(--spacing-md)',
+                                background: selectedAugmentations[option.key] ? 'var(--color-info-bg)' : 'var(--bg-tertiary)',
+                                border: `1.5px solid ${selectedAugmentations[option.key] ? 'var(--color-info)' : 'var(--glass-border)'}`,
                                 borderRadius: 'var(--radius-md)',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
-                                opacity: selectedAugmentations[option.key] ? 1 : 0.6,
+                                opacity: selectedAugmentations[option.key] ? 1 : 0.7,
                             }
                         },
                         e('input',
@@ -302,48 +257,35 @@ export default function AugmentorTool() {
             )
         ),
 
-        // Augment Button
-        !loading && e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleAugment,
-                disabled: !imagesDir || !annotationsDir || !outputDir || selectedCount === 0,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                }
-            },
-            '🚀 开始增强'
-        ),
-
-        // Progress Bar
-        loading && e(ProgressBar, { progress, message: progressMessage }),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(imagesDir && annotationsDir && outputDir && selectedCount > 0)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
             e('h3', {}, result.success ? '✅ 增强成功！' : '❌ 增强失败'),
             result.success && e('div', {},
-                e('p', {}, `原始图片: ${result.processed} 张`),
-                e('p', {}, `增强图片: ${result.generated} 张`),
-                e('p', { style: { fontWeight: 'bold', color: 'var(--neon-green)' } },
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', {}, `原始图片: ${result.processed} 张`),
+                    e('div', {}, `增强图片: ${result.generated} 张`),
+                ),
+                e('p', { style: { fontWeight: 'bold', color: 'var(--color-success)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } },
                     `总计图片: ${result.total_images} 张 (${Math.round((result.generated / result.processed) * 100)}% 增长)`
                 ),
-                result.errors && result.errors.length > 0 && e('div', {},
-                    e('p', { style: { marginTop: 'var(--spacing-md)', color: 'var(--neon-orange)' } },
-                        `⚠️ 警告: ${result.errors.length} 个文件处理失败`
-                    )
+                result.errors && result.errors.length > 0 && e('div', { style: { marginTop: 'var(--spacing-md)', color: 'var(--color-danger)', fontWeight: 600 } },
+                    `⚠️ 警告: ${result.errors.length} 个文件处理失败`
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

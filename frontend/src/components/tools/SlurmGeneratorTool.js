@@ -3,6 +3,17 @@ import React, { useState, useEffect } from 'react';
 const { createElement: e } = React;
 
 export default function SlurmGeneratorTool() {
+    const groupStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
+    const labelStyle = { fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' };
+    const inputStyle = {
+        padding: '0.5rem',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--glass-border)',
+        background: 'var(--bg-tertiary)',
+        color: 'var(--text-primary)',
+        fontSize: '0.9rem'
+    };
+
     const [task, setTask] = useState('detect');
     const [data, setData] = useState('');
     const [model, setModel] = useState('yolo11m.pt');
@@ -144,39 +155,12 @@ export default function SlurmGeneratorTool() {
         }
     };
 
-    const inputStyle = {
-        padding: '10px 12px',
-        borderRadius: '8px',
-        border: '1px solid var(--glass-border)',
-        background: 'var(--bg-secondary)',
-        color: 'var(--text-primary)',
-        width: '100%',
-        fontSize: '0.9rem',
-        outline: 'none',
-        transition: 'border-color 0.2s',
-        fontFamily: 'inherit'
-    };
-
-    const labelStyle = {
-        display: 'block',
-        marginBottom: '6px',
-        color: 'var(--text-secondary)',
-        fontSize: '0.85rem',
-        fontWeight: '600'
-    };
-
-    const groupStyle = {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px'
-    };
-
     return e('div',
         {
             style: {
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 'var(--spacing-lg)',
+                gap: 'var(--spacing-md)',
                 height: '100%'
             }
         },
@@ -184,16 +168,16 @@ export default function SlurmGeneratorTool() {
         // Header
         e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info',
                 style: {
-                    padding: 'var(--spacing-md)',
-                    borderLeft: '4px solid var(--primary-blue)',
-                    background: 'rgba(33, 150, 243, 0.05)'
+                    borderLeftWidth: '4px',
+                    borderColor: 'var(--color-info)',
+                    background: 'var(--color-info-bg)'
                 }
             },
-            e('h3', { style: { margin: '0 0 5px 0', color: 'var(--text-primary)', fontSize: '1.1rem' } }, '🚀 Slurm 训练命令生成器'),
+            e('h3', { style: { margin: '0 0 5px 0', color: 'var(--color-info)', fontSize: '1.2rem' } }, '🚀 Slurm 训练命令生成器'),
             e('p', { style: { margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' } },
-                '快速生成 YOLO 训练任务的 Slurm 提交命令'
+                '快速生成 YOLO 任务的 Slurm 提交命令。支持训练、验证、预测和导出。'
             )
         ),
 
@@ -207,10 +191,11 @@ export default function SlurmGeneratorTool() {
                 }
             },
             // Operation Mode
-            e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '运行模式 (Mode)'),
+            e('div', { className: 'input-group' },
+                e('label', { className: 'input-label' }, '运行模式 (Mode)'),
                 e('select',
                     {
+                        className: 'select-field',
                         value: mode,
                         onChange: (e) => {
                             setMode(e.target.value);
@@ -230,38 +215,37 @@ export default function SlurmGeneratorTool() {
                             else if (e.target.value === 'export') setModel('');
                             else if (e.target.value === 'subfp') setModel('');
                         },
-                        style: { ...inputStyle, cursor: 'pointer', border: '1px solid var(--primary-blue)' }
+                        style: { borderColor: 'var(--color-info)' }
                     },
                     e('option', { value: 'train' }, 'Train (训练)'),
                     e('option', { value: 'val' }, 'Val (验证)'),
-
                     e('option', { value: 'predict' }, 'Predict (推理)'),
                     e('option', { value: 'export' }, 'Export (导出)'),
                     e('option', { value: 'subfp' }, 'SubFP (压误报/测阈值)')
                 )
             ),
             // Task
-            mode !== 'subfp' && e('div', { style: groupStyle },
-                e('label', { style: labelStyle }, '任务类型 (Task)'),
+            mode !== 'subfp' && e('div', { className: 'input-group' },
+                e('label', { className: 'input-label' }, '任务类型 (Task)'),
                 e('select',
                     {
+                        className: 'select-field',
                         value: task,
                         onChange: (e) => setTask(e.target.value),
-                        style: { ...inputStyle, cursor: 'pointer' }
                     },
                     e('option', { value: 'detect' }, 'Detect (目标检测)'),
                     e('option', { value: 'segment' }, 'Segment (实例分割)')
                 )
             ),
             // Model / best.pt / weights
-            e('div', { style: ['subfp', 'val', 'predict', 'export'].includes(mode) ? { ...groupStyle, gridColumn: '1 / -1' } : groupStyle },
-                e('label', { style: labelStyle }, mode === 'train' ? '模型 (Model)' : (mode === 'subfp' ? '权重 (Weights)' : '权重路径 (model: best.pt)')),
+            e('div', { className: 'input-group', style: ['subfp', 'val', 'predict', 'export'].includes(mode) ? { gridColumn: '1 / -1' } : {} },
+                e('label', { className: 'input-label' }, mode === 'train' ? '模型 (Model)' : (mode === 'subfp' ? '权重 (Weights)' : '权重路径 (model: best.pt)')),
                 e('input', {
                     type: 'text',
+                    className: 'input-field',
                     value: model,
                     onChange: (e) => setModel(e.target.value),
                     placeholder: mode === 'train' ? 'yolo11m.pt' : (mode === 'subfp' ? '.torchscript' : 'runs/train/baseline/weights/best.pt'),
-                    style: inputStyle
                 })
             ),
             // Conditionally render fields based on mode
@@ -578,69 +562,79 @@ export default function SlurmGeneratorTool() {
                         style: inputStyle
                     })
                 )
-            ])))
-        ),
+            ]))),
 
-        // Project Path (Full Width) - For Train, Val, Predict
-        (mode !== 'export' && mode !== 'subfp') && e('div', { style: groupStyle },
-            e('label', { style: labelStyle }, '📂 项目路径 (Project)'),
-            e('div', { style: { position: 'relative' } },
-                e('input', {
-                    type: 'text',
-                    value: project,
-                    onChange: (e) => setProject(e.target.value),
-                    placeholder: '/runs/train',
-                    style: { ...inputStyle, paddingRight: '40px' }
-                }),
-                e('span', {
-                    style: {
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: '1.2rem',
-                        pointerEvents: 'none',
-                        opacity: 0.5
-                    }
-                }, '📂')
+            // Project Path (Full Width) - For Train, Val, Predict
+            (mode !== 'export' && mode !== 'subfp') && e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                e('label', { style: labelStyle }, '📂 项目路径 (Project)'),
+                e('div', { style: { position: 'relative' } },
+                    e('input', {
+                        type: 'text',
+                        value: project,
+                        onChange: (e) => setProject(e.target.value),
+                        placeholder: '/runs/train',
+                        style: {
+                            ...inputStyle,
+                            width: '100%',
+                            padding: '0.6rem 2.5rem 0.6rem 0.6rem',
+                            fontSize: '1rem'
+                        }
+                    }),
+                    e('span', {
+                        style: {
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '1.2rem',
+                            pointerEvents: 'none',
+                            opacity: 0.5
+                        }
+                    }, '📂')
+                )
+            ),
+
+            // Data Path (Full Width) - Only for Train mode
+            mode === 'train' && e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                e('label', { style: labelStyle }, '📂 数据配置文件路径 (Data YAML)'),
+                e('div', { style: { position: 'relative' } },
+                    e('input', {
+                        type: 'text',
+                        value: data,
+                        onChange: handleDataChange,
+                        placeholder: '/mnt/usrhome/sk/ndata/TFDS/dataset/baseline.yaml',
+                        style: {
+                            ...inputStyle,
+                            width: '100%',
+                            padding: '0.6rem 2.5rem 0.6rem 0.6rem',
+                            fontSize: '1rem'
+                        }
+                    }),
+                    e('span', {
+                        style: {
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '1.2rem',
+                            pointerEvents: 'none',
+                            opacity: 0.5
+                        }
+                    }, '📄')
+                )
             )
         ),
 
-        // Data Path (Full Width) - Only for Train mode
-        mode === 'train' && e('div', { style: groupStyle },
-            e('label', { style: labelStyle }, '📂 数据配置文件路径 (Data YAML)'),
-            e('div', { style: { position: 'relative' } },
-                e('input', {
-                    type: 'text',
-                    value: data,
-                    onChange: handleDataChange,
-                    placeholder: '/mnt/usrhome/sk/ndata/TFDS/dataset/baseline.yaml',
-                    style: { ...inputStyle, paddingRight: '40px' }
-                }),
-                e('span', {
-                    style: {
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: '1.2rem',
-                        pointerEvents: 'none',
-                        opacity: 0.5
-                    }
-                }, '📄')
-            )
-        ),
+
 
         // Result Area
         e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info',
                 style: {
                     marginTop: 'auto',
-                    padding: 'var(--spacing-md)',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: 'var(--radius-lg)'
+                    borderWidth: '2px',
+                    borderColor: 'var(--color-info)'
                 }
             },
             e('div',
@@ -652,35 +646,25 @@ export default function SlurmGeneratorTool() {
                         marginBottom: '12px'
                     }
                 },
-                e('span', { style: { fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '0.95rem' } }, '✨ 生成的命令:'),
+                e('span', { style: { fontWeight: 'bold', color: 'var(--color-info)', fontSize: '1rem' } }, '✨ 生成的命令:'),
                 e('button',
                     {
                         onClick: handleCopy,
-                        className: 'btn',
+                        className: `btn ${copied ? 'success' : ''}`,
                         style: {
                             padding: '8px 16px',
-                            background: copied ? 'var(--neon-green)' : 'var(--primary-blue)',
+                            background: copied ? 'var(--color-success)' : 'var(--gradient-primary)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '6px',
+                            borderRadius: 'var(--radius-md)',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
                             transition: 'all 0.2s',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             fontSize: '0.85rem'
                         },
-                        onMouseEnter: (e) => {
-                            if (!copied) {
-                                e.currentTarget.style.transform = 'scale(1.05)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(33, 150, 243, 0.3)';
-                            }
-                        },
-                        onMouseLeave: (e) => {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.boxShadow = 'none';
-                        }
                     },
                     copied ? '✅ 已复制' : '📋 复制命令'
                 )
@@ -690,16 +674,17 @@ export default function SlurmGeneratorTool() {
                     style: {
                         padding: '16px',
                         background: '#1e1e1e',
-                        color: '#a9b7c6',
+                        color: 'white', // High visibility
                         borderRadius: '8px',
-                        fontFamily: '"Consolas", "Monaco", "Courier New", monospace',
+                        fontFamily: '"JetBrains Mono", "Consolas", monospace',
                         wordBreak: 'break-all',
                         lineHeight: '1.6',
-                        border: '1px solid #333',
-                        fontSize: '0.9rem',
+                        border: '1.5px solid var(--color-info)',
+                        fontSize: '0.95rem',
                         minHeight: '60px',
                         display: 'flex',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)'
                     }
                 },
                 command || e('span', { style: { opacity: 0.5, fontStyle: 'italic' } }, '请填写参数以生成命令...')
@@ -709,12 +694,11 @@ export default function SlurmGeneratorTool() {
         // Reference Panel
         e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info',
                 style: {
-                    padding: 'var(--spacing-md)',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: 'var(--radius-lg)'
+                    borderColor: 'var(--glass-border)',
+                    borderWidth: '1px',
+                    opacity: 0.9
                 }
             },
             // Toggle Header
@@ -845,9 +829,9 @@ export default function SlurmGeneratorTool() {
                     {
                         style: {
                             padding: 'var(--spacing-sm)',
-                            background: 'rgba(67, 233, 123, 0.05)',
+                            background: 'var(--color-success-bg)',
                             borderRadius: '6px',
-                            borderLeft: '3px solid var(--neon-green)'
+                            borderLeft: '3px solid var(--color-success)'
                         }
                     },
                     e('div', { style: { fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '6px', fontSize: '0.9rem' } }, 'ℹ️ 查看集群信息 (sinfo)'),
@@ -873,9 +857,9 @@ export default function SlurmGeneratorTool() {
                     {
                         style: {
                             padding: 'var(--spacing-sm)',
-                            background: 'rgba(238, 90, 111, 0.05)',
+                            background: 'var(--color-danger-bg)',
                             borderRadius: '6px',
-                            borderLeft: '3px solid #ee5a6f'
+                            borderLeft: '3px solid var(--color-danger)'
                         }
                     },
                     e('div', { style: { fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '6px', fontSize: '0.9rem' } }, '🔧 查看任务详情 (scontrol)'),

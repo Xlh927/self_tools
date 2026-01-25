@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ProgressBar from '../common/ProgressBar.js';
+import TaskController from '../common/TaskController.js';
 import { basename } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
@@ -13,90 +13,51 @@ export default function DeduplicatorTool() {
     const [keepStrategy, setKeepStrategy] = useState('first');
     const [dryRun, setDryRun] = useState(true);
 
-    const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [progressMessage, setProgressMessage] = useState('');
+    // Result state
+    const [taskId, setTaskId] = useState(null);
     const [report, setReport] = useState(null);
     const [removeResult, setRemoveResult] = useState(null);
-    const pollTimer = useRef(null);
+    const [removing, setRemoving] = useState(false);
 
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (pollTimer.current) clearInterval(pollTimer.current);
-        };
-    }, []);
-
-    const pollTask = (taskId) => {
-        pollTimer.current = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/progress/${taskId}`);
-                if (res.status === 404) {
-                    clearInterval(pollTimer.current);
-                    return;
-                }
-                const data = await res.json();
-
-                setProgress(data.progress);
-                setProgressMessage(data.message);
-
-                if (data.status === 'completed') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setReport(data.result.report);
-                } else if (data.status === 'error') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setReport({ error: data.error });
-                }
-            } catch (err) {
-                console.error('Polling error:', err);
-                clearInterval(pollTimer.current);
-                setLoading(false);
-            }
-        }, 500);
-    };
-
-    const handleFindDuplicates = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setReport(null);
         setRemoveResult(null);
-        setProgress(0);
-        setProgressMessage('Starting scan...');
 
-        try {
-            const response = await fetch('/api/find-duplicates', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    folder_path: folderPath,
-                    hash_algorithm: hashAlgorithm,
-                    use_md5: useMd5,
-                    similarity_threshold: parseInt(similarityThreshold),
-                }),
-            });
+        const response = await fetch('/api/find-duplicates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                folder_path: folderPath,
+                hash_algorithm: hashAlgorithm,
+                use_md5: useMd5,
+                similarity_threshold: parseInt(similarityThreshold),
+            }),
+        });
 
-            const data = await response.json();
-            if (data.success && data.task_id) {
-                pollTask(data.task_id);
-            } else if (data.success) {
-                // Should not happen with new API but for safety
-                setReport(data.report);
-                setLoading(false);
-            } else {
-                setReport({ error: data.error });
-                setLoading(false);
-            }
-        } catch (error) {
-            setReport({ error: error.message });
-            setLoading(false);
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        if (res && res.report) {
+            setReport(res.report);
         }
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setReport({ error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     const handleRemoveDuplicates = async () => {
         if (!confirm('确定要删除重复图片吗？此操作不可撤销！')) return;
 
-        setLoading(true);
+        setRemoving(true);
         setRemoveResult(null);
 
         // Construct duplicates map from report to avoid re-scanning
@@ -133,7 +94,7 @@ export default function DeduplicatorTool() {
         } catch (error) {
             setRemoveResult({ success: false, error: error.message });
         } finally {
-            setLoading(false);
+            setRemoving(false);
         }
     };
 
@@ -198,34 +159,26 @@ export default function DeduplicatorTool() {
             )
         ),
 
-        // Progress Bar
-        loading && e(ProgressBar, { progress, message: progressMessage }),
-
-        // Find Button
-        e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleFindDuplicates,
-                disabled: loading || !folderPath,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                }
-            },
-            loading ? '扫描中...' : '🔍 扫描重复图片'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!folderPath
+        }),
 
         // Report
         report && !report.error && e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info animate-fade-in-up',
                 style: {
-                    marginTop: 'var(--spacing-lg)',
-                    border: '2px solid var(--neon-blue)',
+                    borderColor: 'var(--color-info)',
+                    borderWidth: '2px'
                 }
             },
-            e('h3', {}, '📊 扫描报告'),
+            e('h3', { style: { color: 'var(--color-info)' } }, '📊 扫描报告'),
             e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' } },
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '扫描文件: '),
@@ -233,15 +186,15 @@ export default function DeduplicatorTool() {
                 ),
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '重复组数: '),
-                    e('span', { style: { fontWeight: 'bold', color: 'var(--neon-orange)' } }, report.duplicate_groups)
+                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-danger)' } }, report.duplicate_groups)
                 ),
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '重复文件: '),
-                    e('span', { style: { fontWeight: 'bold', color: 'var(--neon-orange)' } }, report.total_duplicates)
+                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-danger)' } }, report.total_duplicates)
                 ),
                 e('div', {},
-                    e('span', { style: { color: 'var(--text-secondary)' } }, '可节省空间: '),
-                    e('span', { style: { fontWeight: 'bold', color: 'var(--neon-green)' } }, report.wasted_size)
+                    e('span', { style: { color: 'var(--text-secondary)' } }, '节省空间: '),
+                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, report.wasted_size)
                 )
             ),
 
@@ -260,8 +213,8 @@ export default function DeduplicatorTool() {
                 },
                 e('h4', { style: { marginTop: 0, marginBottom: 'var(--spacing-sm)', fontSize: '0.9rem', color: 'var(--text-secondary)' } }, '📄 重复文件列表'),
                 report.groups.map((group, gIdx) =>
-                    e('div', { key: group.id || gIdx, style: { marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)' } },
-                        e('div', { style: { fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px', color: 'var(--neon-blue)' } }, `第 ${gIdx + 1} 组 (${group.count} 个文件)`),
+                    e('div', { key: group.id || gIdx, style: { marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--glass-border)' } },
+                        e('div', { style: { fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px', color: 'var(--color-info)' } }, `组 ${gIdx + 1} (${group.count} 文件)`),
                         e('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
                             group.files.map((file, fIdx) =>
                                 e('div', { key: fIdx, style: { display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', opacity: 0.8 } },
@@ -314,10 +267,10 @@ export default function DeduplicatorTool() {
                     {
                         className: 'btn btn-secondary',
                         onClick: handleRemoveDuplicates,
-                        disabled: loading,
-                        style: { width: '100%' }
+                        disabled: removing,
+                        style: { width: '100%', borderColor: dryRun ? 'var(--color-info)' : 'var(--color-danger)' }
                     },
-                    loading ? '处理中...' : (dryRun ? '🧪 测试删除' : '🗑️ 确认删除')
+                    removing ? '处理中...' : (dryRun ? '🧪 测试删除' : '🗑️ 确认物理删除')
                 )
             )
         ),
@@ -325,20 +278,17 @@ export default function DeduplicatorTool() {
         // Remove Result
         removeResult && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-md)',
-                    background: removeResult.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `1px solid ${removeResult.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${removeResult.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h4', {}, removeResult.success ? (dryRun ? '✅ 测试完成' : '✅ 删除完成') : '❌ 操作失败'),
+            e('h3', {}, removeResult.success ? (dryRun ? '✅ 测试完成' : '✅ 处理完成') : '❌ 操作失败'),
             removeResult.success && e('div', {},
-                e('p', {}, `已删除: ${removeResult.removed_count} 个文件`),
-                e('p', {}, `释放空间: ${removeResult.saved_space}`),
-                dryRun && e('p', { style: { color: 'var(--neon-yellow)', fontSize: '0.9rem' } }, '注意：这是测试运行，没有实际删除文件')
+                e('div', { style: { display: 'flex', gap: '20px' } },
+                    e('div', {}, `已处理: ${removeResult.removed_count} 个文件`),
+                    e('div', { style: { color: 'var(--color-success)', fontWeight: 700 } }, `释放空间: ${removeResult.saved_space}`),
+                ),
+                dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际物理删除')
             ),
-            removeResult.error && e('p', { style: { color: 'var(--neon-orange)' } }, removeResult.error)
+            removeResult.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, removeResult.error)
         )
     );
 }

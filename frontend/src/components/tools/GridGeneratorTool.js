@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import TaskController from '../common/TaskController.js';
 
-const { createElement: e } = React;
+const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
 export default function GridGeneratorTool() {
     const [rows, setRows] = useState(2);
@@ -9,8 +10,11 @@ export default function GridGeneratorTool() {
     const [rowLabels, setRowLabels] = useState(Array(2).fill(''));
     const [colLabels, setColLabels] = useState(Array(2).fill(''));
     const [selectedCells, setSelectedCells] = useState([]);
-    const [loading, setLoading] = useState(false);
+
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
+
     const [activeCellId, setActiveCellId] = useState(null);
     const fileInputRef = useRef(null);
 
@@ -149,56 +153,63 @@ export default function GridGeneratorTool() {
         setSelectedCells([]);
     };
 
-    const handleGenerate = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
 
         const defaultPath = `/home/qzq/Downloads/grid_${Date.now()}.png`;
 
-        try {
-            // Create FormData
-            const formData = new FormData();
+        // Create FormData
+        const formData = new FormData();
 
-            // Add config as JSON string
-            const config = {
-                cells: cells.map((c, idx) => ({
-                    row: c.row,
-                    col: c.col,
-                    rowspan: c.rowspan,
-                    colspan: c.colspan,
-                    subtitle: c.subtitle || '',
-                    // Don't include file or preview
-                })),
-                row_labels: rowLabels,
-                col_labels: colLabels,
-                output_path: defaultPath,
-                padding,
-                margin,
-                font_size: fontSize,
-                background
-            };
+        // Add config as JSON string
+        const config = {
+            cells: cells.map((c, idx) => ({
+                row: c.row,
+                col: c.col,
+                rowspan: c.rowspan,
+                colspan: c.colspan,
+                subtitle: c.subtitle || '',
+                // Don't include file or preview
+            })),
+            row_labels: rowLabels,
+            col_labels: colLabels,
+            output_path: defaultPath,
+            padding,
+            margin,
+            font_size: fontSize,
+            background
+        };
 
-            formData.append('config', JSON.stringify(config));
+        formData.append('config', JSON.stringify(config));
 
-            // Add all files with cell_ prefix
-            cells.forEach((cell, idx) => {
-                if (cell.file) {
-                    formData.append(`cell_${idx}`, cell.file);
-                }
-            });
+        // Add all files with cell_ prefix
+        cells.forEach((cell, idx) => {
+            if (cell.file) {
+                formData.append(`cell_${idx}`, cell.file);
+            }
+        });
 
-            const response = await fetch('/api/generate-grid', {
-                method: 'POST',
-                body: formData
-            });
+        const response = await fetch('/api/generate-grid', {
+            method: 'POST',
+            body: formData
+        });
 
-            const data = await response.json();
-            setResult(data);
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
-            setLoading(false);
-        }
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -207,20 +218,20 @@ export default function GridGeneratorTool() {
         // Header & Toolbar
         e('div',
             {
-                className: 'glass-card',
+                className: 'result-box info',
                 style: {
-                    padding: 'var(--spacing-md)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    background: 'rgba(33, 150, 243, 0.1)',
-                    border: '2px solid var(--primary-blue)'
+                    borderColor: 'var(--color-info)',
+                    borderWidth: '2px',
+                    marginBottom: 'var(--spacing-md)'
                 }
             },
             e('div', {},
-                e('h2', { style: { margin: 0, color: 'var(--primary-blue)' } }, '📑 论文宫格 (小白版)'),
+                e('h2', { style: { margin: 0, color: 'var(--color-info)' } }, '📑 论文宫格工具'),
                 e('p', { style: { margin: '5px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' } },
-                    '点击格子上传图片，按住 Ctrl 多选合并'
+                    '点击格子上传图片，拖拽也支持。按住 Ctrl 多选合并。'
                 )
             ),
             e('div', { style: { display: 'flex', gap: '20px', alignItems: 'center' } },
@@ -303,16 +314,17 @@ export default function GridGeneratorTool() {
                             style: {
                                 gridColumn: `${cell.col + 1} / span ${cell.colspan}`,
                                 gridRow: `${cell.row + 1} / span ${cell.rowspan}`,
-                                background: selectedCells.includes(cell.id) ? 'rgba(33, 150, 243, 0.2)' : 'white',
-                                border: selectedCells.includes(cell.id) ? '2px solid var(--primary-blue)' : '2px dashed #ccc',
-                                borderRadius: '8px',
+                                background: selectedCells.includes(cell.id) ? 'var(--color-info-bg)' : 'var(--bg-secondary)',
+                                border: selectedCells.includes(cell.id) ? '2px solid var(--color-info)' : '1.5px dashed var(--form-border)',
+                                borderRadius: 'var(--radius-md)',
                                 display: 'flex',
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 cursor: 'pointer',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                boxShadow: selectedCells.includes(cell.id) ? 'var(--shadow-md)' : 'none'
                             },
                             onDragOver: (e) => e.preventDefault(),
                             onDrop: (e) => {
@@ -391,39 +403,27 @@ export default function GridGeneratorTool() {
             }, '✂️ 拆分单元格')
         ),
 
-        // Generate Button
-        !loading && e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleGenerate,
-                style: { padding: 'var(--spacing-md)', fontSize: '1.2rem', marginTop: '10px' }
-            },
-            '✨ 一键生成图片'
-        ),
-
-        // Loading
-        loading && e('div',
-            { style: { textAlign: 'center', padding: 'var(--spacing-lg)', color: 'var(--primary-blue)' } },
-            e('div', { className: 'spinner' }),
-            e('p', {}, '正在生成...')
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: true // Always valid start button for grid? Or check empty?
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
             e('h3', {}, result.success ? '✅ 生成成功！' : '❌ 生成失败'),
             result.success && e('div', {},
-                e('p', {}, `文件已保存至: ${result.output_path}`),
-                e('p', { style: { fontSize: '0.9rem', color: '#666' } }, '(请在文件管理器中查看)')
+                e('p', { style: { fontWeight: 600 } }, `文件已保存至:`),
+                e('p', { style: { fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-tertiary)', padding: '8px', borderRadius: '4px', wordBreak: 'break-all' } }, result.output_path)
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         ),
 
         // Global hidden file input for grid cells

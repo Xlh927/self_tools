@@ -13,8 +13,13 @@ import uuid
 from datetime import datetime
 
 # Global dictionary to store task progress
-# Format: {task_id: {'status': 'running'|'completed'|'error', 'progress': 0-100, 'message': '', 'result': None}}
+# Format: {task_id: {'status': 'running'|'paused'|'stopped'|'error'|'completed', 'progress': 0-100, 'message': '', 'result': None}}
 TASK_PROGRESS = {}
+
+# Global dictionary to store task events (e.g. for cancellation and pausing)
+# Format: {task_id: {'cancel': Event, 'pause': Event}}
+TASK_CONTROLS = {}
+
 # Add backend directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -56,6 +61,54 @@ def get_progress(task_id):
     if not task:
         return jsonify({'success': False, 'error': 'Task not found'}), 404
     return jsonify(task)
+
+@app.route('/api/task/<task_id>/pause', methods=['POST'])
+def pause_task(task_id):
+    """Pause a running task"""
+    controls = TASK_CONTROLS.get(task_id)
+    if controls and 'pause' in controls:
+        controls['pause'].clear() # clear() makes is_set() false -> task should pause
+        # Wait, standard threading.Event: set() -> true (run), clear() -> false (wait)?
+        # Custom logic: usually set() means "flag is up". 
+        # Let's standardize: 
+        # pause_event.set() -> Task should PAUSE
+        # pause_event.clear() -> Task should RUN
+        # Or typical: wait_event. wait_event.set() -> Run. wait_event.clear() -> Pause.
+        # Let's use 'pause_event': if set, task pauses.
+        controls['pause'].set()
+        
+        if task_id in TASK_PROGRESS:
+            TASK_PROGRESS[task_id]['status'] = 'paused'
+            
+        return jsonify({'success': True, 'message': 'Task paused'})
+    return jsonify({'success': False, 'error': 'Task not found or not controllable'}), 404
+
+@app.route('/api/task/<task_id>/resume', methods=['POST'])
+def resume_task(task_id):
+    """Resume a paused task"""
+    controls = TASK_CONTROLS.get(task_id)
+    if controls and 'pause' in controls:
+        controls['pause'].clear() # Unset pause flag
+        
+        if task_id in TASK_PROGRESS:
+            TASK_PROGRESS[task_id]['status'] = 'running'
+            
+        return jsonify({'success': True, 'message': 'Task resumed'})
+    return jsonify({'success': False, 'error': 'Task not found or not controllable'}), 404
+
+@app.route('/api/task/<task_id>/stop', methods=['POST'])
+def stop_task_new(task_id):
+    """Stop a running background task"""
+    controls = TASK_CONTROLS.get(task_id)
+    if controls and 'cancel' in controls:
+        controls['cancel'].set()
+        
+        if task_id in TASK_PROGRESS:
+            TASK_PROGRESS[task_id]['status'] = 'stopped'
+            
+        return jsonify({'success': True, 'message': 'Task cancellation requested'})
+    return jsonify({'success': False, 'error': 'Task not found or not cancellable'}), 404
+
 
 
 
@@ -245,13 +298,34 @@ def visualize_annotations():
         
         # Create cancellation event
         cancel_event = threading.Event()
-        TASK_EVENTS[task_id] = cancel_event
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        TASK_EVENTS[task_id] = cancel_event # Keep for legacy compatibility if needed, or just rely on TASK_CONTROLS
         
         def run_visualization():
             try:
                 visualizer = AnnotationVisualizer()
                 
                 def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
                     if total > 0:
                         progress = int((current / total) * 100)
                         TASK_PROGRESS[task_id].update({
@@ -278,14 +352,20 @@ def visualize_annotations():
                 })
                 
             except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
-                    'status': 'error',
-                    'error': str(e)
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
                 })
             finally:
                 # Clean up event
                 if task_id in TASK_EVENTS:
                     del TASK_EVENTS[task_id]
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
 
         # Start thread
         thread = threading.Thread(target=run_visualization)
@@ -316,17 +396,91 @@ def match_images():
         if 'output_dir' not in data or not data['output_dir']:
             return jsonify({'success': False, 'error': 'Missing output_dir'}), 400
             
-        matcher = ImageMatcher()
-        result = matcher.match_and_copy(
-            source_dir=data['source_dir'],
-            reference_dir=data['reference_dir'],
-            output_dir=data['output_dir'],
-            copy_intersection=data.get('copy_intersection', True),
-            copy_difference=data.get('copy_difference', False),
-            dry_run=data.get('dry_run', False)
-        )
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        return jsonify(result)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting matching...',
+            'result': None
+        }
+        
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
+        def run_matching():
+            try:
+                matcher = ImageMatcher()
+                
+                def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+                        
+                result = matcher.match_and_copy(
+                    source_dir=data['source_dir'],
+                    reference_dir=data['reference_dir'],
+                    output_dir=data['output_dir'],
+                    copy_intersection=data.get('copy_intersection', True),
+                    copy_difference=data.get('copy_difference', False),
+                    dry_run=data.get('dry_run', False),
+                    progress_callback=progress_callback
+                )
+                
+                # Update task status
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Matching completed',
+                    'result': result
+                })
+                
+            except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+
+        # Start thread
+        thread = threading.Thread(target=run_matching)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -391,12 +545,36 @@ def convert():
             'result': None
         }
         
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
         def run_conversion():
             try:
                 # Create converter
                 converter = DatasetConverter(classes_file if classes_file else None)
                 
                 def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
                     if total > 0:
                         progress = int((current / total) * 100)
                         TASK_PROGRESS[task_id].update({
@@ -464,11 +642,16 @@ def convert():
                 })
                 
             except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
-                    'status': 'error',
-                    'error': str(e)
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
                 })
-
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+        
         # Start thread
         thread = threading.Thread(target=run_conversion)
         thread.start()
@@ -667,12 +850,36 @@ def crop():
             'result': None
         }
         
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
         def run_cropping():
             try:
                 # Create cropper
                 cropper = ImageCropper()
                 
                 def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
                     if total > 0:
                         progress = int((current / total) * 100)
                         TASK_PROGRESS[task_id].update({
@@ -717,7 +924,7 @@ def crop():
                     # If I don't update generator, this path won't show progress.
                     # I'll stick to updating ImageCropper paths for now as per my immediate plan.
                     
-                    result = generator.generate_dataset(gen_config)
+                    result = generator.generate_dataset(gen_config, progress_callback=progress_callback)
                     
                 elif mode == 'single':
                     if not os.path.isfile(input_path):
@@ -771,10 +978,15 @@ def crop():
                 })
                 
             except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
-                    'status': 'error',
-                    'error': str(e)
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
                 })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
 
         # Start thread
         thread = threading.Thread(target=run_cropping)
@@ -837,13 +1049,77 @@ def generate():
                 'error': f'Annotations directory does not exist: {data["annotations_dir"]}'
             }), 400
         
-        # Create generator
-        generator = DatasetGenerator()
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        # Perform generation
-        result = generator.generate_dataset(data)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting generation...',
+            'result': None
+        }
         
-        return jsonify(result)
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
+        def run_generation():
+            try:
+                # Create generator
+                generator = DatasetGenerator()
+                
+                def progress_callback(current, total, message):
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+
+                # Perform generation
+                result = generator.generate_dataset(data, progress_callback=progress_callback)
+                
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Generation completed',
+                    'result': result
+                })
+            except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+        
+        # Start thread
+        thread = threading.Thread(target=run_generation)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
         
     except Exception as e:
         return jsonify({
@@ -869,9 +1145,75 @@ def split():
                     'error': f'Missing required field: {field}'
                 }), 400
         
-        splitter = DatasetSplitter()
-        result = splitter.split_dataset(data)
-        return jsonify(result)
+        # Generate task ID
+        task_id = str(uuid.uuid4())
+        
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting splitting...',
+            'result': None
+        }
+        
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
+        def run_splitting():
+            try:
+                splitter = DatasetSplitter()
+                
+                def progress_callback(current, total, message):
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+
+                result = splitter.split_dataset(data, progress_callback=progress_callback)
+                
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Splitting completed',
+                    'result': result
+                })
+            except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+
+        # Start thread
+        thread = threading.Thread(target=run_splitting)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -895,10 +1237,75 @@ def clean_dataset():
                 'error': 'Missing required fields: images_dir, labels_dir, or output_dir'
             }), 400
             
-        cleaner = DatasetCleaner()
-        result = cleaner.clean(images_dir, labels_dir, output_dir, dry_run)
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        return jsonify(result)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting cleaning...',
+            'result': None
+        }
+        
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
+        def run_cleaning():
+            try:
+                cleaner = DatasetCleaner()
+                
+                def progress_callback(current, total, message):
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+
+                result = cleaner.clean(images_dir, labels_dir, output_dir, dry_run, progress_callback=progress_callback)
+                
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Cleaning completed',
+                    'result': result
+                })
+            except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+
+        # Start thread
+        thread = threading.Thread(target=run_cleaning)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -975,12 +1382,36 @@ def find_duplicates():
             'result': None
         }
         
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
         def run_deduplication():
             try:
                 # Create deduplicator
                 deduplicator = ImageDeduplicator()
                 
                 def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
                     if total > 0:
                         progress = int((current / total) * 100)
                         TASK_PROGRESS[task_id].update({
@@ -1149,15 +1580,82 @@ def modify_labels():
         overwrite = data.get('overwrite', False)
         output_dir = data.get('output_dir')
         
-        modifier = LabelModifier()
-        result = modifier.modify_labels(
-            label_dir=label_dir,
-            class_mapping=class_mapping,
-            overwrite=overwrite,
-            output_dir=output_dir
-        )
+        # Generate task ID
+        task_id = str(uuid.uuid4())
         
-        return jsonify(result)
+        # Initialize progress
+        TASK_PROGRESS[task_id] = {
+            'status': 'running',
+            'progress': 0,
+            'message': 'Starting label modification...',
+            'result': None
+        }
+        
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
+        def run_modification():
+            try:
+                modifier = LabelModifier()
+                
+                def progress_callback(current, total, message):
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+                    if total > 0:
+                        progress = int((current / total) * 100)
+                        TASK_PROGRESS[task_id].update({
+                            'progress': progress,
+                            'message': f"{message} ({current}/{total})"
+                        })
+
+                result = modifier.modify_labels(
+                    label_dir=label_dir,
+                    class_mapping=class_mapping,
+                    overwrite=overwrite,
+                    output_dir=output_dir,
+                    progress_callback=progress_callback
+                )
+                
+                TASK_PROGRESS[task_id].update({
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': 'Modification completed',
+                    'result': result
+                })
+                
+            except Exception as e:
+                status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
+                TASK_PROGRESS[task_id].update({
+                    'status': status,
+                    'error': str(e) if status == 'error' else None,
+                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+
+        # Start thread
+        thread = threading.Thread(target=run_modification)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'status': 'started'
+        })
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1203,12 +1701,36 @@ def augment_dataset():
             'result': None
         }
         
+        # Initialize controls
+        cancel_event = threading.Event()
+        pause_event = threading.Event()
+        TASK_CONTROLS[task_id] = {
+            'cancel': cancel_event,
+            'pause': pause_event
+        }
+        
         def run_augmentation():
             try:
                 # Create augmentor
                 augmentor = DataAugmentor()
                 
                 def progress_callback(current, total, message):
+                    # Check for cancellation
+                    if cancel_event.is_set():
+                        raise Exception('Operation cancelled by user')
+
+                    # Check for pause
+                    while pause_event.is_set():
+                        if TASK_PROGRESS[task_id]['status'] != 'paused':
+                            TASK_PROGRESS[task_id].update({'status': 'paused', 'message': 'Task paused'})
+                        time.sleep(0.5)
+                        if cancel_event.is_set():
+                            raise Exception('Operation cancelled by user')
+                            
+                    # Restore running if was paused
+                    if TASK_PROGRESS[task_id]['status'] == 'paused':
+                        TASK_PROGRESS[task_id]['status'] = 'running'
+
                     if total > 0:
                         progress = int((current / total) * 100)
                         TASK_PROGRESS[task_id].update({

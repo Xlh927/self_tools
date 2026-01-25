@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
@@ -14,11 +15,9 @@ export default function VisualizerTool() {
     const [renameMode, setRenameMode] = useState('none'); // none, prefix, suffix
     const [renameContent, setRenameContent] = useState('name'); // name, id
 
-    const [loading, setLoading] = useState(false);
-    const [taskId, setTaskId] = useState(null);
-    const [progress, setProgress] = useState(0);
-    const [statusMessage, setStatusMessage] = useState('');
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
@@ -46,94 +45,39 @@ export default function VisualizerTool() {
         }
     }, [annotationsDir]);
 
-    // Polling effect
-    useEffect(() => {
-        let intervalId;
-        if (taskId) {
-            intervalId = setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/progress/${taskId}`);
-                    const data = await res.json();
-
-                    if (data.success === false) {
-                        // Task not found or error
-                        clearInterval(intervalId);
-                        setLoading(false);
-                        setTaskId(null);
-                        setResult({ success: false, error: data.error });
-                        return;
-                    }
-
-                    setProgress(data.progress || 0);
-                    setStatusMessage(data.message || '');
-
-                    if (data.status === 'completed' || data.status === 'error' || data.status === 'cancelled') {
-                        clearInterval(intervalId);
-                        setLoading(false);
-                        setTaskId(null);
-
-                        if (data.status === 'completed') {
-                            setResult(data.result);
-                        } else if (data.status === 'cancelled') {
-                            setResult({ success: false, error: '操作已取消' });
-                        } else {
-                            setResult({ success: false, error: data.error });
-                        }
-                    }
-                } catch (err) {
-                    console.error('Polling error:', err);
-                }
-            }, 1000);
-        }
-        return () => {
-            if (intervalId) clearInterval(intervalId);
-        };
-    }, [taskId]);
-
-    const handleVisualize = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
-        setProgress(0);
-        setStatusMessage('正在启动...');
 
-        try {
-            const response = await fetch('/api/visualize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    images_dir: imagesDir,
-                    annotations_dir: annotationsDir,
-                    output_dir: outputDir,
-                    box_thickness: boxThickness,
-                    text_size: textSize,
-                    rename_mode: renameMode,
-                    rename_content: renameContent
-                }),
-            });
+        const response = await fetch('/api/visualize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                images_dir: imagesDir,
+                annotations_dir: annotationsDir,
+                output_dir: outputDir,
+                box_thickness: parseInt(boxThickness),
+                text_size: parseInt(textSize),
+                rename_mode: renameMode,
+                rename_content: renameContent
+            }),
+        });
 
-            const data = await response.json();
-
-            if (data.success && data.task_id) {
-                setTaskId(data.task_id);
-                // Loading remains true until polling finishes
-            } else {
-                setLoading(false);
-                setResult(data);
-            }
-        } catch (error) {
-            setLoading(false);
-            setResult({ success: false, error: error.message });
-        }
+        const data = await response.json();
+        return data;
     };
 
-    const handleStop = async () => {
-        if (!taskId) return;
-        try {
-            await fetch(`/api/stop-task/${taskId}`, { method: 'POST' });
-            setStatusMessage('正在取消...');
-        } catch (err) {
-            console.error('Stop error:', err);
-        }
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -152,7 +96,6 @@ export default function VisualizerTool() {
                     placeholder: '/path/to/annotations',
                     value: annotationsDir,
                     onChange: (e) => setAnnotationsDir(e.target.value),
-                    disabled: loading
                 }
             )
         ),
@@ -170,7 +113,6 @@ export default function VisualizerTool() {
                     placeholder: '/path/to/images',
                     value: imagesDir,
                     onChange: (e) => setImagesDir(e.target.value),
-                    disabled: loading
                 }
             )
         ),
@@ -187,7 +129,6 @@ export default function VisualizerTool() {
                     min: 1,
                     max: 20,
                     onChange: (e) => setBoxThickness(parseInt(e.target.value) || 1),
-                    disabled: loading
                 })
             ),
             // Text Size
@@ -200,7 +141,6 @@ export default function VisualizerTool() {
                     min: 1,
                     max: 20,
                     onChange: (e) => setTextSize(parseInt(e.target.value) || 1),
-                    disabled: loading
                 })
             )
         ),
@@ -214,7 +154,6 @@ export default function VisualizerTool() {
                     className: 'input-field',
                     value: renameMode,
                     onChange: (e) => setRenameMode(e.target.value),
-                    disabled: loading
                 },
                     e('option', { value: 'none' }, '不重命名'),
                     e('option', { value: 'prefix' }, '添加前缀'),
@@ -228,7 +167,7 @@ export default function VisualizerTool() {
                     className: 'input-field',
                     value: renameContent,
                     onChange: (e) => setRenameContent(e.target.value),
-                    disabled: loading || renameMode === 'none'
+                    disabled: renameMode === 'none'
                 },
                     e('option', { value: 'name' }, '标签名称'),
                     e('option', { value: 'id' }, '标签索引')
@@ -249,84 +188,37 @@ export default function VisualizerTool() {
                     placeholder: '/path/to/output',
                     value: outputDir,
                     onChange: (e) => setOutputDir(e.target.value),
-                    disabled: loading
                 }
             )
         ),
 
-        // Progress Bar (Only when running)
-        loading && taskId && e('div', { style: { marginTop: 'var(--spacing-sm)' } },
-            e('div', {
-                style: {
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginBottom: '5px',
-                    fontSize: '0.9rem',
-                    color: 'var(--text-secondary)'
-                }
-            },
-                e('span', {}, statusMessage || '处理中...'),
-                e('span', {}, `${progress}%`)
-            ),
-            e('div', { className: 'progress-track' },
-                e('div', {
-                    className: 'progress-fill',
-                    style: { width: `${progress}%` }
-                })
-            )
-        ),
-
-        // Buttons
-        e('div', { style: { display: 'flex', gap: '10px' } },
-            e('button',
-                {
-                    className: 'btn btn-primary',
-                    onClick: handleVisualize,
-                    disabled: loading || !imagesDir || !annotationsDir || !outputDir,
-                    style: {
-                        fontSize: '1.1rem',
-                        padding: 'var(--spacing-md) var(--spacing-xl)',
-                        flex: 1,
-                    }
-                },
-                loading ? '处理中...' : '👁️ 开始可视化'
-            ),
-            loading && e('button',
-                {
-                    className: 'btn btn-danger',
-                    onClick: handleStop,
-                    style: {
-                        fontSize: '1.1rem',
-                        padding: 'var(--spacing-md)',
-                        width: 'auto',
-                    }
-                },
-                '停止'
-            )
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(imagesDir && annotationsDir && outputDir)
+        }),
 
         // Result
-        result && !loading && e('div',
+        result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 可视化完成！' : '❌ 可视化失败'),
+            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 可视化完成！' : '❌ 可视化失败'),
             result.success && e('div', {},
-                e('p', {}, `已处理图像: ${result.processed_count || 0}`),
+                e('p', { style: { fontWeight: 600, color: 'var(--color-success)' } }, `已处理图像: ${result.processed_count || 0}`),
                 result.errors && result.errors.length > 0 && e('div', { style: { marginTop: '10px' } },
-                    e('p', { style: { color: 'var(--neon-orange)' } }, `⚠️ 发生 ${result.errors.length} 个错误:`),
-                    e('ul', { style: { maxHeight: '100px', overflowY: 'auto', fontSize: '0.85rem' } },
-                        result.errors.slice(0, 5).map((err, i) => e('li', { key: i }, err)),
-                        result.errors.length > 5 && e('li', {}, '...')
+                    e('p', { style: { color: 'var(--color-warning)', fontWeight: 600 } }, `⚠️ 发生 ${result.errors.length} 个错误:`),
+                    e('ul', { style: { maxHeight: '120px', overflowY: 'auto', fontSize: '0.85rem', background: 'var(--bg-tertiary)', padding: '8px', borderRadius: '4px', border: '1.5px solid var(--form-border)' } },
+                        result.errors.slice(0, 10).map((err, i) => e('li', { key: i, style: { marginBottom: '4px' } }, err)),
+                        result.errors.length > 10 && e('li', { style: { fontStyle: 'italic' } }, `... 还有 ${result.errors.length - 10} 个错误`)
                     )
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

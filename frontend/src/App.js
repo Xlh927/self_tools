@@ -105,7 +105,6 @@ const TOOLS = [
 function App() {
     // State for helper data
     const [activeTools, setActiveTools] = useState([]);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [sidebarPosition, setSidebarPosition] = useState('top'); // left, right, top, bottom
     const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('app-theme') || 'default');
     const [nextInstanceId, setNextInstanceId] = useState(1);
@@ -239,16 +238,14 @@ function App() {
 
                     // Dynamic positioning styles
                     ...(isHorizontal ? {
-                        width: 'calc(100% - var(--spacing-md) * 2)',
-                        height: sidebarCollapsed ? '80px' : 'auto',
+                        width: 'calc(100% - var(--spacing-sm) * 2)',
+                        height: '85px',
                         flexDirection: 'row',
                         alignItems: 'center',
                         overflowX: 'auto',
-                        overflowY: 'visible', // Allow lift/scale animations
-                        paddingTop: 'var(--spacing-md)', // Ensure space at the top
                     } : {
-                        height: 'calc(100vh - var(--spacing-md) * 2)',
-                        width: sidebarCollapsed ? '90px' : '280px',
+                        height: 'calc(100vh - var(--spacing-sm) * 2)',
+                        width: '260px',
                         flexDirection: 'column',
                         overflowY: 'auto',
                         overflowX: 'hidden',
@@ -272,100 +269,88 @@ function App() {
                         borderRight: isHorizontal ? '1px solid var(--glass-border)' : 'none',
                         paddingBottom: isHorizontal ? 0 : 'var(--spacing-sm)',
                         paddingRight: isHorizontal ? 'var(--spacing-sm)' : 0,
+                        flexShrink: 0
                     }
                 },
                 // Logo / Title
-                !sidebarCollapsed && e('div',
+                e('div',
                     {
                         style: {
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
-                        }
-                    },
-                    e('div',
-                        {
-                            style: {
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }
-                        },
-                        e('a',
-                            {
-                                href: '/',
-                                title: '返回主页',
-                                style: {
-                                    textDecoration: 'none',
-                                    fontSize: '1.2rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: 'var(--bg-tertiary)',
-                                    padding: '4px',
-                                    borderRadius: ' var(--radius-sm)',
-                                    border: '1px solid var(--glass-border)',
-                                    color: 'var(--text-primary)',
-                                    transition: 'all 0.2s'
-                                },
-                                onMouseEnter: (e) => {
-                                    e.currentTarget.style.background = 'var(--bg-secondary)';
-                                    e.currentTarget.style.transform = 'scale(1.1)';
-                                },
-                                onMouseLeave: (e) => {
-                                    e.currentTarget.style.background = 'var(--bg-tertiary)';
-                                    e.currentTarget.style.transform = 'scale(1)';
-                                }
-                            },
-                            '🏠'
-                        ),
-                        e('div',
-                            {
-                                style: {
-                                    fontSize: '1.2rem',
-                                    fontWeight: 'bold',
-                                    background: 'var(--gradient-primary)',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    whiteSpace: 'nowrap',
-                                }
-                            },
-                            '图像处理工作台'
-                        )
-                    )
-                ),
-
-                // Collapse Button
-                e('button',
-                    {
-                        onClick: () => setSidebarCollapsed(!sidebarCollapsed),
-                        className: 'btn-ghost',
-                        style: {
-                            padding: '5px',
-                            borderRadius: '50%',
-                            width: '32px',
-                            height: '32px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            gap: '8px'
                         }
                     },
-                    isHorizontal
-                        ? (sidebarCollapsed ? '↕️' : '↕️')
-                        : (sidebarCollapsed ? '↔️' : '↔️')
-                )
+                    e('a',
+                        {
+                            href: '/',
+                            title: '返回主页',
+                            style: {
+                                textDecoration: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'var(--bg-tertiary)',
+                                padding: '8px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--glass-border)',
+                                color: 'var(--primary-blue)',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: 'var(--shadow-sm)'
+                            },
+                            onMouseEnter: (e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                                e.currentTarget.style.background = 'var(--bg-secondary)';
+                            },
+                            onMouseLeave: (e) => {
+                                e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                e.currentTarget.style.background = 'var(--bg-tertiary)';
+                            }
+                        },
+                        // Modern SVG Home Icon
+                        e('svg', {
+                            viewBox: '0 0 24 24',
+                            width: '24',
+                            height: '24',
+                            fill: 'none',
+                            stroke: 'currentColor',
+                            strokeWidth: '2',
+                            strokeLinecap: 'round',
+                            strokeLinejoin: 'round'
+                        },
+                            e('path', { d: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z' }),
+                            e('polyline', { points: '9 22 9 12 15 12 15 22' })
+                        )
+                    ),
+                    !isHorizontal && e('div',
+                        {
+                            style: {
+                                fontSize: '1.25rem',
+                                fontWeight: '800',
+                                background: 'var(--gradient-primary)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent',
+                                whiteSpace: 'nowrap',
+                                letterSpacing: '-0.5px'
+                            }
+                        },
+                        '工作台'
+                    )
+                ),
             ),
 
             // Tools List
             e('nav',
                 {
                     style: {
-                        display: 'flex',
-                        flexDirection: isHorizontal ? 'row' : 'column',
-                        gap: 'var(--spacing-sm)',
-                        padding: '4px', // Add padding to allow for lift/scale
+                        display: 'grid',
+                        gridTemplateColumns: isHorizontal ? 'repeat(auto-fill, var(--nav-btn-width))' : '1fr',
+                        gridAutoFlow: isHorizontal ? 'column' : 'row',
+                        gap: 'var(--spacing-md)', // Increased gap
                         flex: 1,
-                        overflow: isHorizontal ? 'visible' : 'auto', // Allow overflow in horizontal mode
+                        overflow: isHorizontal ? 'visible' : 'auto',
                     }
                 },
                 ...toolList.map(tool => {
@@ -382,132 +367,160 @@ function App() {
                             className: `tool-btn ${isDragging ? 'dragging' : ''}`,
                             title: tool.name,
                             style: {
-                                flexDirection: isHorizontal ? 'column' : 'row',
-                                minWidth: isHorizontal ? '60px' : 'auto',
-                                justifyContent: isHorizontal || sidebarCollapsed ? 'center' : 'flex-start',
+                                width: '100%',
+                                height: 'var(--nav-btn-height)',
+                                margin: '0 auto'
                             }
                         },
-                        e('span', { style: { fontSize: '1.2rem' } }, tool.icon),
-                        (!sidebarCollapsed && !isHorizontal) && e('span',
-                            { style: { fontSize: '0.8rem', whiteSpace: 'nowrap' } },
-                            tool.name
-                        ),
-                        (isHorizontal) && e('span',
-                            { style: { fontSize: '0.65rem', whiteSpace: 'nowrap' } },
-                            tool.name
-                        )
+                        e('span', {}, tool.icon),
+                        e('span', {}, tool.name)
                     );
                 })
             ),
 
-            !sidebarCollapsed && e('div',
+            e('div',
                 {
                     style: {
-                        marginTop: isHorizontal ? 0 : 'auto',
-                        marginLeft: isHorizontal ? 'auto' : 0,
+                        marginTop: isHorizontal ? 0 : 'var(--spacing-md)',
+                        marginLeft: isHorizontal ? 'var(--spacing-md)' : 0,
                         display: 'flex',
                         flexDirection: isHorizontal ? 'row' : 'column',
-                        gap: 'var(--spacing-md)',
-                        paddingTop: isHorizontal ? 0 : 'var(--spacing-md)',
+                        gap: 'var(--spacing-sm)',
+                        paddingTop: isHorizontal ? 0 : 'var(--spacing-sm)',
                         borderTop: isHorizontal ? 'none' : '1px solid var(--glass-border)',
-                        alignItems: 'center', // Always center vertically
+                        alignItems: 'center',
                         justifyContent: isHorizontal ? 'flex-end' : 'stretch',
+                        flexShrink: 0
                     }
                 },
-                // Task Status & Clear All - Shared container with Theme Switcher for better alignment
-                e('div', {
+                // Task Status & Clear All (Prominent Section)
+                activeTools.length > 0 && e('div', {
                     style: {
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.6rem',
-                        padding: '0.2rem 0.6rem',
-                        background: 'var(--bg-tertiary)',
+                        justifyContent: 'space-between',
+                        gap: '0.8rem',
+                        padding: '0.6rem 0.8rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--glass-border)',
-                        height: '36px', // Fixed height for alignment
+                        width: '100%',
                     }
                 },
-                    e('span', { style: { color: 'var(--text-secondary)', fontSize: '0.75rem', whiteSpace: 'nowrap', fontWeight: 600 } },
-                        `${activeTools.length} 任务`
+                    e('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                        e('span', { style: { fontSize: '1.2rem' } }, '🚀'),
+                        e('span', { style: { color: 'var(--text-primary)', fontSize: '0.95rem', whiteSpace: 'nowrap', fontWeight: 800 } },
+                            `${activeTools.length} 个任务`
+                        )
                     ),
-                    activeTools.length > 0 && e('button',
+                    e('button',
                         {
                             onClick: () => {
                                 if (confirm(`确定要清除所有 ${activeTools.length} 个任务吗？`)) {
                                     setActiveTools([]);
                                 }
                             },
-                            title: '清除所有',
+                            title: '一键清空工作区',
                             style: {
-                                background: 'transparent',
-                                border: 'none',
+                                background: 'var(--color-danger-bg)',
+                                color: 'var(--color-danger)',
+                                border: '1px solid var(--color-danger)',
                                 cursor: 'pointer',
                                 fontSize: '0.9rem',
+                                padding: '4px 8px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontWeight: 'bold',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '2px',
-                                borderRadius: '4px',
-                                transition: 'all 0.2s'
-                            },
-                            onMouseEnter: (e) => e.currentTarget.style.background = 'rgba(255,100,100,0.1)',
-                            onMouseLeave: (e) => e.currentTarget.style.background = 'transparent',
+                                gap: '4px'
+                            }
                         },
-                        '🗑️'
-                    ),
-                    // Vertical Divider
-                    e('div', { style: { width: '1px', height: '16px', background: 'var(--glass-border)', margin: '0 2px' } }),
-                    // Theme Switcher Integrated
-                    ...[
-                        { id: 'default', icon: '💎' },
-                        { id: 'douyin', icon: '🎵' },
-                        { id: 'youtube', icon: '📺' }
-                    ].map(theme =>
-                        e('button',
-                            {
-                                key: theme.id,
-                                onClick: () => setCurrentTheme(theme.id),
-                                style: {
-                                    padding: '0.3rem 0.6rem',
-                                    background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
-                                    color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-sm)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                },
-                            },
-                            theme.icon
-                        )
+                        e('span', {}, '🗑️'),
+                        '清空'
                     )
                 ),
-                // Layout Control
-                e('div',
-                    {
+
+                // Theme and Layout Controls (Grouped Section)
+                e('div', {
+                    style: {
+                        display: 'flex',
+                        flexDirection: isHorizontal ? 'row' : 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        width: '100%',
+                        marginTop: isHorizontal ? 0 : 'var(--spacing-sm)',
+                        paddingTop: isHorizontal ? 0 : 'var(--spacing-sm)',
+                        borderTop: isHorizontal ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                        gap: '12px'
+                    }
+                },
+                    // Theme Icons
+                    e('div', {
                         style: {
                             display: 'flex',
-                            flexDirection: isHorizontal ? 'row' : 'column',
-                            gap: '8px',
-                            alignItems: 'center',
+                            gap: '6px',
                             background: 'var(--bg-tertiary)',
-                            padding: '0.2rem 0.6rem',
+                            padding: '4px',
                             borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--glass-border)',
-                            height: '36px', // Match height
                         }
                     },
-                    e('div', { style: { fontSize: '0.65rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' } }, '固定位置'),
-                    e('div', { style: { display: 'flex', gap: '4px' } },
+                        [
+                            { id: 'default', icon: '💎' },
+                            { id: 'douyin', icon: '🎵' },
+                            { id: 'youtube', icon: '📺' }
+                        ].map(theme =>
+                            e('button',
+                                {
+                                    key: theme.id,
+                                    onClick: () => setCurrentTheme(theme.id),
+                                    style: {
+                                        width: '28px',
+                                        height: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
+                                        color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-sm)',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        transition: 'all 0.2s'
+                                    },
+                                },
+                                theme.icon
+                            )
+                        )
+                    ),
+
+                    // Layout Control Buttons
+                    e('div',
+                        {
+                            style: {
+                                display: 'flex',
+                                gap: '4px',
+                                alignItems: 'center',
+                                background: 'var(--bg-tertiary)',
+                                padding: '4px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--glass-border)',
+                            }
+                        },
                         ['left', 'right', 'top', 'bottom'].map(pos =>
                             e('button',
                                 {
                                     key: pos,
                                     onClick: () => setSidebarPosition(pos),
                                     className: `pos-btn ${sidebarPosition === pos ? 'active' : ''}`,
+                                    style: {
+                                        width: '24px',
+                                        height: '24px',
+                                        fontSize: '0.7rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }
                                 },
                                 pos[0].toUpperCase()
                             )
@@ -648,110 +661,41 @@ function ToolWorkspace({ instanceId, toolId, resetKey, onClose, onReset, style }
             className: 'glass-card animate-fade-in-up',
             style: {
                 position: 'relative',
-                borderTop: `4px solid transparent`,
-                backgroundImage: `linear-gradient(var(--bg-tertiary), var(--bg-tertiary)), ${tool.gradient}`,
-                backgroundOrigin: 'border-box',
-                backgroundClip: 'padding-box, border-box',
-                ...style // Apply passed styles
+                padding: 0, // Reset padding for header bar
+                borderTop: 'none', // Removed borderTop, using tool-header-border
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                ...style
             }
         },
-        // Close button
-        e('button',
-            {
-                onClick: onClose,
-                style: {
-                    position: 'absolute',
-                    top: 'var(--spacing-md)',
-                    right: 'var(--spacing-md)',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-tertiary)',
-                    cursor: 'pointer',
-                    fontSize: '1.2rem',
-                    padding: '5px',
-                    borderRadius: '50%',
-                    transition: 'all 0.2s',
-                    zIndex: 10,
-                },
-                onMouseEnter: (e) => {
-                    e.currentTarget.style.background = 'rgba(255, 0, 0, 0.2)';
-                    e.currentTarget.style.color = '#ff5252';
-                },
-                onMouseLeave: (e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-tertiary)';
-                }
-            },
-            '✕'
-        ),
-
-        // Reset button
-        e('button',
-            {
-                onClick: onReset,
-                title: '重置为初始状态',
-                style: {
-                    position: 'absolute',
-                    top: 'var(--spacing-md)',
-                    right: 'calc(var(--spacing-md) + 40px)',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-tertiary)',
-                    cursor: 'pointer',
-                    fontSize: '1.2rem',
-                    padding: '5px',
-                    borderRadius: '50%',
-                    transition: 'all 0.2s',
-                    zIndex: 10,
-                },
-                onMouseEnter: (e) => {
-                    e.currentTarget.style.background = 'rgba(33, 150, 243, 0.2)';
-                    e.currentTarget.style.color = 'var(--primary-blue)';
-                    e.currentTarget.style.transform = 'rotate(180deg)';
-                },
-                onMouseLeave: (e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-tertiary)';
-                    e.currentTarget.style.transform = 'rotate(0deg)';
-                }
-            },
-            '🔄'
-        ),
-
-        e('div',
-            {
-                style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--spacing-md)',
-                    marginBottom: 'var(--spacing-xl)',
-                    paddingBottom: 'var(--spacing-lg)',
-                    borderBottom: '2px solid var(--glass-border)',
-                    flexShrink: 0, // Header shouldn't shrink
-                }
-            },
-            e('span', { style: { fontSize: '2.5rem' } }, tool.icon),
-            e('div',
-                {},
-                e('h2',
+        // Consolidated Header Bar
+        e('div', { className: 'tool-workspace-header' },
+            e('div', { className: 'tool-header-info' },
+                e('span', { className: 'tool-header-icon' }, tool.icon),
+                e('div', { className: 'tool-header-title' },
+                    e('h2', {}, tool.name),
+                    e('p', {}, tool.description)
+                )
+            ),
+            e('div', { className: 'tool-header-actions' },
+                e('button',
                     {
-                        style: {
-                            margin: 0,
-                            marginBottom: '0.2rem',
-                            fontSize: '1.5rem',
-                        }
+                        onClick: onReset,
+                        title: '重置',
+                        className: 'action-btn reset'
                     },
-                    tool.name
+                    e('span', {}, '🔄'),
+                    '重置面板'
                 ),
-                e('p',
+                e('button',
                     {
-                        style: {
-                            margin: 0,
-                            color: 'var(--text-secondary)',
-                            fontSize: '0.9rem',
-                        }
+                        onClick: onClose,
+                        title: '关闭',
+                        className: 'action-btn close'
                     },
-                    tool.description
+                    e('span', {}, '✕'),
+                    '关闭窗口'
                 )
             )
         ),
@@ -761,8 +705,9 @@ function ToolWorkspace({ instanceId, toolId, resetKey, onClose, onReset, style }
             className: 'tool-content',
             style: {
                 flex: 1,
-                overflowY: 'auto', // Internal scroll
-                paddingRight: '5px', // Space for scrollbar
+                overflowY: 'auto',
+                padding: 'var(--spacing-md)',
+                paddingTop: 0,
             }
         },
             toolId === 'converter' && e(ConverterTool, { key: resetKey }),

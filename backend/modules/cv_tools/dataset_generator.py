@@ -328,9 +328,9 @@ class DatasetGenerator:
                 - classes: List of class names/indices to keep
                 - window_width: Window width
                 - window_height: Window height
-                - stride_x: Horizontal stride
                 - stride_y: Vertical stride
                 - overlap_threshold: Minimum overlap percentage (0-100)
+            progress_callback: Optional function(current, total, message)
         """
         try:
             annotation_format = config['annotation_format']
@@ -477,6 +477,10 @@ class DatasetGenerator:
                         total_crops += 1
                         crops_with_annotations += 1
                         crop_idx += 1
+                
+                # Report progress for each image
+                if progress_callback:
+                    progress_callback(image_files.index(img_file) + 1, total_images, f"Processed {img_file.name}")
             
             # Save classes.txt
             classes_list = sorted(class_to_id.items(), key=lambda x: x[1])

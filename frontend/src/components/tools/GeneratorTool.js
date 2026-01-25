@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
@@ -18,8 +19,9 @@ export default function GeneratorTool() {
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [scanningClasses, setScanningClasses] = useState(false);
 
-    const [loading, setLoading] = useState(false);
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
@@ -87,35 +89,42 @@ export default function GeneratorTool() {
         }
     };
 
-    const handleGenerate = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
 
-        try {
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    annotation_format: annotationFormat,
-                    images_dir: imagesDir,
-                    annotations_dir: annotationsDir,
-                    output_dir: outputDir,
-                    classes: selectedClasses,
-                    window_width: parseInt(windowWidth),
-                    window_height: parseInt(windowHeight),
-                    stride_x: parseInt(strideX),
-                    stride_y: parseInt(strideY),
-                    overlap_threshold: parseInt(overlapThreshold),
-                }),
-            });
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                annotation_format: annotationFormat,
+                images_dir: imagesDir,
+                annotations_dir: annotationsDir,
+                output_dir: outputDir,
+                classes: selectedClasses,
+                window_width: parseInt(windowWidth),
+                window_height: parseInt(windowHeight),
+                stride_x: parseInt(strideX),
+                stride_y: parseInt(strideY),
+                overlap_threshold: parseInt(overlapThreshold),
+            }),
+        });
 
-            const data = await response.json();
-            setResult(data);
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
-            setLoading(false);
-        }
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -184,9 +193,9 @@ export default function GeneratorTool() {
                         flexWrap: 'wrap',
                         gap: 'var(--spacing-sm)',
                         padding: 'var(--spacing-md)',
-                        background: 'var(--bg-tertiary)',
+                        background: 'var(--form-bg)',
                         borderRadius: 'var(--radius-md)',
-                        border: '2px solid var(--glass-border)',
+                        border: '1.5px solid var(--form-border)',
                         minHeight: '60px',
                     }
                 },
@@ -234,8 +243,8 @@ export default function GeneratorTool() {
         // Parameters Grid
         e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
             // Window Size
-            e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
-                e('h4', { style: { marginTop: 0, color: 'var(--neon-blue)' } }, '窗口大小'),
+            e('div', { className: 'result-box info', style: { padding: 'var(--spacing-md)', borderColor: 'var(--color-info)' } },
+                e('h4', { style: { marginTop: 0, color: 'var(--color-info)' } }, '窗口大小'),
                 e('div', { className: 'input-group', style: { marginBottom: 'var(--spacing-sm)' } },
                     e('label', { className: 'input-label' }, '宽度 (px)'),
                     e('input', {
@@ -252,8 +261,8 @@ export default function GeneratorTool() {
                 )
             ),
             // Stride
-            e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
-                e('h4', { style: { marginTop: 0, color: 'var(--neon-green)' } }, '步长 (Stride)'),
+            e('div', { className: 'result-box success', style: { padding: 'var(--spacing-md)', borderColor: 'var(--color-success)' } },
+                e('h4', { style: { marginTop: 0, color: 'var(--color-success)' } }, '步长 (Stride)'),
                 e('div', { className: 'input-group', style: { marginBottom: 'var(--spacing-sm)' } },
                     e('label', { className: 'input-label' }, '横向 (px)'),
                     e('input', {
@@ -271,39 +280,30 @@ export default function GeneratorTool() {
             )
         ),
 
-        // Submit Button
-        e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleGenerate,
-                disabled: loading || !imagesDir || !annotationsDir || !outputDir,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                    marginTop: 'var(--spacing-md)',
-                }
-            },
-            loading ? '生成中...' : '🎯 开始生成数据集'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(imagesDir && annotationsDir && outputDir)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
             e('h3', {}, result.success ? '✅ 生成完成！' : '❌ 生成失败'),
             result.success && e('div', {},
-                e('p', {}, `生成的图片数: ${result.total_images || 0}`),
-                e('p', {}, `生成的标注数: ${result.total_annotations || 0}`),
-                result.output_dir && e('p', { style: { fontSize: '0.9rem', opacity: 0.8 } }, `输出目录: ${result.output_dir}`)
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', {}, `生成图片数: ${result.total_images || 0}`),
+                    e('div', {}, `生成标注数: ${result.total_annotations || 0}`),
+                ),
+                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

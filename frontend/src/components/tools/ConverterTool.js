@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ProgressBar from '../common/ProgressBar.js';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
@@ -10,11 +10,10 @@ export default function ConverterTool() {
     const [imagesDir, setImagesDir] = useState('');
     const [outputDir, setOutputDir] = useState('');
     const [classesFile, setClassesFile] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [progressMessage, setProgressMessage] = useState('');
+
+    // Result state
     const [result, setResult] = useState(null);
-    const pollTimer = useRef(null);
+    const [taskId, setTaskId] = useState(null);
 
     // New state for class scanning
     const [scannedClasses, setScannedClasses] = useState([]);
@@ -63,13 +62,6 @@ export default function ConverterTool() {
         }
     }, [annotationsDir, conversionType]);
 
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (pollTimer.current) clearInterval(pollTimer.current);
-        };
-    }, []);
-
     const scanVocClasses = async () => {
         setScanningClasses(true);
         try {
@@ -115,77 +107,49 @@ export default function ConverterTool() {
         ));
     };
 
-    const startPolling = (taskId) => {
-        pollTimer.current = setInterval(async () => {
-            try {
-                const res = await fetch(`/api/progress/${taskId}`);
-                if (res.status === 404) {
-                    clearInterval(pollTimer.current);
-                    return;
-                }
-                const data = await res.json();
+    const handleStartTask = async () => {
+        setResult(null);
 
-                setProgress(data.progress);
-                setProgressMessage(data.message);
+        const requestBody = {
+            conversion_type: conversionType,
+            annotations_dir: annotationsDir,
+            images_dir: imagesDir,
+            output_dir: outputDir,
+            classes_file: classesFile || undefined,
+        };
 
-                if (data.status === 'completed') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult(data.result);
-                } else if (data.status === 'error') {
-                    clearInterval(pollTimer.current);
-                    setLoading(false);
-                    setResult({ success: false, error: data.error });
-                }
-            } catch (err) {
-                console.error('Polling error:', err);
-            }
-        }, 500);
+        // Add custom class mapping for VOC to YOLO conversion
+        if (conversionType === 'voc_to_yolo' && scannedClasses.length > 0) {
+            const customClassMapping = {};
+            // Only include enabled classes
+            scannedClasses.filter(cls => cls.enabled).forEach(cls => {
+                customClassMapping[cls.name] = cls.index;
+            });
+            requestBody.custom_class_mapping = customClassMapping;
+        }
+
+        const response = await fetch('/api/convert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+        });
+
+        const data = await response.json();
+        return data;
     };
 
-    const handleConvert = async () => {
-        setLoading(true);
-        setResult(null);
-        setProgress(0);
-        setProgressMessage('Starting...');
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
 
-        try {
-            const requestBody = {
-                conversion_type: conversionType,
-                annotations_dir: annotationsDir,
-                images_dir: imagesDir,
-                output_dir: outputDir,
-                classes_file: classesFile || undefined,
-            };
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
 
-            // Add custom class mapping for VOC to YOLO conversion
-            if (conversionType === 'voc_to_yolo' && scannedClasses.length > 0) {
-                const customClassMapping = {};
-                // Only include enabled classes
-                scannedClasses.filter(cls => cls.enabled).forEach(cls => {
-                    customClassMapping[cls.name] = cls.index;
-                });
-                requestBody.custom_class_mapping = customClassMapping;
-            }
-
-            const response = await fetch('/api/convert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
-
-            const data = await response.json();
-
-            if (data.success && data.task_id) {
-                startPolling(data.task_id);
-            } else {
-                setLoading(false);
-                setResult(data);
-            }
-        } catch (error) {
-            setLoading(false);
-            setResult({ success: false, error: error.message });
-        }
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -229,15 +193,14 @@ export default function ConverterTool() {
         // Class Editor - Show when classes are scanned
         showClassEditor && scannedClasses.length > 0 && e('div',
             {
-                className: 'glass-card',
+                className: 'result-box success',
                 style: {
-                    padding: 'var(--spacing-md)',
-                    background: 'rgba(67, 233, 123, 0.05)',
-                    border: '2px solid var(--neon-green)',
+                    margin: 'var(--spacing-md) 0',
+                    borderWidth: '2px'
                 }
             },
             e('h3',
-                { style: { marginBottom: 'var(--spacing-md)', color: 'var(--neon-green)' } },
+                { style: { color: 'var(--color-success)' } },
                 `✅ 检测到 ${scannedClasses.length} 个类别 (已选择: ${scannedClasses.filter(c => c.enabled).length})`
             ),
             e('div',
@@ -278,18 +241,15 @@ export default function ConverterTool() {
                         e('input',
                             {
                                 type: 'number',
+                                className: 'input-field',
                                 value: cls.index,
                                 onChange: (e) => updateClassIndex(cls.name, e.target.value),
                                 disabled: !cls.enabled,
                                 style: {
-                                    width: '60px',
+                                    width: '70px',
                                     padding: '0.4rem',
-                                    background: cls.enabled ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.1)',
-                                    border: `1px solid ${cls.enabled ? 'var(--neon-green)' : 'rgba(255, 255, 255, 0.1)'}`,
-                                    borderRadius: 'var(--radius-sm)',
-                                    color: 'var(--text-primary)',
                                     textAlign: 'center',
-                                    fontSize: '0.9rem',
+                                    borderColor: cls.enabled ? 'var(--color-success)' : 'var(--glass-border)',
                                     cursor: cls.enabled ? 'text' : 'not-allowed',
                                 }
                             }
@@ -374,51 +334,43 @@ export default function ConverterTool() {
             )
         ),
 
-        // Progress Bar
-        loading && e(ProgressBar, { progress, message: progressMessage }),
-
-        // Convert Button
-        !loading && e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleConvert,
-                disabled: !annotationsDir || !imagesDir || !outputDir,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                }
-            },
-            '🚀 开始转换'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(annotationsDir && imagesDir && outputDir)
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
             e('h3', {}, result.success ? '✅ 转换成功！' : '❌ 转换失败'),
             result.success && e('div', {},
-                e('p', {}, `已转换: ${result.converted} 个文件`),
-                result.skipped > 0 && e('p', {}, `跳过: ${result.skipped} 个文件`),
+                e('p', { style: { fontWeight: 600 } }, `统计信息:`),
+                e('div', { style: { display: 'flex', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' } },
+                    e('div', { style: { color: 'var(--color-success)' } }, `已转换: ${result.converted}`),
+                    result.skipped > 0 && e('div', { style: { color: 'var(--color-warning)' } }, `跳过: ${result.skipped}`),
+                ),
                 result.classes && e('div', {},
-                    e('p', {}, '检测到的类别:'),
+                    e('p', { style: { fontSize: '0.85rem', marginBottom: '0.4rem' } }, '检测到的类别:'),
                     e('div',
-                        { style: { display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' } },
+                        { style: { display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' } },
                         ...result.classes.map(cls =>
                             e('span',
                                 {
                                     key: cls,
                                     style: {
                                         background: 'var(--gradient-primary)',
-                                        padding: '0.25rem 0.75rem',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: '0.9rem',
+                                        color: 'white',
+                                        padding: '0.15rem 0.6rem',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 600
                                     }
                                 },
                                 cls
@@ -427,7 +379,7 @@ export default function ConverterTool() {
                     )
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }

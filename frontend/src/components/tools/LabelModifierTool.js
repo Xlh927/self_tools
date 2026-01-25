@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import TaskController from '../common/TaskController.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
@@ -7,9 +8,12 @@ export default function LabelModifierTool() {
     const [labelDir, setLabelDir] = useState('');
     const [overwrite, setOverwrite] = useState(true);
     const [outputDir, setOutputDir] = useState('');
-    const [loading, setLoading] = useState(false);
     const [scanning, setScanning] = useState(false);
+
+    // Result state
     const [result, setResult] = useState(null);
+    const [taskId, setTaskId] = useState(null);
+
     const [foundClasses, setFoundClasses] = useState([]);
     const [classMapping, setClassMapping] = useState({});
 
@@ -64,29 +68,36 @@ export default function LabelModifierTool() {
         }));
     };
 
-    const handleModify = async () => {
-        setLoading(true);
+    const handleStartTask = async () => {
         setResult(null);
 
-        try {
-            const response = await fetch('/api/modify-labels', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    label_dir: labelDir,
-                    class_mapping: classMapping,
-                    overwrite: overwrite,
-                    output_dir: overwrite ? null : outputDir
-                }),
-            });
+        const response = await fetch('/api/modify-labels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                label_dir: labelDir,
+                class_mapping: classMapping,
+                overwrite: overwrite,
+                output_dir: overwrite ? null : outputDir
+            }),
+        });
 
-            const data = await response.json();
-            setResult(data);
-        } catch (error) {
-            setResult({ success: false, error: error.message });
-        } finally {
-            setLoading(false);
-        }
+        const data = await response.json();
+        return data;
+    };
+
+    const handleComplete = (res) => {
+        setResult(res);
+        setTaskId(null);
+    };
+
+    const handleError = (err) => {
+        setResult({ success: false, error: err });
+        setTaskId(null);
+    };
+
+    const handleStop = () => {
+        setTaskId(null);
     };
 
     return e('div',
@@ -122,26 +133,26 @@ export default function LabelModifierTool() {
         ),
 
         // Class Mapping Table
-        foundClasses.length > 0 && e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
-            e('h3', { style: { marginTop: 0, marginBottom: 'var(--spacing-md)', fontSize: '1rem' } }, '🏷️ 类别映射配置'),
-            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 'var(--spacing-sm)', alignItems: 'center', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-secondary)' } },
-                e('span', {}, '原类别 ID'),
-                e('span', {}, '样本数量'),
-                e('span', { style: { textAlign: 'center' } }, '➡'),
-                e('span', {}, '新类别 ID')
+        foundClasses.length > 0 && e('div', { className: 'result-box info', style: { padding: 'var(--spacing-md)', borderColor: 'var(--color-info)' } },
+            e('h3', { style: { marginTop: 0, marginBottom: 'var(--spacing-md)', fontSize: '1rem', color: 'var(--color-info)' } }, '🏷️ 类别映射配置'),
+            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 'var(--spacing-sm)', alignItems: 'center', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--text-secondary)', textAlign: 'center' } },
+                e('span', {}, '原 ID'),
+                e('span', {}, '样本数'),
+                e('span', {}, ''),
+                e('span', {}, '新 ID')
             ),
-            e('div', { style: { maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' } },
+            e('div', { style: { maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '4px' } },
                 foundClasses.map(cls =>
                     e('div', { key: cls.id, style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 'var(--spacing-sm)', alignItems: 'center' } },
-                        e('div', { className: 'input-field', style: { background: 'var(--bg-tertiary)', textAlign: 'center' } }, cls.id),
-                        e('div', { style: { textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' } }, cls.count),
-                        e('div', { style: { textAlign: 'center', color: 'var(--text-tertiary)' } }, '➡'),
+                        e('div', { className: 'input-field', style: { background: 'var(--bg-tertiary)', textAlign: 'center', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, cls.id),
+                        e('div', { style: { textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' } }, cls.count),
+                        e('div', { style: { textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '1.2rem' } }, '➡'),
                         e('input', {
                             type: 'number',
                             className: 'input-field',
                             value: classMapping[cls.id],
                             onChange: (e) => handleMappingChange(cls.id, e.target.value),
-                            style: { textAlign: 'center', borderColor: classMapping[cls.id] !== cls.id ? 'var(--neon-blue)' : '' }
+                            style: { textAlign: 'center', height: '40px', borderColor: classMapping[cls.id] !== cls.id ? 'var(--primary-blue)' : '' }
                         })
                     )
                 )
@@ -179,39 +190,30 @@ export default function LabelModifierTool() {
             )
         ),
 
-        // Modify Button
-        e('button',
-            {
-                className: 'btn btn-primary',
-                onClick: handleModify,
-                disabled: loading || !labelDir || (!overwrite && !outputDir) || foundClasses.length === 0,
-                style: {
-                    fontSize: '1.1rem',
-                    padding: 'var(--spacing-md) var(--spacing-xl)',
-                    width: '100%',
-                    marginTop: 'var(--spacing-sm)'
-                }
-            },
-            loading ? '处理中...' : '🚀 开始修改'
-        ),
+        // Task Controller
+        e(TaskController, {
+            taskId: taskId,
+            onStart: handleStartTask,
+            onComplete: handleComplete,
+            onError: handleError,
+            onStop: handleStop,
+            canStart: !!(labelDir && foundClasses.length > 0 && (overwrite || outputDir))
+        }),
 
         // Result
         result && e('div',
             {
-                className: 'glass-card',
-                style: {
-                    marginTop: 'var(--spacing-lg)',
-                    background: result.success ? 'rgba(67, 233, 123, 0.1)' : 'rgba(245, 87, 108, 0.1)',
-                    border: `2px solid ${result.success ? 'var(--neon-green)' : 'var(--neon-orange)'}`,
-                }
+                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 修改完成！' : '❌ 修改失败'),
+            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 修改完成！' : '❌ 修改失败'),
             result.success && e('div', {},
-                e('p', {}, `已处理: ${result.processed} 个文件`),
-                e('p', {}, `已修改: ${result.modified} 个文件`),
-                result.errors > 0 && e('p', { style: { color: 'var(--neon-orange)' } }, `错误: ${result.errors} 个文件`)
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
+                    e('div', { style: { color: 'var(--color-info)' } }, `已处理: ${result.processed}`),
+                    e('div', { style: { color: 'var(--color-success)' } }, `已修改: ${result.modified}`),
+                ),
+                result.errors > 0 && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, `⚠️ 错误: ${result.errors} 个文件`)
             ),
-            result.error && e('p', { style: { color: 'var(--neon-orange)' } }, result.error)
+            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
         )
     );
 }
