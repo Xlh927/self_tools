@@ -161,7 +161,7 @@ class DatasetSplitter:
                     shutil.copy2(image_file, output_path / image_file.name)
                     break
     
-    def split_dataset(self, config: Dict) -> Dict:
+    def split_dataset(self, config: Dict, progress_callback=None) -> Dict:
         """
         Split dataset into train/val/test sets
         
@@ -204,7 +204,7 @@ class DatasetSplitter:
                 }
             
             # Scan dataset
-            labeled, unlabeled = self.scan_dataset(images_dir, annotations_dir, format_type)
+            labeled, unlabeled = self.scan_dataset(images_dir, annotations_dir, annotation_format)
             
             total_images = len(labeled) + len(unlabeled)
             
@@ -241,14 +241,14 @@ class DatasetSplitter:
             total_work = len(labeled)
             current_work = 0
             
-            self.copy_files(train_images, images_dir, annotations_dir, output_dir, 'train', format_type, progress_callback, current_work, total_work)
+            self.copy_files(train_images, images_dir, annotations_dir, output_dir, 'train', annotation_format, progress_callback, current_work, total_work)
             current_work += len(train_images)
             
-            self.copy_files(val_images, images_dir, annotations_dir, output_dir, 'val', format_type, progress_callback, current_work, total_work)
+            self.copy_files(val_images, images_dir, annotations_dir, output_dir, 'val', annotation_format, progress_callback, current_work, total_work)
             current_work += len(val_images)
             
             if test_count > 0:
-                self.copy_files(test_images, images_dir, annotations_dir, output_dir, 'test', format_type, progress_callback, current_work, total_work)
+                self.copy_files(test_images, images_dir, annotations_dir, output_dir, 'test', annotation_format, progress_callback, current_work, total_work)
                 current_work += len(test_images)
             
             # Handle background images
