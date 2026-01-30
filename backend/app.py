@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 # Global dictionary to store task progress
 # Format: {task_id: {'status': 'running'|'paused'|'stopped'|'error'|'completed', 'progress': 0-100, 'message': '', 'result': None}}
@@ -19,6 +20,23 @@ TASK_PROGRESS = {}
 # Global dictionary to store task events (e.g. for cancellation and pausing)
 # Format: {task_id: {'cancel': Event, 'pause': Event}}
 TASK_CONTROLS = {}
+TASK_RETENTION_LIMIT = 200
+TASK_COMPLETED_STATUSES = {'completed', 'error', 'stopped', 'cancelled'}
+
+def prune_task_progress(limit: int = TASK_RETENTION_LIMIT):
+    """Drop oldest completed tasks to avoid unbounded growth."""
+    if len(TASK_PROGRESS) <= limit:
+        return
+    completed = [
+        (task_id, task.get('finished_at'))
+        for task_id, task in TASK_PROGRESS.items()
+        if task.get('status') in TASK_COMPLETED_STATUSES and task.get('finished_at')
+    ]
+    if len(completed) <= limit:
+        return
+    completed.sort(key=lambda item: item[1])
+    for task_id, _ in completed[:-limit]:
+        TASK_PROGRESS.pop(task_id, None)
 
 # Add backend directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -348,7 +366,8 @@ def visualize_annotations():
                     'status': status,
                     'progress': 100,
                     'message': 'Visualization completed' if status == 'completed' else f"Visualization {status}",
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
@@ -356,7 +375,8 @@ def visualize_annotations():
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 # Clean up event
@@ -364,8 +384,7 @@ def visualize_annotations():
                     del TASK_EVENTS[task_id]
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
-                if task_id in TASK_CONTROLS:
-                    del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_visualization)
@@ -458,7 +477,8 @@ def match_images():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Matching completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
@@ -466,11 +486,13 @@ def match_images():
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_matching)
@@ -604,14 +626,20 @@ def convert():
                         filtered_classes = [result['classes'][i] for i in selected_classes if i < len(result['classes'])]
                         class_map = {old_idx: new_idx for new_idx, old_idx in enumerate(selected_classes)}
                         
-                        output_files = list(Path(output_dir).glob('*.txt'))
+                        output_files = [p for p in Path(output_dir).glob('*.txt') if p.name != 'classes.txt']
                         for txt_file in output_files:
                             filtered_lines = []
                             with open(txt_file, 'r', encoding='utf-8') as f:
                                 for line in f:
                                     parts = line.strip().split()
-                                    if parts and int(parts[0]) in selected_classes:
-                                        parts[0] = str(class_map[int(parts[0])])
+                                    if not parts:
+                                        continue
+                                    try:
+                                        class_id = int(parts[0])
+                                    except ValueError:
+                                        continue
+                                    if class_id in selected_classes:
+                                        parts[0] = str(class_map[class_id])
                                         filtered_lines.append(' '.join(parts))
                             with open(txt_file, 'w', encoding='utf-8') as f:
                                 f.write('\n'.join(filtered_lines))
@@ -638,7 +666,8 @@ def convert():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Conversion completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
@@ -646,11 +675,13 @@ def convert():
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
         
         # Start thread
         thread = threading.Thread(target=run_conversion)
@@ -662,12 +693,6 @@ def convert():
             'status': 'started'
         })
 
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-        
     except Exception as e:
         return jsonify({
             'success': False,
@@ -974,7 +999,8 @@ def crop():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Cropping completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
@@ -982,11 +1008,13 @@ def crop():
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_cropping)
@@ -1098,18 +1126,21 @@ def generate():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Generation completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
             except Exception as e:
                 status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
         
         # Start thread
         thread = threading.Thread(target=run_generation)
@@ -1192,18 +1223,21 @@ def split():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Splitting completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
             except Exception as e:
                 status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_splitting)
@@ -1284,18 +1318,21 @@ def clean_dataset():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Cleaning completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
             except Exception as e:
                 status = 'stopped' if str(e) == 'Operation cancelled by user' else 'error'
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_cleaning)
@@ -1308,26 +1345,6 @@ def clean_dataset():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
-        if not os.path.exists(data['annotations_dir']):
-            return jsonify({
-                'success': False,
-                'error': f'Annotations directory does not exist: {data["annotations_dir"]}'
-            }), 400
-        
-        # Create splitter
-        splitter = DatasetSplitter()
-        
-        # Perform splitting
-        result = splitter.split_dataset(data)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 
 @app.route('/api/find-duplicates', methods=['POST'])
@@ -1436,14 +1453,20 @@ def find_duplicates():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Scan completed',
-                    'result': {'report': report}
+                    'result': {'report': report},
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
                 TASK_PROGRESS[task_id].update({
                     'status': 'error',
-                    'error': str(e)
+                    'error': str(e),
+                    'finished_at': time.time()
                 })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_deduplication)
@@ -1633,7 +1656,8 @@ def modify_labels():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Modification completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
@@ -1641,11 +1665,13 @@ def modify_labels():
                 TASK_PROGRESS[task_id].update({
                     'status': status,
                     'error': str(e) if status == 'error' else None,
-                    'message': 'Task cancelled' if status == 'stopped' else str(e)
+                    'message': 'Task cancelled' if status == 'stopped' else str(e),
+                    'finished_at': time.time()
                 })
             finally:
                 if task_id in TASK_CONTROLS:
                     del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_modification)
@@ -1749,14 +1775,20 @@ def augment_dataset():
                     'status': 'completed',
                     'progress': 100,
                     'message': 'Augmentation completed',
-                    'result': result
+                    'result': result,
+                    'finished_at': time.time()
                 })
                 
             except Exception as e:
                 TASK_PROGRESS[task_id].update({
                     'status': 'error',
-                    'error': str(e)
+                    'error': str(e),
+                    'finished_at': time.time()
                 })
+            finally:
+                if task_id in TASK_CONTROLS:
+                    del TASK_CONTROLS[task_id]
+                prune_task_progress()
 
         # Start thread
         thread = threading.Thread(target=run_augmentation)
@@ -1824,9 +1856,6 @@ def generate_grid():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -1886,4 +1915,3 @@ if __name__ == '__main__':
     print('   - Image Deduplicator: http://localhost:5000/deduplicator')
     print('Press Ctrl+C to stop the server')
     app.run(debug=True, host='0.0.0.0', port=5000)
-

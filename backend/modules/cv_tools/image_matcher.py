@@ -50,9 +50,9 @@ class ImageMatcher:
         }
 
         # Iterate source files
-        for file_path in source_path.iterdir():
-            if not file_path.is_file() or file_path.name.startswith('.'):
-                continue
+        source_files = [p for p in source_path.iterdir() if p.is_file() and not p.name.startswith('.')]
+        total_files = len(source_files)
+        for file_path in source_files:
             
             stats['total_scanned'] += 1
             
@@ -81,7 +81,7 @@ class ImageMatcher:
                         stats['errors'].append(f"Failed to copy difference {file_path.name}: {str(e)}")
             
             if progress_callback:
-                progress_callback(stats['total_scanned'], len(list(source_path.iterdir())), f"Processed {file_path.name}")
+                progress_callback(stats['total_scanned'], total_files, f"Processed {file_path.name}")
 
         return {
             'success': True,

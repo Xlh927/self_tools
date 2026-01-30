@@ -315,7 +315,7 @@ class DatasetGenerator:
         
         return (annotation.class_id, x_center, y_center, width, height)
     
-    def generate_dataset(self, config: Dict) -> Dict:
+    def generate_dataset(self, config: Dict, progress_callback=None) -> Dict:
         """
         Generate dataset from large annotated images
         
@@ -374,15 +374,18 @@ class DatasetGenerator:
             # Build class mapping
             class_to_id = {}
             if annotation_format == 'yolo':
-                # For YOLO, classes_filter contains indices
-                # We need to load classes.txt
+                # For YOLO, load classes.txt when available.
                 classes_file = os.path.join(annotations_dir, 'classes.txt')
                 if os.path.exists(classes_file):
                     with open(classes_file, 'r') as f:
                         all_classes = [line.strip() for line in f if line.strip()]
-                    for idx in classes_filter:
-                        if idx < len(all_classes):
-                            class_to_id[all_classes[idx]] = idx
+                    if classes_filter:
+                        for idx in classes_filter:
+                            if idx < len(all_classes):
+                                class_to_id[all_classes[idx]] = idx
+                    else:
+                        for idx, class_name in enumerate(all_classes):
+                            class_to_id[class_name] = idx
                 else:
                     # Use indices directly
                     for idx in classes_filter:
@@ -393,7 +396,7 @@ class DatasetGenerator:
                     class_to_id[class_name] = idx
             
             # Process each image
-            for img_file in image_files:
+            for img_index, img_file in enumerate(image_files, start=1):
                 # Find corresponding annotation file
                 ann_file = None
                 if annotation_format == 'voc':
@@ -480,13 +483,14 @@ class DatasetGenerator:
                 
                 # Report progress for each image
                 if progress_callback:
-                    progress_callback(image_files.index(img_file) + 1, total_images, f"Processed {img_file.name}")
+                    progress_callback(img_index, total_images, f"Processed {img_file.name}")
             
             # Save classes.txt
-            classes_list = sorted(class_to_id.items(), key=lambda x: x[1])
-            with open(os.path.join(output_dir, 'classes.txt'), 'w') as f:
-                for class_name, _ in classes_list:
-                    f.write(f'{class_name}\n')
+            if class_to_id:
+                classes_list = sorted(class_to_id.items(), key=lambda x: x[1])
+                with open(os.path.join(output_dir, 'classes.txt'), 'w') as f:
+                    for class_name, _ in classes_list:
+                        f.write(f'{class_name}\n')
             
             return {
                 'success': True,

@@ -111,7 +111,7 @@ class DatasetSplitter:
         
         annotation_ext = '.xml' if format_type == 'voc' else '.txt'
         
-        for basename in basenames:
+        for idx, basename in enumerate(basenames, start=1):
             # Find and copy image
             image_file = None
             for ext in self.supported_image_extensions:
@@ -134,7 +134,7 @@ class DatasetSplitter:
             
             # Report progress
             if progress_callback:
-                progress_callback(offset + basenames.index(basename) + 1, total, f"Copying {split_name} files...")
+                progress_callback(offset + idx, total, f"Copying {split_name} files...")
     
     def copy_background_files(self, basenames: List[str], images_dir: str, output_dir: str):
         """
@@ -190,6 +190,19 @@ class DatasetSplitter:
             test_ratio = config.get('test_ratio', 10)
             use_background = config.get('use_background', False)
             random_seed = config.get('random_seed', 42)
+
+            # Validate ratios
+            ratios = [train_ratio, val_ratio, test_ratio]
+            if any(r < 0 for r in ratios):
+                return {
+                    'success': False,
+                    'error': 'Split ratios must be non-negative'
+                }
+            if abs(sum(ratios) - 100) > 1e-6:
+                return {
+                    'success': False,
+                    'error': 'Split ratios must sum to 100'
+                }
             
             # Validate input directory
             if not os.path.exists(images_dir):
