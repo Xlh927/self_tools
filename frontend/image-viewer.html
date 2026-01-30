@@ -280,7 +280,17 @@
             max-height: 90%;
             object-fit: contain;
             filter: brightness(var(--brightness));
-            transition: filter 0.2s;
+            transition: filter 0.2s, transform 0.15s ease-out;
+            transform-origin: center center;
+            cursor: default;
+        }
+
+        #single-image.zoomed {
+            cursor: grab;
+        }
+
+        #single-image.zoomed:active {
+            cursor: grabbing;
         }
 
         #close-btn {
@@ -682,6 +692,22 @@
         let useThumbnails = false; // Default to original images
         let currentSortMode = 'name_desc'; // Default sort mode
         let scrollMode = 'smart'; // 'smart' or 'center'
+
+        // Zoom state variables
+        let zoomScale = 1.0;           // Current zoom level
+        const MIN_ZOOM = 0.01;         // Minimum zoom (1%)
+        const MAX_ZOOM = 20.0;         // Maximum zoom (2000%)
+        const ZOOM_STEP = 0.3;         // Zoom increment per wheel tick (faster)
+
+        // Pan state variables
+        let panX = 0;                  // Horizontal pan offset
+        let panY = 0;                  // Vertical pan offset
+        let isDragging = false;        // Is user currently dragging
+        let dragStartX = 0;            // Mouse X position when drag started
+        let dragStartY = 0;            // Mouse Y position when drag started
+        let dragStartPanX = 0;         // Pan X when drag started
+        let dragStartPanY = 0;         // Pan Y when drag started
+
         let config = {
             shortcuts: {
                 next: 'ArrowDown',
@@ -909,6 +935,7 @@
         function openSingleView(index) {
             if (index < 0 || index >= currentImages.length) return;
             currentIndex = index;
+            zoomScale = 1.0;  // Reset zoom when opening
             updateSingleView();
             singleView.style.display = 'flex';
             singleImage.focus(); // for keyboard events if attached to image
@@ -918,6 +945,13 @@
             const filename = currentImages[currentIndex];
             const fullPath = joinPath(currentPath, filename);
             singleImage.src = `/api/viewer/image?path=${encodeURIComponent(fullPath)}`;
+
+            // Reset zoom and pan when changing images
+            zoomScale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateImageTransform();
+            singleImage.classList.remove('zoomed');
 
             let info = `${currentIndex + 1} / ${currentImages.length} - ${filename}`;
 
@@ -963,6 +997,59 @@
                     preloadCache.delete(firstKey);
                 }
             });
+        }
+
+        function handleImageZoom(event) {
+            event.preventDefault();
+
+            // Determine zoom direction
+            const delta = event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+            const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomScale + delta));
+
+            if (newScale !== zoomScale) {
+                zoomScale = newScale;
+                updateImageTransform();
+
+                // Add/remove zoomed class for cursor styling
+                if (zoomScale > 1.0) {
+                    singleImage.classList.add('zoomed');
+                } else {
+                    singleImage.classList.remove('zoomed');
+                }
+            }
+        }
+
+        function updateImageTransform() {
+            singleImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+        }
+
+        function handleMouseDown(event) {
+            if (zoomScale > 1.0) {
+                isDragging = true;
+                dragStartX = event.clientX;
+                dragStartY = event.clientY;
+                dragStartPanX = panX;
+                dragStartPanY = panY;
+                event.preventDefault();
+            }
+        }
+
+        function handleMouseMove(event) {
+            if (isDragging) {
+                const deltaX = event.clientX - dragStartX;
+                const deltaY = event.clientY - dragStartY;
+                panX = dragStartPanX + deltaX;
+                panY = dragStartPanY + deltaY;
+                updateImageTransform();
+                event.preventDefault();
+            }
+        }
+
+        function handleMouseUp(event) {
+            if (isDragging) {
+                isDragging = false;
+                event.preventDefault();
+            }
         }
 
         function closeSingleView() {
@@ -1161,6 +1248,14 @@
         nextBtn.addEventListener('click', showNext);
         prevBtn.addEventListener('click', showPrev);
 
+        // Add wheel event listener for zoom
+        singleImage.addEventListener('wheel', handleImageZoom, { passive: false });
+
+        // Add mouse event listeners for drag/pan
+        singleImage.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
         // Grid size slider
         gridSizeSlider.addEventListener('input', (e) => {
             updateGridSize(e.target.value);
@@ -1256,6 +1351,22 @@
                 // Clear
                 if (e.key === config.shortcuts.clear) {
                     unclassifyImage();
+                }
+
+                // Zoom controls
+                if (e.key === '=' || e.key === '+') {
+                    e.preventDefault();
+                    handleImageZoom({ deltaY: -100, preventDefault: () => { } });
+                } else if (e.key === '-') {
+                    e.preventDefault();
+                    handleImageZoom({ deltaY: 100, preventDefault: () => { } });
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    zoomScale = 1.0;
+                    panX = 0;
+                    panY = 0;
+                    updateImageTransform();
+                    singleImage.classList.remove('zoomed');
                 }
             } else {
                 // Grid view mode
