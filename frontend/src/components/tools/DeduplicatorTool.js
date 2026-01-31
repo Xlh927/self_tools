@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
 import { basename } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -46,7 +48,8 @@ export default function DeduplicatorTool() {
     };
 
     const handleError = (err) => {
-        setReport({ error: err });
+        const normalized = normalizeError(err);
+        setReport({ ...normalized });
         setTaskId(null);
     };
 
@@ -92,7 +95,8 @@ export default function DeduplicatorTool() {
                 setReport(null);
             }
         } catch (error) {
-            setRemoveResult({ success: false, error: error.message });
+            const normalized = normalizeError(error);
+            setRemoveResult({ success: false, ...normalized });
         } finally {
             setRemoving(false);
         }
@@ -170,6 +174,14 @@ export default function DeduplicatorTool() {
         }),
 
         // Report
+        report && report.error && e('div',
+            {
+                className: 'result-box error animate-fade-in-up',
+            },
+            e('h3', {}, '❌ 扫描失败'),
+            e(ErrorText, { error: report.error, errorCode: report.error_code })
+        ),
+
         report && !report.error && e('div',
             {
                 className: 'result-box info animate-fade-in-up',
@@ -288,7 +300,7 @@ export default function DeduplicatorTool() {
                 ),
                 dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际物理删除')
             ),
-            removeResult.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, removeResult.error)
+            e(ErrorText, { error: removeResult.error, errorCode: removeResult.error_code })
         )
     );
 }

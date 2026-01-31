@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ProgressBar from './ProgressBar.js';
+import { formatError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -11,7 +12,7 @@ const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useR
  * - taskId: string | null - The ID of the running task. If provided, polling starts.
  * - onStart: function - Callback when "Start" button is clicked. Should return a promise that resolves to { success: true, task_id: '...' }.
  * - onComplete: function(result) - Callback when task completes successfully.
- * - onError: function(error) - Callback when task fails.
+ * - onError: function({ error, error_code }) - Callback when task fails.
  * - onStop: function - Callback when task is stopped by user.
  * - canStart: boolean - Whether the start button should be enabled.
  */
@@ -28,6 +29,7 @@ export default function TaskController({
     const [status, setStatus] = useState('idle'); // idle, running, paused, stopped, completed, error
     const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState('');
+    const [errorCode, setErrorCode] = useState('');
     const [localTaskId, setLocalTaskId] = useState(taskId);
 
     // Sync prop taskId to local
@@ -57,13 +59,17 @@ export default function TaskController({
                     // Task lost?
                     setStatus('error');
                     setMessage('Task not found');
-                    if (onError) onError('Task not found');
+                    setErrorCode('ERR_TASK_NOT_FOUND');
+                    if (onError) onError({ error: 'Task not found', error_code: 'ERR_TASK_NOT_FOUND' });
                     return;
                 }
                 const data = await res.json();
 
                 setProgress(data.progress);
                 setMessage(data.message);
+                if (data.error_code) {
+                    setErrorCode(data.error_code);
+                }
 
                 // Allow backend to dictate status, but map correctly
                 if (data.status) {
@@ -73,7 +79,8 @@ export default function TaskController({
                 if (data.status === 'completed') {
                     if (onComplete) onComplete(data.result);
                 } else if (data.status === 'error') {
-                    if (onError) onError(data.error);
+                    setMessage(data.error || data.message);
+                    if (onError) onError({ error: data.error, error_code: data.error_code });
                 } else if (data.status === 'stopped') {
                     if (onStop) onStop();
                 }
@@ -92,6 +99,7 @@ export default function TaskController({
         setStatus('running');
         setProgress(0);
         setMessage('Starting...');
+        setErrorCode('');
 
         try {
             const result = await onStart();
@@ -108,12 +116,14 @@ export default function TaskController({
             } else {
                 setStatus('error');
                 setMessage(result?.error || 'Failed to start');
-                if (onError) onError(result?.error || 'Failed to start');
+                setErrorCode(result?.error_code || '');
+                if (onError) onError({ error: result?.error || 'Failed to start', error_code: result?.error_code });
             }
         } catch (e) {
             setStatus('error');
             setMessage(e.message);
-            if (onError) onError(e.message);
+            setErrorCode('');
+            if (onError) onError({ error: e.message });
         }
     };
 
@@ -153,6 +163,7 @@ export default function TaskController({
         setStatus('idle');
         setProgress(0);
         setMessage('');
+        setErrorCode('');
         setLocalTaskId(null);
         if (onStop) onStop(); // Reset parent state if needed
     };
@@ -182,7 +193,7 @@ export default function TaskController({
                 },
                 '▶️ 开始任务'
             ),
-            status === 'error' && message && e('p', { style: { color: 'var(--neon-orange)', marginTop: '8px', textAlign: 'center' } }, message)
+            status === 'error' && message && e('p', { style: { color: 'var(--neon-orange)', marginTop: '8px', textAlign: 'center' } }, formatError(message, errorCode))
         );
     }
 
@@ -223,6 +234,14 @@ export default function TaskController({
                     fontWeight: '600'
                 }
             }, '🛑 任务已取消'),
+            errorCode && e('div', {
+                style: {
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.85rem',
+                    marginBottom: '10px'
+                }
+            }, `错误码: ${errorCode}`),
             e('button',
                 {
                     className: 'btn',
@@ -240,9 +259,9 @@ export default function TaskController({
 
     // Active States (running, paused)
     return e('div', { className: 'task-controller animate-fade-in' },
-        e(ProgressBar, {
+            e(ProgressBar, {
             progress: progress,
-            message: status === 'paused' ? `⏸️ 已暂停 - ${message}` : message,
+            message: status === 'paused' ? `⏸️ 已暂停 - ${message}` : formatError(message, errorCode),
             color: status === 'paused' ? 'var(--color-warning)' : 'var(--color-success)'
         }),
 

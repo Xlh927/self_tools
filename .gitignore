@@ -1,5 +1,10 @@
 # Python
 __pycache__/
+.DS_Store
+.local
+*.db
+*.sqlite
+*.sqlite3
 *.py[cod]
 *$py.class
 *.so
@@ -58,7 +63,10 @@ tmp/
 *.tmp
 backend/data/test_data/
 backend/data/notes/
+backend/data/.DS_Store
 backend/data/todo/
+temp_uploads/
+frontend/.cache/
 
 # PyInstaller
 *.spec.bak

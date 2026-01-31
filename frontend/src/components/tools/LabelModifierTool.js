@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -52,10 +54,12 @@ export default function LabelModifierTool() {
                 });
                 setClassMapping(initialMapping);
             } else {
-                setResult({ success: false, error: data.error });
+                const normalized = normalizeError(data);
+                setResult({ success: false, ...normalized });
             }
         } catch (error) {
-            setResult({ success: false, error: error.message });
+            const normalized = normalizeError(error);
+            setResult({ success: false, ...normalized });
         } finally {
             setScanning(false);
         }
@@ -92,7 +96,8 @@ export default function LabelModifierTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -213,7 +218,7 @@ export default function LabelModifierTool() {
                 ),
                 result.errors > 0 && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, `⚠️ 错误: ${result.errors} 个文件`)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -120,7 +122,8 @@ export default function SplitterTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -278,7 +281,7 @@ export default function SplitterTool() {
                 ),
                 result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

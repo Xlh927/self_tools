@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -72,7 +74,8 @@ export default function VisualizerTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -218,7 +221,7 @@ export default function VisualizerTool() {
                     )
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -204,7 +206,8 @@ export default function GridGeneratorTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -423,7 +426,7 @@ export default function GridGeneratorTool() {
                 e('p', { style: { fontWeight: 600 } }, `文件已保存至:`),
                 e('p', { style: { fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-tertiary)', padding: '8px', borderRadius: '4px', wordBreak: 'break-all' } }, result.output_path)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         ),
 
         // Global hidden file input for grid cells
