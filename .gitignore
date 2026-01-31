@@ -69,5 +69,6 @@ dist/
 
 #skills
 .agent/
+.cursor/
 .shared/
 logs/
