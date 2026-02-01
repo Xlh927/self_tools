@@ -226,6 +226,59 @@ pre {
     color: var(--text-tertiary);
 }
 
+/* Option Buttons (replace select dropdowns) */
+.option-group {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0.35rem;
+    background: var(--form-bg);
+    border: 1.5px solid var(--form-border);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-normal);
+}
+
+.option-group:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-tertiary);
+}
+
+.option-button {
+    flex: 1 1 auto;
+    min-width: 90px;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.option-button:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--form-border);
+    transform: translateY(-1px);
+}
+
+.option-button.is-active {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+
+.option-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Checkbox & Radio Styles */
 input[type="checkbox"],
 input[type="radio"] {

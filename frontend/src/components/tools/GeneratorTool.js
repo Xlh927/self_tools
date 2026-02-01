@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
 
@@ -136,16 +137,16 @@ export default function GeneratorTool() {
         // Format Selection
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '标注格式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: annotationFormat,
-                    onChange: (e) => setAnnotationFormat(e.target.value),
-                },
-                e('option', { value: 'voc' }, 'VOC (XML)'),
-                e('option', { value: 'yolo' }, 'YOLO (TXT)'),
-                e('option', { value: 'json' }, 'COCO (JSON)')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc', label: 'VOC (XML)' },
+                    { value: 'yolo', label: 'YOLO (TXT)' },
+                    { value: 'json', label: 'COCO (JSON)' }
+                ],
+                value: annotationFormat,
+                onChange: setAnnotationFormat,
+                ariaLabel: '标注格式'
+            })
         ),
 
         // Annotations Directory

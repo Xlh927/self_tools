@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
 
@@ -137,15 +138,15 @@ export default function SplitterTool() {
         // Format Selection
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '数据集格式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: format,
-                    onChange: (e) => setFormat(e.target.value),
-                },
-                e('option', { value: 'voc' }, 'VOC (XML)'),
-                e('option', { value: 'yolo' }, 'YOLO (TXT)')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc', label: 'VOC (XML)' },
+                    { value: 'yolo', label: 'YOLO (TXT)' }
+                ],
+                value: format,
+                onChange: setFormat,
+                ariaLabel: '数据集格式'
+            })
         ),
 
         // Annotations Directory
