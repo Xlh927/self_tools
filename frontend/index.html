@@ -153,16 +153,20 @@
 <body>
     <!-- Theme Switcher -->
     <div class="theme-switcher">
-        <button class="theme-btn active" data-theme="default">
+        <button class="theme-btn active" data-theme="bilibili">
+            <span>📺</span>
+            <span>B站</span>
+        </button>
+        <button class="theme-btn" data-theme="default">
             <span>💎</span>
-            <span>默认</span>
+            <span>CH</span>
         </button>
         <button class="theme-btn" data-theme="douyin">
             <span>🎵</span>
             <span>TT</span>
         </button>
         <button class="theme-btn" data-theme="youtube">
-            <span>📺</span>
+            <span>🔴</span>
             <span>YT</span>
         </button>
     </div>
@@ -196,7 +200,7 @@
 
     <script>
         // Theme management
-        const currentTheme = localStorage.getItem('app-theme') || 'default';
+        const currentTheme = localStorage.getItem('app-theme') || 'bilibili';
         document.documentElement.setAttribute('data-theme', currentTheme);
 
         // Update active button

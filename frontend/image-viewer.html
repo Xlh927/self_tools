@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lightweight Image Viewer</title>
+    <title>图像浏览器 - Image Viewer</title>
     <link rel="icon" href="assets/self_tools_icon.svg" type="image/svg+xml">
     <style>
         :root {
@@ -129,10 +129,11 @@
         }
 
         .toolbar-group label {
-            font-size: 12px;
-            font-weight: 500;
-            opacity: 0.8;
+            font-size: 0.875rem;
+            font-weight: 600;
+            opacity: 0.9;
             white-space: nowrap;
+            color: var(--text-color);
         }
 
         .toolbar-separator {
@@ -156,12 +157,36 @@
             background-color: var(--button-bg-color);
             color: var(--button-text-color);
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         button:hover {
             background-color: var(--button-hover-color);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Icon styles */
+        .icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         #grid-controls {
@@ -298,27 +323,47 @@
             top: 20px;
             right: 20px;
             color: white;
-            font-size: 30px;
+            font-size: 24px;
             cursor: pointer;
-            background: none;
-            border: none;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 8px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        #close-btn:hover {
+            background: rgba(0, 0, 0, 0.7);
+            transform: scale(1.1);
         }
 
         .nav-btn {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.5);
             color: white;
-            border: none;
-            padding: 20px;
-            font-size: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 16px;
+            font-size: 20px;
             cursor: pointer;
-            border-radius: 5px;
+            border-radius: 6px;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
         }
 
         .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.7);
+            transform: translateY(-50%) scale(1.1);
         }
 
         #prev-btn {
@@ -332,13 +377,17 @@
         #image-info {
             position: absolute;
             bottom: 20px;
-            color: #aaa;
-            font-size: 14px;
+            color: #fff;
+            font-size: 0.875rem;
             text-align: center;
             display: flex;
             align-items: center;
             gap: 10px;
             justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 16px;
+            border-radius: 6px;
+            backdrop-filter: blur(10px);
         }
 
         #image-info .info-class-badge {
@@ -533,60 +582,78 @@
 
 <body>
     <div id="top-bar">
-        <button id="home-btn" onclick="window.location.href='/'" style="margin-right: 15px;" title="Back to Home">🏠
-            Home</button>
+        <button id="home-btn" onclick="window.location.href='/'" style="margin-right: 15px;" title="返回首页">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            首页
+        </button>
         <!-- Path Input Group -->
-        <input type="text" id="path-input" placeholder="Enter directory path..." style="flex: 1; min-width: 200px;">
-        <button id="load-btn">Load</button>
+        <input type="text" id="path-input" placeholder="输入目录路径..." style="flex: 1; min-width: 200px; font-size: 0.875rem;">
+        <button id="load-btn">加载</button>
 
         <div class="toolbar-separator"></div>
 
         <!-- Grid Controls Group -->
         <div class="toolbar-group">
-            <label>Grid Size:</label>
+            <label>网格大小:</label>
             <input type="range" id="grid-size-slider" min="80" max="1000" value="150" style="width: 100px;">
-            <span id="grid-size-value" style="min-width: 45px; font-size: 12px;">150px</span>
+            <span id="grid-size-value" style="min-width: 45px; font-size: 0.875rem;">150px</span>
         </div>
 
         <!-- Grid Gap Group -->
         <div class="toolbar-group">
-            <label>Gap:</label>
+            <label>间距:</label>
             <input type="range" id="grid-gap-slider" min="0" max="50" value="10" style="width: 80px;">
-            <span id="grid-gap-value" style="min-width: 35px; font-size: 12px;">10px</span>
+            <span id="grid-gap-value" style="min-width: 35px; font-size: 0.875rem;">10px</span>
         </div>
 
         <!-- Display Options Group -->
         <div class="toolbar-group">
             <label>
                 <input type="checkbox" id="use-thumbnails-toggle" style="margin-right: 4px;">
-                Thumbnails
+                缩略图
             </label>
         </div>
 
         <!-- Scroll Mode Group -->
         <div class="toolbar-group">
-            <label>Scroll:</label>
+            <label>滚动:</label>
             <select id="scroll-mode-select"
-                style="padding: 4px 8px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--input-text-color); border-radius: 4px; font-size: 12px; cursor: pointer;">
-                <option value="smart">Smart</option>
-                <option value="center">Center</option>
+                style="padding: 4px 8px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--input-text-color); border-radius: 4px; font-size: 0.875rem; cursor: pointer;">
+                <option value="smart">智能</option>
+                <option value="center">居中</option>
             </select>
         </div>
 
         <!-- Brightness Controls Group -->
         <div class="toolbar-group">
-            <label>Brightness:</label>
+            <label>亮度:</label>
             <input type="range" id="brightness-slider" min="0" max="200" value="100" style="width: 80px;">
-            <span id="brightness-value" style="min-width: 40px; font-size: 12px;">100%</span>
-            <button id="reset-brightness-btn" style="padding: 4px 8px; font-size: 11px;">Reset</button>
+            <span id="brightness-value" style="min-width: 40px; font-size: 0.875rem;">100%</span>
+            <button id="reset-brightness-btn" style="padding: 4px 8px; font-size: 0.875rem;">重置</button>
         </div>
 
         <div class="toolbar-separator"></div>
 
         <!-- Action Buttons Group -->
-        <button id="clear-cache-btn" style="background-color: #ff9800; padding: 6px 12px; font-size: 12px;"
-            title="Clear thumbnail cache">🗑️ Cache</button>
-        <button id="settings-btn" style="padding: 6px 12px;">⚙️ Settings</button>
+        <button id="clear-cache-btn" style="background-color: #ff9800; padding: 6px 12px; font-size: 0.875rem;"
+            title="清除缩略图缓存">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            清除缓存
+        </button>
+        <button id="settings-btn" style="padding: 6px 12px; font-size: 0.875rem;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            设置
+        </button>
     </div>
 
     <div id="main-container">
@@ -594,20 +661,33 @@
     </div>
 
     <div id="single-view">
-        <button id="close-btn">&times;</button>
-        <button id="prev-btn" class="nav-btn">&lt;</button>
-        <img id="single-image" src="" alt="View">
-        <button id="next-btn" class="nav-btn">&gt;</button>
+        <button id="close-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18"></path>
+                <path d="M6 6l12 12"></path>
+            </svg>
+        </button>
+        <button id="prev-btn" class="nav-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"></path>
+            </svg>
+        </button>
+        <img id="single-image" src="" alt="查看">
+        <button id="next-btn" class="nav-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"></path>
+            </svg>
+        </button>
         <div id="image-info"></div>
     </div>
 
     <div id="settings-modal">
         <div id="settings-content">
-            <h2>Settings</h2>
+            <h2>设置</h2>
             <div class="setting-row">
-                <label>Theme:</label>
+                <label>主题:</label>
                 <select id="theme-select"
-                    style="padding: 5px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--input-text-color); border-radius: 4px; width: 100px;">
+                    style="padding: 5px; background-color: var(--input-bg-color); border: 1px solid var(--input-border-color); color: var(--input-text-color); border-radius: 4px; width: 100px; font-size: 0.875rem;">
                     <option value="nomacs">Nomacs</option>
                     <option value="douyin">Douyin</option>
                     <option value="bilibili">Bilibili</option>
@@ -616,44 +696,44 @@
                 </select>
             </div>
             <div class="setting-row">
-                <label>Next Image:</label>
-                <input type="text" id="key-next">
+                <label>下一张图片:</label>
+                <input type="text" id="key-next" style="font-size: 0.875rem;">
             </div>
             <div class="setting-row">
-                <label>Prev Image:</label>
-                <input type="text" id="key-prev">
+                <label>上一张图片:</label>
+                <input type="text" id="key-prev" style="font-size: 0.875rem;">
             </div>
             <div class="setting-row">
-                <label>Clear Class:</label>
-                <input type="text" id="key-clear">
+                <label>清除分类:</label>
+                <input type="text" id="key-clear" style="font-size: 0.875rem;">
             </div>
 
-            <h3>Classifications</h3>
+            <h3>分类</h3>
             <div id="class-list"></div>
-            <button id="add-class-btn" style="margin-top: 10px;">+ Add Class</button>
+            <button id="add-class-btn" style="margin-top: 10px; font-size: 0.875rem;">+ 添加分类</button>
 
             <div style="margin-top: 20px; text-align: right;">
-                <button id="save-settings-btn">Save</button>
-                <button id="cancel-settings-btn" style="background-color: #555;">Cancel</button>
+                <button id="save-settings-btn" style="font-size: 0.875rem;">保存</button>
+                <button id="cancel-settings-btn" style="background-color: #555; font-size: 0.875rem;">取消</button>
             </div>
         </div>
     </div>
 
     <!-- Floating Info Panel -->
     <div id="info-panel">
-        <h3>📊 Statistics</h3>
+        <h3>统计信息</h3>
         <div class="info-section">
-            <div class="info-section-title">Classifications</div>
+            <div class="info-section-title">分类</div>
             <div id="classification-stats"></div>
         </div>
         <div class="info-section">
             <div class="sort-control">
-                <label>Sort:</label>
-                <select id="sort-select">
-                    <option value="name_desc">Name ↓</option>
-                    <option value="name_asc">Name ↑</option>
-                    <option value="date_desc">Date ↓</option>
-                    <option value="date_asc">Date ↑</option>
+                <label>排序:</label>
+                <select id="sort-select" style="font-size: 0.875rem;">
+                    <option value="name_desc">名称 ↓</option>
+                    <option value="name_asc">名称 ↑</option>
+                    <option value="date_desc">日期 ↓</option>
+                    <option value="date_asc">日期 ↑</option>
                 </select>
             </div>
         </div>
@@ -754,8 +834,8 @@
             gridGapSlider.value = savedGap;
             updateGridGap(savedGap);
 
-            // Initialize theme (default: youtube)
-            const savedTheme = localStorage.getItem('theme') || 'youtube';
+            // Initialize theme (default: bilibili)
+            const savedTheme = localStorage.getItem('theme') || 'bilibili';
             applyTheme(savedTheme);
 
             // Initialize thumbnail toggle from localStorage (default: false = original images)
@@ -801,7 +881,7 @@
                 const response = await fetch(`/api/viewer/images?path=${encodeURIComponent(normalizedPath)}&sort=${currentSortMode}`);
                 if (!response.ok) {
                     const err = await response.json();
-                    alert(err.detail || 'Failed to load images');
+                    alert(err.detail || '加载图片失败');
                     return;
                 }
                 const data = await response.json();
@@ -814,7 +894,7 @@
                 updateClassificationStats();
             } catch (error) {
                 console.error('Error loading images:', error);
-                alert('Error loading images');
+                alert('加载图片失败');
             }
         }
 
@@ -1153,10 +1233,10 @@
             const div = document.createElement('div');
             div.className = 'class-item';
             div.innerHTML = `
-                <input type="text" placeholder="Key" value="${key}" class="class-key" style="width: 50px;">
-                <input type="text" placeholder="Folder Name" value="${name}" class="class-name" style="flex-grow: 1;">
+                <input type="text" placeholder="按键" value="${key}" class="class-key" style="width: 50px; font-size: 0.875rem;">
+                <input type="text" placeholder="文件夹名称" value="${name}" class="class-name" style="flex-grow: 1; font-size: 0.875rem;">
                 <input type="color" value="${color}" class="class-color" style="width: 50px; height: 30px; padding: 0; border: none; background: none;">
-                <button onclick="this.parentElement.remove()" style="background-color: #d9534f;">X</button>
+                <button onclick="this.parentElement.remove()" style="background-color: #d9534f; font-size: 0.875rem;">X</button>
             `;
             const keyInput = div.querySelector('.class-key');
             setupKeyCapture(keyInput);
@@ -1202,7 +1282,7 @@
                     settingsModal.style.display = 'none';
                 }
             } catch (e) {
-                alert("Failed to save settings");
+                alert("保存设置失败");
             }
         }
 
@@ -1219,20 +1299,20 @@
         setupKeyCapture(document.getElementById('key-clear'));
 
         clearCacheBtn.addEventListener('click', async () => {
-            if (!confirm('Clear all cached thumbnails? This will free up disk space but thumbnails will need to be regenerated.')) {
+            if (!confirm('清除所有缓存的缩略图？这将释放磁盘空间，但缩略图需要重新生成。')) {
                 return;
             }
             try {
                 const res = await fetch('/api/viewer/thumbnails', { method: 'DELETE' });
                 if (res.ok) {
                     const data = await res.json();
-                    alert(`✅ ${data.message}`);
+                    alert(`✅ ${data.message || '缓存已清除'}`);
                 } else {
-                    alert('❌ Failed to clear cache');
+                    alert('❌ 清除缓存失败');
                 }
             } catch (e) {
                 console.error('Error clearing cache:', e);
-                alert('❌ Error clearing cache');
+                alert('❌ 清除缓存时出错');
             }
         });
 
@@ -1311,12 +1391,12 @@
         function setupKeyCapture(input) {
             input.addEventListener('focus', () => {
                 input.style.backgroundColor = 'rgba(0, 123, 255, 0.2)';
-                input.placeholder = 'Press any key...';
+                input.placeholder = '按下任意按键...';
             });
 
             input.addEventListener('blur', () => {
                 input.style.backgroundColor = '';
-                input.placeholder = input.classList.contains('class-key') ? 'Key' : '';
+                input.placeholder = input.classList.contains('class-key') ? '按键' : '';
             });
 
             input.addEventListener('keydown', (e) => {
