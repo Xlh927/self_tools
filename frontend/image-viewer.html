@@ -772,6 +772,7 @@
         let useThumbnails = false; // Default to original images
         let currentSortMode = 'name_desc'; // Default sort mode
         let scrollMode = 'smart'; // 'smart' or 'center'
+        let scrollTopBeforeSingleView = 0; // Restore grid scroll when closing single view
 
         // Zoom state variables
         let zoomScale = 1.0;           // Current zoom level
@@ -921,6 +922,8 @@
             currentImages.forEach((filename, index) => {
                 const container = document.createElement('div');
                 container.className = 'thumbnail-container';
+                container.dataset.filename = filename;
+                container.dataset.index = String(index);
 
                 const img = document.createElement('img');
                 const fullPath = joinPath(currentPath, filename);
@@ -975,6 +978,43 @@
             updateClassificationStats();
         }
 
+        /** Update only the class badge at one grid cell (no full re-render, no scroll). */
+        function updateGridBadgeOnly(index, className) {
+            if (index < 0 || index >= currentImages.length) return;
+            const container = gridView.children[index];
+            if (!container) return;
+            const existingBadge = container.querySelector('.class-badge');
+            if (existingBadge) existingBadge.remove();
+            if (className) {
+                const badge = document.createElement('span');
+                badge.className = 'class-badge';
+                badge.textContent = className;
+                const color = config.shortcuts.class_colors ? (config.shortcuts.class_colors[className] || '#007bff') : '#007bff';
+                badge.style.backgroundColor = color;
+                container.appendChild(badge);
+            }
+        }
+
+        /** Sync all grid badges from classifications (e.g. after closing single view). No full re-render. */
+        function syncGridBadges() {
+            for (let i = 0; i < gridView.children.length; i++) {
+                const container = gridView.children[i];
+                const filename = container.dataset.filename;
+                if (filename === undefined) continue;
+                const className = classifications[filename] || null;
+                updateGridBadgeOnly(i, className);
+            }
+        }
+
+        /** Set grid selection visually without scrolling. */
+        function setGridSelectionWithoutScroll(index) {
+            selectedGridIndex = index;
+            const thumbnails = gridView.querySelectorAll('.thumbnail');
+            thumbnails.forEach((thumb, i) => {
+                thumb.classList.toggle('selected', i === index);
+            });
+        }
+
         function selectGridImage(index) {
             if (index < 0 || index >= currentImages.length) return;
             selectedGridIndex = index;
@@ -1012,8 +1052,11 @@
             localStorage.setItem('gridGap', size);
         }
 
+        const mainContainer = document.getElementById('main-container');
+
         function openSingleView(index) {
             if (index < 0 || index >= currentImages.length) return;
+            scrollTopBeforeSingleView = mainContainer.scrollTop;
             currentIndex = index;
             zoomScale = 1.0;  // Reset zoom when opening
             updateSingleView();
@@ -1134,12 +1177,12 @@
 
         function closeSingleView() {
             singleView.style.display = 'none';
-            const lastViewedIndex = currentIndex; // Remember which image was being viewed
+            const lastViewedIndex = currentIndex;
             currentIndex = -1;
-            renderGrid(); // Re-render to show badges
-            // Restore selection to the last viewed image
+            syncGridBadges();
+            mainContainer.scrollTop = scrollTopBeforeSingleView;
             if (lastViewedIndex !== -1) {
-                selectGridImage(lastViewedIndex);
+                setGridSelectionWithoutScroll(lastViewedIndex);
             }
         }
 
@@ -1497,12 +1540,12 @@
 
                 if (res.ok) {
                     classifications[filename] = className;
-                    renderGrid();
-                    // Select next image if it exists, otherwise stay on current
+                    updateGridBadgeOnly(currentIdx, className);
+                    updateClassificationStats();
                     if (nextIndex !== currentIdx) {
                         selectGridImage(nextIndex);
                     } else {
-                        selectGridImage(currentIdx);
+                        setGridSelectionWithoutScroll(currentIdx);
                     }
                 } else {
                     console.error("Classification failed");
@@ -1529,8 +1572,9 @@
 
                 if (res.ok) {
                     delete classifications[filename];
-                    renderGrid();
-                    selectGridImage(selectedGridIndex);
+                    updateGridBadgeOnly(selectedGridIndex, null);
+                    updateClassificationStats();
+                    setGridSelectionWithoutScroll(selectedGridIndex);
                 }
             } catch (e) {
                 console.error("Error unclassifying", e);
