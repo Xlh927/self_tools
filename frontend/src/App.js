@@ -626,7 +626,7 @@ function WelcomeScreen() {
                     backgroundClip: 'text',
                 }
             },
-            '点击左侧工具添加到工作台'
+            '点击工具添加到工作台'
         ),
         e('p',
             {
@@ -636,7 +636,7 @@ function WelcomeScreen() {
                     maxWidth: '600px',
                 }
             },
-            '支持同时运行多个任务，构建您的图像处理工作流'
+            '工作流模式,开发中...'
         )
     );
 }
