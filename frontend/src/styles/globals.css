@@ -211,14 +211,14 @@ pre {
 .input-field:hover,
 .select-field:hover {
     background: var(--bg-secondary);
-    border-color: var(--text-tertiary);
+    border-color: var(--form-border);
 }
 
 .input-field:focus,
 .select-field:focus {
     outline: none;
     border-color: var(--form-border-focus);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--form-border-focus) 30%, transparent);
     background: var(--bg-secondary);
 }
 
@@ -259,11 +259,20 @@ pre {
     text-align: center;
 }
 
-.option-button:hover:not(:disabled) {
+.option-button:hover:not(:disabled):not(.is-active) {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border-color: var(--form-border);
     transform: translateY(-1px);
+}
+
+/* 已选选项悬停时无特效 */
+.option-button.is-active:hover {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+    transform: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .option-button.is-active {
@@ -271,6 +280,7 @@ pre {
     color: white;
     border-color: transparent;
     box-shadow: var(--shadow-sm);
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .option-button:disabled {
@@ -502,6 +512,19 @@ input[type="radio"]:hover {
 
 .tool-btn:active {
     transform: translateY(0) scale(0.95);
+}
+
+/* 暗色主题下工具按钮背景与页面背景保持一致，提升可见度 */
+:root[data-theme="douyin"] .tool-btn,
+:root[data-theme="youtube"] .tool-btn {
+    background: var(--bg-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="default"] .tool-btn,
+    :root[data-theme="bilibili"] .tool-btn {
+        background: var(--bg-primary);
+    }
 }
 
 /* Tool Workspace Layout */

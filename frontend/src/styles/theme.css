@@ -85,6 +85,11 @@
     --text-tertiary: #a1a1a1;
     --text-accent: #fe2c55;
 
+    --form-bg: rgba(18, 18, 18, 0.8);
+    --form-border: rgba(37, 244, 238, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
+
     --shadow-xs: 0 1px 2px rgba(254, 44, 85, 0.1);
     --shadow-sm: 0 2px 8px rgba(254, 44, 85, 0.15);
     --shadow-md: 0 4px 16px rgba(254, 44, 85, 0.2);
@@ -122,6 +127,11 @@
     --text-secondary: #aaaaaa;
     --text-tertiary: #717171;
     --text-accent: #ff0000;
+
+    --form-bg: rgba(33, 33, 33, 0.8);
+    --form-border: rgba(255, 0, 0, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
 
     --shadow-xs: 0 1px 2px rgba(255, 0, 0, 0.1);
     --shadow-sm: 0 2px 8px rgba(255, 0, 0, 0.15);
@@ -253,6 +263,9 @@
         --text-primary: var(--dark-text-primary);
         --text-secondary: var(--dark-text-secondary);
         --text-tertiary: var(--dark-text-tertiary);
+        --form-bg: rgba(26, 31, 46, 0.8);
+        --form-border: rgba(102, 126, 234, 0.3);
+        --form-text: var(--dark-text-primary);
     }
 }
 
@@ -267,5 +280,8 @@
         --text-primary: var(--dark-text-primary);
         --text-secondary: var(--dark-text-secondary);
         --text-tertiary: var(--dark-text-tertiary);
+        --form-bg: rgba(37, 37, 37, 0.8);
+        --form-border: rgba(251, 114, 153, 0.3);
+        --form-text: var(--dark-text-primary);
     }
 }
