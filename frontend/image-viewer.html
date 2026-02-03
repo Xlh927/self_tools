@@ -240,8 +240,8 @@
         }
 
         .thumbnail.selected {
-            border-color: #ffc107;
-            box-shadow: 0 0 15px rgba(255, 193, 7, 0.7);
+            border-color: var(--button-bg-color);
+            box-shadow: 0 0 15px color-mix(in srgb, var(--button-bg-color) 70%, transparent);
             transform: scale(1.05);
             z-index: 10;
             position: relative;
@@ -1058,6 +1058,7 @@
             if (index < 0 || index >= currentImages.length) return;
             scrollTopBeforeSingleView = mainContainer.scrollTop;
             currentIndex = index;
+            setGridSelectionWithoutScroll(currentIndex); // 单图打开时网格选中框同步
             zoomScale = 1.0;  // Reset zoom when opening
             updateSingleView();
             singleView.style.display = 'flex';
@@ -1180,15 +1181,16 @@
             const lastViewedIndex = currentIndex;
             currentIndex = -1;
             syncGridBadges();
-            mainContainer.scrollTop = scrollTopBeforeSingleView;
+            // 退出单图时按当前滚动规则（智能/居中）滚动一次，使选中项进入视口
             if (lastViewedIndex !== -1) {
-                setGridSelectionWithoutScroll(lastViewedIndex);
+                selectGridImage(lastViewedIndex);
             }
         }
 
         function showNext() {
             if (currentIndex < currentImages.length - 1) {
                 currentIndex++;
+                setGridSelectionWithoutScroll(currentIndex); // 切换图时网格选中框跟随
                 updateSingleView();
             }
         }
@@ -1196,6 +1198,7 @@
         function showPrev() {
             if (currentIndex > 0) {
                 currentIndex--;
+                setGridSelectionWithoutScroll(currentIndex); // 切换图时网格选中框跟随
                 updateSingleView();
             }
         }
@@ -1218,6 +1221,8 @@
 
                 if (res.ok) {
                     classifications[filename] = className;
+                    updateGridBadgeOnly(currentIndex, className); // 单图分类时网格角标实时更新
+                    updateClassificationStats();
                     updateSingleView();
                     // Auto advance
                     showNext();
@@ -1246,6 +1251,8 @@
 
                 if (res.ok) {
                     delete classifications[filename];
+                    updateGridBadgeOnly(currentIndex, null); // 单图取消分类时网格角标实时更新
+                    updateClassificationStats();
                     updateSingleView();
                 }
             } catch (e) {
@@ -1460,20 +1467,35 @@
 
             if (singleView.style.display === 'flex') {
                 // Single view mode
-                if (e.key === 'Escape') closeSingleView();
+                if (e.key === 'Escape') {
+                    closeSingleView();
+                    return;
+                }
 
-                // Navigation
-                if (e.key === config.shortcuts.next) showNext();
-                if (e.key === config.shortcuts.prev) showPrev();
+                // Navigation — 阻止默认滚动，避免每切换一张图网格就滚动
+                if (e.key === config.shortcuts.next) {
+                    e.preventDefault();
+                    showNext();
+                    return;
+                }
+                if (e.key === config.shortcuts.prev) {
+                    e.preventDefault();
+                    showPrev();
+                    return;
+                }
 
                 // Classification
                 if (config.shortcuts.classes[e.key]) {
+                    e.preventDefault();
                     classifyImage(e.key);
+                    return;
                 }
 
                 // Clear
                 if (e.key === config.shortcuts.clear) {
+                    e.preventDefault();
                     unclassifyImage();
+                    return;
                 }
 
                 // Zoom controls
