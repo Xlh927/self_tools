@@ -894,6 +894,8 @@
                 classifications = data.classifications || {};
                 renderGrid();
                 updateClassificationStats();
+                // 加载新文件夹时重置滚动位置到顶部
+                mainContainer.scrollTop = 0;
             } catch (error) {
                 console.error('Error loading images:', error);
                 alert('加载图片失败');
@@ -1613,10 +1615,12 @@
                 return;
             }
 
-            // Calculate grid columns based on current grid size
+            // Calculate grid columns based on current grid size and gap
             const gridSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-size'));
+            const gridGap = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--grid-gap'));
             const containerWidth = gridView.offsetWidth;
-            const cols = Math.floor(containerWidth / (gridSize + 10)); // 10 is gap
+            // 更准确地计算列数：容器宽度 / (网格项宽度 + 间距)
+            const cols = Math.floor(containerWidth / (gridSize + gridGap)) || 1;
 
             let newIndex = selectedGridIndex;
 
