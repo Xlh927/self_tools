@@ -5,6 +5,7 @@ Persistent task queue with retry, concurrency control and task history.
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
 import queue
 import sqlite3
@@ -62,10 +63,14 @@ class TaskManager:
 
         self._controls: Dict[str, dict] = {}
         self._runners: Dict[str, Callable[[str, threading.Event, threading.Event], None]] = {}
+        self._process_name = multiprocessing.current_process().name
 
         self._init_db()
-        self._recover_unfinished_tasks()
-        self._start_workers()
+        # Avoid mutating task lifecycle from multiprocessing child processes
+        # (e.g. ProcessPoolExecutor workers importing backend.app on macOS spawn).
+        if self._process_name == "MainProcess":
+            self._recover_unfinished_tasks()
+            self._start_workers()
 
     # -----------------------------
     # DB helpers

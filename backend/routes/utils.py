@@ -114,6 +114,34 @@ def task_queued_response(task_id: str, message: str = "Task queued"):
     )
 
 
+def finish_task_from_result(
+    task_manager,
+    task_id: str,
+    result: Any,
+    success_message: str,
+    *,
+    fallback_error_code: str = "ERR_TASK_FAILED",
+) -> None:
+    if isinstance(result, dict) and result.get("success") is False:
+        error_message = result.get("error") or "Task failed"
+        task_manager.finish_task(
+            task_id,
+            status="error",
+            message=error_message,
+            result=result,
+            error=error_message,
+            error_code=result.get("error_code") or fallback_error_code,
+        )
+        return
+
+    task_manager.finish_task(
+        task_id,
+        status="completed",
+        message=success_message,
+        result=result,
+    )
+
+
 def handle_validation_error(exc: ValidationError):
     return error_response(exc.message, status=exc.status, code=exc.code)
 

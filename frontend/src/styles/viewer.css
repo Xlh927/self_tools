@@ -198,57 +198,112 @@
         #main-container {
             flex-grow: 1;
             overflow-y: auto;
-            /* 顶部/底部保持 10px，左右增加留白，避免网格贴边 */
-            padding: 10px 28px;
+            padding: 20px 32px;
         }
 
-        /* Grid View */
+        /* Grid View：行列间距统一由 --grid-gap 控制，避免行间视觉上过大 */
         #grid-view {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(var(--grid-size), 1fr));
+            /* Use auto to let rows adapt to image height, preventing large vertical gaps */
+            grid-auto-rows: auto;
             gap: var(--grid-gap);
         }
 
         .thumbnail-container {
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            border-radius: 0;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+
+        /* Light mode adjustments */
+        body.theme-bilibili .thumbnail-container,
+        body.theme-wechat .thumbnail-container {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .thumbnail-container:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        body.theme-bilibili .thumbnail-container:hover,
+        body.theme-wechat .thumbnail-container:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+            border-color: rgba(0, 0, 0, 0.12);
         }
 
         .thumbnail {
             width: 100%;
+            max-width: 100%;
             height: auto;
-            max-height: calc(var(--grid-size) * 1.5);
-            object-fit: contain;
+            max-height: 100%;
+            object-fit: cover;
             cursor: pointer;
-            border: 3px solid transparent;
-            border-radius: 4px;
-            transition: border-color 0.2s, transform 0.2s, filter 0.2s;
+            border: none;
+            border-radius: 0;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s;
             display: block;
             background-color: var(--thumbnail-bg-color);
             filter: brightness(var(--brightness));
         }
 
         .thumbnail:hover {
-            border-color: #007bff;
+            transform: scale(1.02);
+        }
+
+        .thumbnail-container.selected {
+            background: rgba(255, 255, 255, 0.12);
+            border: 2px solid var(--button-bg-color);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--button-bg-color) 30%, transparent),
+                0 12px 24px rgba(0, 0, 0, 0.25);
+            transform: translateY(-8px) scale(1.05);
+            z-index: 10;
+        }
+
+        body.theme-bilibili .thumbnail-container.selected,
+        body.theme-wechat .thumbnail-container.selected {
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--button-bg-color) 30%, transparent),
+                0 12px 24px rgba(0, 0, 0, 0.2);
         }
 
         .thumbnail.selected {
-            border-color: var(--button-bg-color);
-            box-shadow: 0 0 15px color-mix(in srgb, var(--button-bg-color) 70%, transparent);
-            transform: scale(1.05);
-            z-index: 10;
-            position: relative;
+            transform: none;
         }
 
         .class-badge {
             position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background-color: rgba(0, 123, 255, 0.8);
+            bottom: 8px;
+            right: 8px;
+            background-color: rgba(0, 123, 255, 0.9);
+            backdrop-filter: blur(8px);
             color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
             pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s ease;
+        }
+
+        .thumbnail-container:hover .class-badge {
+            transform: scale(1.05);
         }
 
         /* Color-coded badges for different classes */
@@ -568,4 +623,30 @@
             border-radius: 6px;
             font-size: 12px;
             cursor: pointer;
+        }
+
+        /* Accessibility: Respect reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+
+            .thumbnail-container,
+            .thumbnail,
+            .class-badge,
+            button,
+            .nav-btn,
+            #close-btn {
+                transition: none !important;
+                animation: none !important;
+            }
+
+            .thumbnail-container:hover {
+                transform: none;
+            }
+
+            .thumbnail:hover {
+                transform: none;
+            }
+
+            .thumbnail-container.selected {
+                transform: none;
+            }
         }

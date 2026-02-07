@@ -4,6 +4,7 @@ from modules.cv_tools import ImageDeduplicator
 from routes.utils import (
     ValidationError,
     error_response,
+    finish_task_from_result,
     handle_validation_error,
     parse_json_request,
     success_response,
@@ -43,11 +44,11 @@ def create_dedup_blueprint(task_manager):
                 )
 
                 report = deduplicator.get_duplicate_report(duplicates)
-                task_manager.finish_task(
+                finish_task_from_result(
+                    task_manager,
                     task_id,
-                    status='completed',
-                    message='Scan completed',
-                    result={'report': report}
+                    {'success': True, 'report': report},
+                    'Scan completed',
                 )
 
             task_id = task_manager.start_task(

@@ -5,6 +5,7 @@ from modules.cv_tools import DatasetGenerator, ImageCropper
 from routes.utils import (
     ValidationError,
     error_response,
+    finish_task_from_result,
     handle_validation_error,
     parse_json_request,
     task_queued_response,
@@ -136,11 +137,11 @@ def create_crop_blueprint(task_manager):
                 else:
                     raise ValueError(f'Invalid mode: {mode}')
 
-                task_manager.finish_task(
+                finish_task_from_result(
+                    task_manager,
                     task_id,
-                    status='completed',
-                    message='Cropping completed',
-                    result=result
+                    result,
+                    'Cropping completed',
                 )
 
             task_id = task_manager.start_task(

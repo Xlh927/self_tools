@@ -5,6 +5,7 @@ from modules.cv_tools import AnnotationVisualizer, DatasetConverter
 from routes.utils import (
     ValidationError,
     error_response,
+    finish_task_from_result,
     handle_validation_error,
     parse_json_request,
     success_response,
@@ -88,11 +89,11 @@ def create_convert_blueprint(task_manager):
                 else:
                     raise ValidationError(f'Invalid conversion type: {conversion_type}', code='ERR_INVALID_FIELD', status=400)
 
-                task_manager.finish_task(
+                finish_task_from_result(
+                    task_manager,
                     task_id,
-                    status='completed',
-                    message='Conversion completed',
-                    result=result
+                    result,
+                    'Conversion completed',
                 )
 
             task_id = task_manager.start_task(

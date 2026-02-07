@@ -4,6 +4,7 @@ from modules.cv_tools import DatasetSplitter
 from routes.utils import (
     ValidationError,
     error_response,
+    finish_task_from_result,
     handle_validation_error,
     parse_json_request,
     task_queued_response,
@@ -29,11 +30,11 @@ def create_split_blueprint(task_manager):
                 progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
                 result = splitter.split_dataset(data, progress_callback=progress_callback)
 
-                task_manager.finish_task(
+                finish_task_from_result(
+                    task_manager,
                     task_id,
-                    status='completed',
-                    message='Splitting completed',
-                    result=result
+                    result,
+                    'Splitting completed',
                 )
 
             task_id = task_manager.start_task(
