@@ -136,6 +136,38 @@ python3 tests/api_core_test.py
 - 多 worker 并发执行（`SELF_TOOLS_MAX_WORKERS`）
 - 失败自动重试（`max_retries` 请求参数）
 - 任务历史追踪（`/api/task/<task_id>/history`）
+- 进度写入节流（默认启用）：
+  `SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS`（默认 `300`）、
+  `SELF_TOOLS_PROGRESS_MIN_DELTA`（默认 `1`）
+
+### 新功能接入模板（后端）
+
+新增异步工具接口时，建议复用 `backend/routes/utils.py` 中的两个抽象：
+
+- `queue_json_task(...)`：统一参数解析、任务入队、进度回调、完成态收敛
+- `run_with_error_handling(...)`：统一 `ValidationError` 与内部异常响应
+
+可参考 `backend/routes/split.py`、`backend/routes/match.py`、`backend/routes/visualize.py` 的写法。
+
+### 新功能接入模板（前端）
+
+新增工具组件时，建议优先复用以下抽象：
+
+- `useToolTask(...)`：统一任务启动/完成/失败/停止结果收敛
+- `useDatasetPathInference(...)`：统一 `images/annotations/output` 路径自动推断
+- `TaskController`：统一任务进度、暂停/恢复/终止与状态展示
+
+### 工具执行链埋点（前端）
+
+前端统一在 `useTaskRunner` 里上报任务埋点事件：
+
+- `tool_task_started`
+- `tool_task_completed`
+- `tool_task_failed`
+- `tool_task_stopped`
+
+每条事件默认包含 `tool_name`、`task_id`、`duration_ms`（终态事件）等字段。  
+事件会被推入 `window.__SELF_TOOLS_TASK_TELEMETRY__`（最多 200 条），并通过浏览器事件 `self-tools:task-telemetry` 分发，便于外部监控接入。
 
 ## 打包发布
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import os
 import sys
 import tempfile
@@ -120,6 +121,17 @@ def main():
         assert_true(history_resp.status_code == 200 and history_data.get("success"), f"task history failed: {history_data}")
         events = history_data.get("events", [])
         assert_true(len(events) > 0, "task history events missing")
+
+        # SSE task stream endpoint (terminal task still streams latest payload once)
+        stream_resp = client.get(f"/api/task/{task_id}/stream", buffered=False)
+        assert_true(stream_resp.status_code == 200, f"task stream failed: {stream_resp.status_code}")
+        assert_true("text/event-stream" in (stream_resp.content_type or ""), f"unexpected stream content type: {stream_resp.content_type}")
+        first_chunk = next(stream_resp.response).decode("utf-8")
+        assert_true(first_chunk.startswith("data: "), f"unexpected stream chunk: {first_chunk!r}")
+        first_line = first_chunk.splitlines()[0]
+        stream_payload = json.loads(first_line[len("data: "):])
+        assert_true(stream_payload.get("task_id") == task_id, f"stream payload task mismatch: {stream_payload}")
+        assert_true(stream_payload.get("status") in {"completed", "error", "stopped", "cancelled"}, f"stream payload status mismatch: {stream_payload}")
 
     print("OK: core API tests passed")
 

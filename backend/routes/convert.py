@@ -5,11 +5,10 @@ from modules.cv_tools import AnnotationVisualizer, DatasetConverter
 from routes.utils import (
     ValidationError,
     error_response,
-    finish_task_from_result,
-    handle_validation_error,
     parse_json_request,
+    queue_json_task,
+    run_with_error_handling,
     success_response,
-    task_queued_response,
 )
 
 
@@ -18,26 +17,17 @@ def create_convert_blueprint(task_manager):
 
     @bp.route('/api/convert', methods=['POST'])
     def convert():
-        try:
-            data = parse_json_request(
-                required=['conversion_type', 'annotations_dir', 'images_dir', 'output_dir'],
-                exists=['annotations_dir', 'images_dir'],
-                dirs=['annotations_dir', 'images_dir'],
-                defaults={'classes_file': '', 'max_retries': 1},
-                coerce={'max_retries': int},
-            )
+        def _handle():
+            def _work(data, _task_id, _cancel_event, _pause_event, progress_callback):
+                conversion_type = data['conversion_type']
+                annotations_dir = data['annotations_dir']
+                images_dir = data['images_dir']
+                output_dir = data['output_dir']
+                classes_file = data.get('classes_file', '')
+                custom_classes = data.get('custom_classes')
+                selected_classes = data.get('selected_classes')
 
-            conversion_type = data['conversion_type']
-            annotations_dir = data['annotations_dir']
-            images_dir = data['images_dir']
-            output_dir = data['output_dir']
-            classes_file = data.get('classes_file', '')
-            custom_classes = data.get('custom_classes')
-            selected_classes = data.get('selected_classes')
-
-            def run_conversion(task_id, cancel_event, pause_event):
                 converter = DatasetConverter(classes_file if classes_file else None)
-                progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
 
                 if conversion_type == 'voc_to_yolo':
                     custom_class_mapping = data.get('custom_class_mapping')
@@ -47,7 +37,7 @@ def create_convert_blueprint(task_manager):
                         output_dir=output_dir,
                         classes_file=classes_file if classes_file else None,
                         custom_class_mapping=custom_class_mapping,
-                        progress_callback=progress_callback
+                        progress_callback=progress_callback,
                     )
 
                     if selected_classes and result.get('success') and result.get('classes'):
@@ -76,40 +66,39 @@ def create_convert_blueprint(task_manager):
                         with open(classes_output, 'w', encoding='utf-8') as f:
                             f.write('\n'.join(filtered_classes))
                         result['classes'] = filtered_classes
+                    return result
 
-                elif conversion_type == 'yolo_to_voc':
-                    result = converter.yolo_to_voc(
+                if conversion_type == 'yolo_to_voc':
+                    return converter.yolo_to_voc(
                         yolo_txt_dir=annotations_dir,
                         images_dir=images_dir,
                         output_dir=output_dir,
                         classes_file=classes_file if classes_file else None,
                         custom_classes=custom_classes,
-                        progress_callback=progress_callback
+                        progress_callback=progress_callback,
                     )
-                else:
-                    raise ValidationError(f'Invalid conversion type: {conversion_type}', code='ERR_INVALID_FIELD', status=400)
 
-                finish_task_from_result(
-                    task_manager,
-                    task_id,
-                    result,
-                    'Conversion completed',
-                )
+                raise ValidationError(f'Invalid conversion type: {conversion_type}', code='ERR_INVALID_FIELD', status=400)
 
-            task_id = task_manager.start_task(
-                message='Starting conversion...',
-                run_fn=run_conversion,
-                max_retries=data.get('max_retries', 1),
+            return queue_json_task(
+                task_manager,
+                parse_kwargs={
+                    'required': ['conversion_type', 'annotations_dir', 'images_dir', 'output_dir'],
+                    'exists': ['annotations_dir', 'images_dir'],
+                    'dirs': ['annotations_dir', 'images_dir'],
+                    'defaults': {'classes_file': ''},
+                },
+                start_message='Starting conversion...',
+                queued_message='Conversion task queued',
+                success_message='Conversion completed',
+                work_fn=_work,
             )
-            return task_queued_response(task_id, message='Conversion task queued')
-        except ValidationError as e:
-            return handle_validation_error(e)
-        except Exception as e:
-            return error_response(str(e), status=500, code='ERR_INTERNAL')
+
+        return run_with_error_handling(_handle)
 
     @bp.route('/api/scan-classes', methods=['POST'])
     def scan_classes():
-        try:
+        def _handle():
             data = parse_json_request(required=['annotations_dir'], exists=['annotations_dir'], dirs=['annotations_dir'])
             annotations_dir = data['annotations_dir']
             is_yolo_format = data.get('is_yolo_format', False)
@@ -122,37 +111,28 @@ def create_convert_blueprint(task_manager):
                 classes_list = [{'name': cls, 'count': 0} for cls in result.get('classes', [])]
                 return success_response({'classes': classes_list}, message='Classes scanned')
             return error_response(result.get('error', 'Class scan failed'), code='ERR_CLASS_SCAN_FAILED')
-        except ValidationError as e:
-            return handle_validation_error(e)
-        except Exception as e:
-            return error_response(str(e), status=500, code='ERR_INTERNAL')
+        return run_with_error_handling(_handle)
 
     @bp.route('/api/scan-voc-classes', methods=['POST'])
     def scan_voc_classes():
-        try:
+        def _handle():
             data = parse_json_request(required=['annotations_dir'], exists=['annotations_dir'], dirs=['annotations_dir'])
             converter = DatasetConverter()
             result = converter.scan_voc_classes(data['annotations_dir'])
             if result.get('success'):
                 return success_response(result, message='VOC classes scanned')
             return error_response(result.get('error', 'VOC class scan failed'), code='ERR_CLASS_SCAN_FAILED')
-        except ValidationError as e:
-            return handle_validation_error(e)
-        except Exception as e:
-            return error_response(str(e), status=500, code='ERR_INTERNAL')
+        return run_with_error_handling(_handle)
 
     @bp.route('/api/load-classes', methods=['POST'])
     def load_classes():
-        try:
+        def _handle():
             data = parse_json_request(required=['classes_file'], exists=['classes_file'], files=['classes_file'])
             classes = []
             with open(data['classes_file'], 'r', encoding='utf-8') as f:
                 classes = [line.strip() for line in f if line.strip()]
             classes_list = [{'name': cls, 'count': 0} for cls in classes]
             return success_response({'classes': classes_list}, message='Classes loaded')
-        except ValidationError as e:
-            return handle_validation_error(e)
-        except Exception as e:
-            return error_response(str(e), status=500, code='ERR_INTERNAL')
+        return run_with_error_handling(_handle)
 
     return bp

@@ -3,6 +3,8 @@ import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { modifyLabels, scanYoloClasses } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -11,10 +13,6 @@ export default function LabelModifierTool() {
     const [overwrite, setOverwrite] = useState(true);
     const [outputDir, setOutputDir] = useState('');
     const [scanning, setScanning] = useState(false);
-
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     const [foundClasses, setFoundClasses] = useState([]);
     const [classMapping, setClassMapping] = useState({});
@@ -28,23 +26,26 @@ export default function LabelModifierTool() {
         }
     }, [labelDir, overwrite]);
 
-    // Auto-scan when directory is entered (debounce or on blur could be better, but button is safer)
+    const task = useToolTask({
+        toolName: 'label_modifier',
+        startTask: () => modifyLabels({
+            label_dir: labelDir,
+            class_mapping: classMapping,
+            overwrite: overwrite,
+            output_dir: overwrite ? null : outputDir,
+        }),
+    });
 
+    // Auto-scan when directory is entered (debounce or on blur could be better, but button is safer)
     const handleScan = async () => {
         if (!labelDir) return;
         setScanning(true);
         setFoundClasses([]);
         setClassMapping({});
-        setResult(null);
+        task.setResult(null);
 
         try {
-            const response = await fetch('/api/scan-yolo-classes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ label_dir: labelDir }),
-            });
-
-            const data = await response.json();
+            const data = await scanYoloClasses({ label_dir: labelDir });
             if (data.success) {
                 setFoundClasses(data.classes); // Now array of {id, count}
                 // Initialize mapping with identity (no change)
@@ -55,11 +56,11 @@ export default function LabelModifierTool() {
                 setClassMapping(initialMapping);
             } else {
                 const normalized = normalizeError(data);
-                setResult({ success: false, ...normalized });
+                task.setResult({ success: false, ...normalized });
             }
         } catch (error) {
             const normalized = normalizeError(error);
-            setResult({ success: false, ...normalized });
+            task.setResult({ success: false, ...normalized });
         } finally {
             setScanning(false);
         }
@@ -70,39 +71,6 @@ export default function LabelModifierTool() {
             ...prev,
             [oldClass]: parseInt(newClass) || 0
         }));
-    };
-
-    const handleStartTask = async () => {
-        setResult(null);
-
-        const response = await fetch('/api/modify-labels', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                label_dir: labelDir,
-                class_mapping: classMapping,
-                overwrite: overwrite,
-                output_dir: overwrite ? null : outputDir
-            }),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
     };
 
     return e('div',
@@ -197,28 +165,24 @@ export default function LabelModifierTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(labelDir && foundClasses.length > 0 && (overwrite || outputDir))
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 修改完成！' : '❌ 修改失败'),
-            result.success && e('div', {},
+            e('h3', { style: { marginTop: 0 } }, task.result.success ? '✅ 修改完成！' : '❌ 修改失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', { style: { color: 'var(--color-info)' } }, `已处理: ${result.processed}`),
-                    e('div', { style: { color: 'var(--color-success)' } }, `已修改: ${result.modified}`),
+                    e('div', { style: { color: 'var(--color-info)' } }, `已处理: ${task.result.processed}`),
+                    e('div', { style: { color: 'var(--color-success)' } }, `已修改: ${task.result.modified}`),
                 ),
-                result.errors > 0 && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, `⚠️ 错误: ${result.errors} 个文件`)
+                task.result.errors > 0 && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, `⚠️ 错误: ${task.result.errors} 个文件`)
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

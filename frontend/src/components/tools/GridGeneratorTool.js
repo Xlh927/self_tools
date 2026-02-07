@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
-import { normalizeError } from '../../utils/error.js';
+import { generateGrid } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -12,10 +13,6 @@ export default function GridGeneratorTool() {
     const [rowLabels, setRowLabels] = useState(Array(2).fill(''));
     const [colLabels, setColLabels] = useState(Array(2).fill(''));
     const [selectedCells, setSelectedCells] = useState([]);
-
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     const [activeCellId, setActiveCellId] = useState(null);
     const fileInputRef = useRef(null);
@@ -155,9 +152,9 @@ export default function GridGeneratorTool() {
         setSelectedCells([]);
     };
 
-    const handleStartTask = async () => {
-        setResult(null);
-
+    const task = useToolTask({
+        toolName: 'grid_generator',
+        startTask: () => {
         const defaultPath = `/home/qzq/Downloads/grid_${Date.now()}.png`;
 
         // Create FormData
@@ -191,29 +188,9 @@ export default function GridGeneratorTool() {
             }
         });
 
-        const response = await fetch('/api/generate-grid', {
-            method: 'POST',
-            body: formData
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+        return generateGrid(formData);
+        },
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', height: '100%' } },
@@ -408,25 +385,21 @@ export default function GridGeneratorTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: true // Always valid start button for grid? Or check empty?
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 生成成功！' : '❌ 生成失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 生成成功！' : '❌ 生成失败'),
+            task.result.success && e('div', {},
                 e('p', { style: { fontWeight: 600 } }, `文件已保存至:`),
-                e('p', { style: { fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-tertiary)', padding: '8px', borderRadius: '4px', wordBreak: 'break-all' } }, result.output_path)
+                e('p', { style: { fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-tertiary)', padding: '8px', borderRadius: '4px', wordBreak: 'break-all' } }, task.result.output_path)
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         ),
 
         // Global hidden file input for grid cells

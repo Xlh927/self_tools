@@ -11,13 +11,15 @@ export default function TaskController({
     onComplete,
     onError,
     onStop,
-    canStart = true
+    canStart = true,
+    telemetry,
 }) {
     const runner = useTaskRunner({
         startTask: onStart,
         onComplete,
         onError,
         onStop,
+        telemetry,
     });
 
     const { state, actions } = runner;

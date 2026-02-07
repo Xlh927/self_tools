@@ -97,7 +97,18 @@ class DevServerHandler(SimpleHTTPRequestHandler):
                     if key.lower() != 'transfer-encoding':
                         self.send_header(key, value)
                 self.end_headers()
-                self.wfile.write(response.read())
+                content_type = (response.headers.get('Content-Type') or '').lower()
+                is_sse = content_type.startswith('text/event-stream')
+
+                if is_sse:
+                    while True:
+                        chunk = response.read(1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                else:
+                    self.wfile.write(response.read())
                 
         except urllib.error.HTTPError as e:
             # Forward backend error

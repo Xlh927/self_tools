@@ -1,4 +1,7 @@
-from flask import Blueprint
+import json
+import time
+
+from flask import Blueprint, Response, stream_with_context
 
 from routes.utils import (
     error_response,
@@ -11,6 +14,7 @@ from routes.utils import (
 
 def create_tasks_blueprint(task_manager):
     bp = Blueprint('tasks', __name__)
+    terminal_statuses = {'completed', 'error', 'stopped', 'cancelled'}
 
     @bp.route('/api/progress/<task_id>')
     def get_progress(task_id):
@@ -18,6 +22,49 @@ def create_tasks_blueprint(task_manager):
         if not task:
             return error_response('Task not found', status=404, code='ERR_TASK_NOT_FOUND')
         return success_response(task, message='Task fetched')
+
+    @bp.route('/api/task/<task_id>/stream')
+    def stream_progress(task_id):
+        task = task_manager.get_task(task_id)
+        if not task:
+            return error_response('Task not found', status=404, code='ERR_TASK_NOT_FOUND')
+
+        interval_seconds = 0.5
+
+        def generate():
+            last_payload = None
+            last_ping_at = time.time()
+            while True:
+                current = task_manager.get_task(task_id)
+                if not current:
+                    payload = {
+                        'task_id': task_id,
+                        'status': 'error',
+                        'error': 'Task not found',
+                        'error_code': 'ERR_TASK_NOT_FOUND',
+                    }
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                    break
+
+                if current != last_payload:
+                    yield f"data: {json.dumps(current, ensure_ascii=False)}\n\n"
+                    last_payload = current
+                    last_ping_at = time.time()
+                elif time.time() - last_ping_at >= 15:
+                    # Keep-alive comment for proxies and browsers.
+                    yield ': keep-alive\n\n'
+                    last_ping_at = time.time()
+
+                if current.get('status') in terminal_statuses:
+                    break
+
+                time.sleep(interval_seconds)
+
+        response = Response(stream_with_context(generate()), mimetype='text/event-stream')
+        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['Connection'] = 'keep-alive'
+        response.headers['X-Accel-Buffering'] = 'no'
+        return response
 
     @bp.route('/api/tasks')
     def list_tasks():

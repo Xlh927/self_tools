@@ -4,6 +4,8 @@ import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { basename } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { findDuplicates, removeDuplicates } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -16,47 +18,25 @@ export default function DeduplicatorTool() {
     const [keepStrategy, setKeepStrategy] = useState('first');
     const [dryRun, setDryRun] = useState(true);
 
-    // Result state
-    const [taskId, setTaskId] = useState(null);
-    const [report, setReport] = useState(null);
     const [removeResult, setRemoveResult] = useState(null);
     const [removing, setRemoving] = useState(false);
 
-    const handleStartTask = async () => {
-        setReport(null);
-        setRemoveResult(null);
-
-        const response = await fetch('/api/find-duplicates', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+    const scanTask = useToolTask({
+        toolName: 'deduplicator_scan',
+        startTask: () => {
+            setRemoveResult(null);
+            return findDuplicates({
                 folder_path: folderPath,
                 hash_algorithm: hashAlgorithm,
                 use_md5: useMd5,
                 similarity_threshold: parseInt(similarityThreshold),
-            }),
-        });
+            });
+        },
+        mapComplete: (res) => (res && res.report ? res.report : res),
+        mapError: (normalized) => ({ ...normalized }),
+    });
 
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        if (res && res.report) {
-            setReport(res.report);
-        }
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setReport({ ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+    const report = scanTask.result;
 
     const handleRemoveDuplicates = async () => {
         if (!confirm('确定要删除重复图片吗？此操作不可撤销！')) return;
@@ -74,26 +54,20 @@ export default function DeduplicatorTool() {
         }
 
         try {
-            const response = await fetch('/api/remove-duplicates', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    folder_path: folderPath,
-                    hash_algorithm: hashAlgorithm,
-                    use_md5: useMd5,
-                    similarity_threshold: parseInt(similarityThreshold),
-                    keep_strategy: keepStrategy,
-                    dry_run: dryRun,
-                    duplicates: duplicates,
-                }),
+            const data = await removeDuplicates({
+                folder_path: folderPath,
+                hash_algorithm: hashAlgorithm,
+                use_md5: useMd5,
+                similarity_threshold: parseInt(similarityThreshold),
+                keep_strategy: keepStrategy,
+                dry_run: dryRun,
+                duplicates: duplicates,
             });
-
-            const data = await response.json();
             setRemoveResult(data);
 
             // Clear report if actual deletion occurred (no need to re-scan)
             if (!dryRun && data.success) {
-                setReport(null);
+                scanTask.setResult(null);
             }
         } catch (error) {
             const normalized = normalizeError(error);
@@ -166,11 +140,7 @@ export default function DeduplicatorTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...scanTask.taskControllerProps,
             canStart: !!folderPath
         }),
 

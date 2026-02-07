@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
-import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
 import { splitDataset } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
+import useDatasetPathInference from '../../hooks/useDatasetPathInference.js';
 
-const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
+const { createElement: e, useState: useStateHook } = React;
 
 export default function SplitterTool() {
     const [format, setFormat] = useState('voc');
@@ -19,34 +19,15 @@ export default function SplitterTool() {
     const [useBackground, setUseBackground] = useState(true);
     const [randomSeed, setRandomSeed] = useState(42);
 
-    // Result state
-    const [result, setResult] = useState(null);
-
-    // Auto-infer paths from imagesDir
-    useEffect(() => {
-        const normalized = normalizePath(imagesDir);
-        if (normalized && !annotationsDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setAnnotationsDir(joinPaths(parentDir, 'annotations'));
-            setOutputDir(joinPaths(parentDir, 'split_dataset'));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, 'split_dataset'));
-        }
-    }, [imagesDir]);
-
-    // Auto-infer paths from annotationsDir
-    useEffect(() => {
-        const normalized = normalizePath(annotationsDir);
-        if (normalized && !imagesDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setImagesDir(joinPaths(parentDir, 'images'));
-            setOutputDir(joinPaths(parentDir, 'split_dataset'));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, 'split_dataset'));
-        }
-    }, [annotationsDir]);
+    useDatasetPathInference({
+        imagesDir,
+        setImagesDir,
+        annotationsDir,
+        setAnnotationsDir,
+        outputDir,
+        setOutputDir,
+        outputFolderName: 'split_dataset',
+    });
 
     // Normalize ratios to sum to 100
     const handleRatioChange = (type, value) => {
@@ -94,10 +75,9 @@ export default function SplitterTool() {
     const totalRatio = trainRatio + valRatio + testRatio;
     const isRatioValid = totalRatio === 100;
 
-    const handleStartTask = async () => {
-        setResult(null);
-
-        return splitDataset({
+    const task = useToolTask({
+        toolName: 'splitter',
+        startTask: () => splitDataset({
             format: format,
             images_dir: imagesDir,
             annotations_dir: annotationsDir,
@@ -107,21 +87,8 @@ export default function SplitterTool() {
             test_ratio: testRatio,
             use_background: useBackground,
             random_seed: parseInt(randomSeed, 10),
-        });
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-    };
-
-    const handleStop = () => {
-        return undefined;
-    };
+        }),
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -251,28 +218,25 @@ export default function SplitterTool() {
 
         // Task Controller
         e(TaskController, {
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(imagesDir && annotationsDir && outputDir && isRatioValid)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 划分完成！' : '❌ 划分失败'),
-            result.success && e('div', {},
+            e('h3', { style: { marginTop: 0 } }, task.result.success ? '✅ 划分完成！' : '❌ 划分失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', {}, `训练集: ${result.train_count || 0}`),
-                    e('div', {}, `验证集: ${result.val_count || 0}`),
-                    e('div', {}, `测试集: ${result.test_count || 0}`),
+                    e('div', {}, `训练集: ${task.result.train_count || 0}`),
+                    e('div', {}, `验证集: ${task.result.val_count || 0}`),
+                    e('div', {}, `测试集: ${task.result.test_count || 0}`),
                 ),
-                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all' } }, `输出目录: ${result.output_dir}`)
+                task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all' } }, `输出目录: ${task.result.output_dir}`)
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

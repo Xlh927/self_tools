@@ -3,8 +3,8 @@ import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
 import { cropImages } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -19,9 +19,6 @@ export default function CropperTool() {
     const [overlapX, setOverlapX] = useState(512);
     const [overlapY, setOverlapY] = useState(512);
     const [overlapRatio, setOverlapRatio] = useState(0.3); // For adaptive mode
-
-    // Result state
-    const [result, setResult] = useState(null);
 
     // Auto-infer output path
     useEffect(() => {
@@ -41,9 +38,9 @@ export default function CropperTool() {
         }
     }, [inputPath, processingMode]);
 
-    const handleStartTask = async () => {
-        setResult(null);
-        return cropImages({
+    const task = useToolTask({
+        toolName: 'cropper',
+        startTask: () => cropImages({
             mode: processingMode,
             crop_mode: cropMode,
             input_path: inputPath,
@@ -54,21 +51,8 @@ export default function CropperTool() {
             overlap_x: parseInt(overlapX, 10),
             overlap_y: parseInt(overlapY, 10),
             overlap_ratio: parseFloat(overlapRatio),
-        });
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-    };
-
-    const handleStop = () => {
-        return undefined;
-    };
+        }),
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -239,27 +223,24 @@ export default function CropperTool() {
 
         // Task Controller (replaces Progress Bar and Submit Button)
         e(TaskController, {
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(inputPath && outputDir)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 裁剪完成！' : '❌ 裁剪失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 裁剪完成！' : '❌ 裁剪失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', { style: { color: 'var(--color-info)' } }, `处理文件数: ${result.total_files || result.total_images || 1}`),
-                    e('div', { style: { color: 'var(--color-success)' } }, `生成图片数: ${result.total_crops || result.crops_generated || 0}`),
+                    e('div', { style: { color: 'var(--color-info)' } }, `处理文件数: ${task.result.total_files || task.result.total_images || 1}`),
+                    e('div', { style: { color: 'var(--color-success)' } }, `生成图片数: ${task.result.total_crops || task.result.crops_generated || 0}`),
                 ),
-                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`)
+                task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${task.result.output_dir}`)
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

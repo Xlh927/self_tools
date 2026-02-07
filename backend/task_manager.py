@@ -51,6 +51,8 @@ class TaskManager:
 
         self.max_workers = max(1, int(max_workers or os.environ.get("SELF_TOOLS_MAX_WORKERS", 2)))
         self.retry_backoff_seconds = max(1, int(os.environ.get("SELF_TOOLS_RETRY_BACKOFF", 2)))
+        self.progress_min_interval_ms = max(0, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS", 300)))
+        self.progress_min_delta = max(0, min(100, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_DELTA", 1))))
 
         self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -63,6 +65,7 @@ class TaskManager:
 
         self._controls: Dict[str, dict] = {}
         self._runners: Dict[str, Callable[[str, threading.Event, threading.Event], None]] = {}
+        self._progress_runtime: Dict[str, dict] = {}
         self._process_name = multiprocessing.current_process().name
 
         self._init_db()
@@ -561,6 +564,30 @@ class TaskManager:
             self.wait_if_paused(task_id, pause_event, cancel_event)
             if total > 0:
                 progress = int((current / total) * 100)
+                runtime = self._progress_runtime.setdefault(
+                    task_id,
+                    {"last_progress": None, "last_emit_at": 0.0},
+                )
+                last_progress = runtime.get("last_progress")
+                last_emit_at = float(runtime.get("last_emit_at", 0.0) or 0.0)
+                now = _now()
+
+                should_emit = False
+                if last_progress is None:
+                    should_emit = True
+                elif progress >= 100 and progress != last_progress:
+                    should_emit = True
+                elif progress > last_progress:
+                    progress_delta = progress - last_progress
+                    elapsed_ms = int((now - last_emit_at) * 1000)
+                    if progress_delta >= self.progress_min_delta or elapsed_ms >= self.progress_min_interval_ms:
+                        should_emit = True
+
+                if not should_emit:
+                    return
+
+                runtime["last_progress"] = progress
+                runtime["last_emit_at"] = now
                 self.update_task(task_id, progress=progress, message=f"{message} ({current}/{total})")
 
         return progress_callback
@@ -581,6 +608,7 @@ class TaskManager:
     def _cleanup_runtime(self, task_id: str) -> None:
         self._controls.pop(task_id, None)
         self._runners.pop(task_id, None)
+        self._progress_runtime.pop(task_id, None)
         timer = self._timers.pop(task_id, None)
         if timer:
             try:

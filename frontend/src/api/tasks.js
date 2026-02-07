@@ -31,3 +31,7 @@ export function listTasks({ limit = 100, status } = {}) {
 export function getTaskHistory(taskId, { limit = 200 } = {}) {
     return get(`/api/task/${taskId}/history?limit=${encodeURIComponent(String(limit))}`);
 }
+
+export function taskProgressStreamUrl(taskId) {
+    return `/api/task/${encodeURIComponent(taskId)}/stream`;
+}

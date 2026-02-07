@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from flask import jsonify, request
 
@@ -140,6 +140,62 @@ def finish_task_from_result(
         message=success_message,
         result=result,
     )
+
+
+def run_with_error_handling(handler: Callable[[], Any]):
+    try:
+        return handler()
+    except ValidationError as exc:
+        return handle_validation_error(exc)
+    except Exception as exc:
+        return error_response(str(exc), status=500, code="ERR_INTERNAL")
+
+
+def queue_json_task(
+    task_manager,
+    *,
+    parse_kwargs: Optional[dict],
+    start_message: str,
+    queued_message: str,
+    success_message: str,
+    work_fn: Callable[[dict, str, Any, Any, Callable[[int, int, str], None]], Any],
+    fallback_error_code: str = "ERR_TASK_FAILED",
+    finalize_fn: Optional[Callable[[Any, str, Any], None]] = None,
+    priority: int = 100,
+):
+    task_parse_kwargs = dict(parse_kwargs or {})
+
+    defaults = dict(task_parse_kwargs.get("defaults") or {})
+    defaults.setdefault("max_retries", 1)
+    task_parse_kwargs["defaults"] = defaults
+
+    coerce = dict(task_parse_kwargs.get("coerce") or {})
+    coerce.setdefault("max_retries", int)
+    task_parse_kwargs["coerce"] = coerce
+
+    data = parse_json_request(**task_parse_kwargs)
+
+    def run_task(task_id, cancel_event, pause_event):
+        progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
+        result = work_fn(data, task_id, cancel_event, pause_event, progress_callback)
+        if finalize_fn:
+            finalize_fn(task_manager, task_id, result)
+        else:
+            finish_task_from_result(
+                task_manager,
+                task_id,
+                result,
+                success_message,
+                fallback_error_code=fallback_error_code,
+            )
+
+    task_id = task_manager.start_task(
+        message=start_message,
+        run_fn=run_task,
+        max_retries=data.get("max_retries", 1),
+        priority=priority,
+    )
+    return task_queued_response(task_id, message=queued_message)
 
 
 def handle_validation_error(exc: ValidationError):
