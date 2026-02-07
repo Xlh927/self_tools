@@ -1,7 +1,13 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import DatasetSplitter
-from routes.utils import get_json_body, require_values, error_response
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    task_queued_response,
+)
 
 
 def create_split_blueprint(task_manager):
@@ -10,20 +16,17 @@ def create_split_blueprint(task_manager):
     @bp.route('/api/split', methods=['POST'])
     def split():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('format', 'Missing required field: format'),
-                ('images_dir', 'Missing required field: images_dir'),
-                ('annotations_dir', 'Missing required field: annotations_dir'),
-                ('output_dir', 'Missing required field: output_dir'),
-            ])
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['format', 'images_dir', 'annotations_dir', 'output_dir'],
+                exists=['images_dir', 'annotations_dir'],
+                dirs=['images_dir', 'annotations_dir'],
+                defaults={'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             def run_splitting(task_id, cancel_event, pause_event):
                 splitter = DatasetSplitter()
                 progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
-
                 result = splitter.split_dataset(data, progress_callback=progress_callback)
 
                 task_manager.finish_task(
@@ -35,14 +38,12 @@ def create_split_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting splitting...',
-                run_fn=run_splitting
+                run_fn=run_splitting,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
+            return task_queued_response(task_id, message='Split task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

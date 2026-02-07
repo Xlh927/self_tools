@@ -8,11 +8,20 @@ block_cipher = None
 # 获取项目根目录
 root_dir = Path.cwd()
 
-# 收集所有需要的数据文件
-datas = [
-    (str(root_dir / 'frontend'), 'frontend'),  # 前端文件
-    (str(root_dir / 'backend' / 'modules'), 'backend/modules'),  # 后端模块
-]
+# 收集所有需要的数据文件（避免打入 node_modules 等开发依赖）
+datas = []
+
+def add_data(src: Path, dst: str):
+    if src.exists():
+        datas.append((str(src), dst))
+
+add_data(root_dir / 'frontend' / 'index.html', 'frontend')
+add_data(root_dir / 'frontend' / 'image-viewer.html', 'frontend')
+add_data(root_dir / 'frontend' / 'cv-tools.html', 'frontend')
+add_data(root_dir / 'frontend' / 'assets', 'frontend/assets')
+add_data(root_dir / 'frontend' / 'src' / 'styles', 'frontend/src/styles')
+add_data(root_dir / 'frontend' / 'dist', 'frontend/dist')
+add_data(root_dir / 'backend' / 'modules', 'backend/modules')
 
 # 收集所有需要的隐藏导入
 hiddenimports = [

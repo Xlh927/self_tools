@@ -1,8 +1,15 @@
 from pathlib import Path
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
-from modules.cv_tools import DatasetConverter, AnnotationVisualizer
-from routes.utils import get_json_body, require_values, require_value, require_exists, error_response
+from modules.cv_tools import AnnotationVisualizer, DatasetConverter
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    success_response,
+    task_queued_response,
+)
 
 
 def create_convert_blueprint(task_manager):
@@ -11,15 +18,13 @@ def create_convert_blueprint(task_manager):
     @bp.route('/api/convert', methods=['POST'])
     def convert():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('conversion_type', 'Missing required field: conversion_type'),
-                ('annotations_dir', 'Missing required field: annotations_dir'),
-                ('images_dir', 'Missing required field: images_dir'),
-                ('output_dir', 'Missing required field: output_dir'),
-            ])
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['conversion_type', 'annotations_dir', 'images_dir', 'output_dir'],
+                exists=['annotations_dir', 'images_dir'],
+                dirs=['annotations_dir', 'images_dir'],
+                defaults={'classes_file': '', 'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             conversion_type = data['conversion_type']
             annotations_dir = data['annotations_dir']
@@ -28,13 +33,6 @@ def create_convert_blueprint(task_manager):
             classes_file = data.get('classes_file', '')
             custom_classes = data.get('custom_classes')
             selected_classes = data.get('selected_classes')
-
-            ok, resp = require_exists(annotations_dir, f'Annotations directory does not exist: {annotations_dir}')
-            if not ok:
-                return resp
-            ok, resp = require_exists(images_dir, f'Images directory does not exist: {images_dir}')
-            if not ok:
-                return resp
 
             def run_conversion(task_id, cancel_event, pause_event):
                 converter = DatasetConverter(classes_file if classes_file else None)
@@ -51,7 +49,7 @@ def create_convert_blueprint(task_manager):
                         progress_callback=progress_callback
                     )
 
-                    if selected_classes and result['success'] and result['classes']:
+                    if selected_classes and result.get('success') and result.get('classes'):
                         filtered_classes = [result['classes'][i] for i in selected_classes if i < len(result['classes'])]
                         class_map = {old_idx: new_idx for new_idx, old_idx in enumerate(selected_classes)}
 
@@ -88,7 +86,7 @@ def create_convert_blueprint(task_manager):
                         progress_callback=progress_callback
                     )
                 else:
-                    raise ValueError(f'Invalid conversion type: {conversion_type}')
+                    raise ValidationError(f'Invalid conversion type: {conversion_type}', code='ERR_INVALID_FIELD', status=400)
 
                 task_manager.finish_task(
                     task_id,
@@ -99,99 +97,60 @@ def create_convert_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting conversion...',
-                run_fn=run_conversion
+                run_fn=run_conversion,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Conversion task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/scan-classes', methods=['POST'])
     def scan_classes():
         try:
-            data = get_json_body()
-            annotations_dir = data.get('annotations_dir')
+            data = parse_json_request(required=['annotations_dir'], exists=['annotations_dir'], dirs=['annotations_dir'])
+            annotations_dir = data['annotations_dir']
             is_yolo_format = data.get('is_yolo_format', False)
-
-            ok, resp = require_value(data, 'annotations_dir', 'Missing annotations_dir')
-            if not ok:
-                return resp
-
-            ok, resp = require_exists(annotations_dir, f'Directory not found: {annotations_dir}')
-            if not ok:
-                return resp
 
             visualizer = AnnotationVisualizer()
             annotation_format = 'yolo' if is_yolo_format else 'voc'
-
             result = visualizer.detect_classes(annotations_dir, annotation_format)
 
-            if result['success']:
-                classes_list = []
-                for cls in result['classes']:
-                    classes_list.append({'name': cls, 'count': 0})
-
-                return jsonify({
-                    'success': True,
-                    'classes': classes_list
-                })
-            return jsonify(result)
-
+            if result.get('success'):
+                classes_list = [{'name': cls, 'count': 0} for cls in result.get('classes', [])]
+                return success_response({'classes': classes_list}, message='Classes scanned')
+            return error_response(result.get('error', 'Class scan failed'), code='ERR_CLASS_SCAN_FAILED')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/scan-voc-classes', methods=['POST'])
     def scan_voc_classes():
         try:
-            data = get_json_body()
-            annotations_dir = data.get('annotations_dir')
-
-            ok, resp = require_value(data, 'annotations_dir', 'Missing annotations_dir')
-            if not ok:
-                return resp
-            ok, resp = require_exists(annotations_dir, f'Directory not found: {annotations_dir}')
-            if not ok:
-                return resp
-
+            data = parse_json_request(required=['annotations_dir'], exists=['annotations_dir'], dirs=['annotations_dir'])
             converter = DatasetConverter()
-            result = converter.scan_voc_classes(annotations_dir)
-
-            return jsonify(result)
-
+            result = converter.scan_voc_classes(data['annotations_dir'])
+            if result.get('success'):
+                return success_response(result, message='VOC classes scanned')
+            return error_response(result.get('error', 'VOC class scan failed'), code='ERR_CLASS_SCAN_FAILED')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/load-classes', methods=['POST'])
     def load_classes():
         try:
-            data = get_json_body()
-            classes_file = data.get('classes_file')
-
-            ok, resp = require_value(data, 'classes_file', 'Missing classes_file')
-            if not ok:
-                return resp
-            ok, resp = require_exists(classes_file, f'File not found: {classes_file}')
-            if not ok:
-                return resp
-
+            data = parse_json_request(required=['classes_file'], exists=['classes_file'], files=['classes_file'])
             classes = []
-            with open(classes_file, 'r', encoding='utf-8') as f:
+            with open(data['classes_file'], 'r', encoding='utf-8') as f:
                 classes = [line.strip() for line in f if line.strip()]
-
-            classes_list = []
-            for cls in classes:
-                classes_list.append({'name': cls, 'count': 0})
-
-            return jsonify({
-                'success': True,
-                'classes': classes_list
-            })
-
+            classes_list = [{'name': cls, 'count': 0} for cls in classes]
+            return success_response({'classes': classes_list}, message='Classes loaded')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

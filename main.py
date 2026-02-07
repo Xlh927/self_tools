@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Self Tools - 数据集格式转换和图像处理工具集
+Self Tools - CV dataset tooling platform
 Main entry point for the packaged application
 """
 
@@ -27,7 +27,7 @@ def open_browser():
 def main():
     """主函数"""
     print("=" * 60)
-    print("Self Tools - 数据集格式转换和图像处理工具集")
+    print("Self Tools - CV 数据集工具平台")
     print("=" * 60)
     print("\n正在启动服务器...")
     print("服务器地址: http://127.0.0.1:5000")

@@ -1,7 +1,14 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import LabelModifier
-from routes.utils import get_json_body, require_value, error_response
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    success_response,
+    task_queued_response,
+)
 
 
 def create_labels_blueprint(task_manager):
@@ -10,46 +17,37 @@ def create_labels_blueprint(task_manager):
     @bp.route('/api/scan-yolo-classes', methods=['POST'])
     def scan_yolo_classes():
         try:
-            data = get_json_body()
-            label_dir = data.get('label_dir')
-
-            ok, resp = require_value(data, 'label_dir', 'Missing label_dir')
-            if not ok:
-                return resp
-
+            data = parse_json_request(required=['label_dir'], exists=['label_dir'], dirs=['label_dir'])
             modifier = LabelModifier()
-            result = modifier.scan_classes(label_dir)
-
-            return jsonify(result)
+            result = modifier.scan_classes(data['label_dir'])
+            if result.get('success'):
+                return success_response(result, message='YOLO classes scanned')
+            return error_response(result.get('error', 'Scan failed'), code='ERR_CLASS_SCAN_FAILED')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/modify-labels', methods=['POST'])
     def modify_labels():
         try:
-            data = get_json_body()
-
-            ok, resp = require_value(data, 'label_dir', 'Missing label_dir')
-            if not ok:
-                return resp
-            ok, resp = require_value(data, 'class_mapping', 'Missing class_mapping')
-            if not ok:
-                return resp
-
-            label_dir = data['label_dir']
-            class_mapping = data['class_mapping']
-            overwrite = data.get('overwrite', False)
-            output_dir = data.get('output_dir')
+            data = parse_json_request(
+                required=['label_dir', 'class_mapping'],
+                exists=['label_dir'],
+                dirs=['label_dir'],
+                defaults={'overwrite': False, 'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             def run_modification(task_id, cancel_event, pause_event):
                 modifier = LabelModifier()
                 progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
 
                 result = modifier.modify_labels(
-                    label_dir=label_dir,
-                    class_mapping=class_mapping,
-                    overwrite=overwrite,
-                    output_dir=output_dir,
+                    label_dir=data['label_dir'],
+                    class_mapping=data['class_mapping'],
+                    overwrite=data.get('overwrite', False),
+                    output_dir=data.get('output_dir'),
                     progress_callback=progress_callback
                 )
 
@@ -62,15 +60,12 @@ def create_labels_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting label modification...',
-                run_fn=run_modification
+                run_fn=run_modification,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Label modification task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

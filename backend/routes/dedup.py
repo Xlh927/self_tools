@@ -1,7 +1,14 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import ImageDeduplicator
-from routes.utils import get_json_body, require_value, require_exists, require_dir, error_response
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    success_response,
+    task_queued_response,
+)
 
 
 def create_dedup_blueprint(task_manager):
@@ -10,37 +17,32 @@ def create_dedup_blueprint(task_manager):
     @bp.route('/api/find-duplicates', methods=['POST'])
     def find_duplicates():
         try:
-            data = get_json_body()
-            ok, resp = require_value(data, 'folder_path', 'Missing required field: folder_path')
-            if not ok:
-                return resp
-
-            folder_path = data['folder_path']
-            hash_algorithm = data.get('hash_algorithm', 'average')
-            use_md5 = data.get('use_md5', False)
-            similarity_threshold = int(data.get('similarity_threshold', 5))
-
-            ok, resp = require_exists(folder_path, f'Folder does not exist: {folder_path}')
-            if not ok:
-                return resp
-            ok, resp = require_dir(folder_path, f'Path is not a directory: {folder_path}')
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['folder_path'],
+                exists=['folder_path'],
+                dirs=['folder_path'],
+                defaults={
+                    'hash_algorithm': 'average',
+                    'use_md5': False,
+                    'similarity_threshold': 5,
+                    'max_retries': 1,
+                },
+                coerce={'similarity_threshold': int, 'max_retries': int},
+            )
 
             def run_deduplication(task_id, cancel_event, pause_event):
                 deduplicator = ImageDeduplicator()
                 progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
 
                 duplicates = deduplicator.find_duplicates(
-                    folder_path=folder_path,
-                    hash_algorithm=hash_algorithm,
-                    use_md5=use_md5,
-                    similarity_threshold=similarity_threshold,
+                    folder_path=data['folder_path'],
+                    hash_algorithm=data.get('hash_algorithm', 'average'),
+                    use_md5=data.get('use_md5', False),
+                    similarity_threshold=data.get('similarity_threshold', 5),
                     progress_callback=progress_callback
                 )
 
                 report = deduplicator.get_duplicate_report(duplicates)
-
                 task_manager.finish_task(
                     task_id,
                     status='completed',
@@ -50,60 +52,51 @@ def create_dedup_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Scanning for duplicates...',
-                run_fn=run_deduplication
+                run_fn=run_deduplication,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Dedup scan task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/remove-duplicates', methods=['POST'])
     def remove_duplicates():
         try:
-            data = get_json_body()
-            ok, resp = require_value(data, 'folder_path', 'Missing required field: folder_path')
-            if not ok:
-                return resp
-
-            folder_path = data['folder_path']
-            hash_algorithm = data.get('hash_algorithm', 'average')
-            use_md5 = data.get('use_md5', False)
-            similarity_threshold = int(data.get('similarity_threshold', 5))
-            keep_strategy = data.get('keep_strategy', 'first')
-            dry_run = data.get('dry_run', True)
-
-            ok, resp = require_exists(folder_path, f'Folder does not exist: {folder_path}')
-            if not ok:
-                return resp
-
+            data = parse_json_request(
+                required=['folder_path'],
+                exists=['folder_path'],
+                defaults={
+                    'hash_algorithm': 'average',
+                    'use_md5': False,
+                    'similarity_threshold': 5,
+                    'keep_strategy': 'first',
+                    'dry_run': True,
+                },
+                coerce={'similarity_threshold': int},
+            )
             deduplicator = ImageDeduplicator()
 
-            if 'duplicates' in data and data['duplicates']:
+            if data.get('duplicates'):
                 duplicates = data['duplicates']
             else:
                 duplicates = deduplicator.find_duplicates(
-                    folder_path=folder_path,
-                    hash_algorithm=hash_algorithm,
-                    use_md5=use_md5,
-                    similarity_threshold=similarity_threshold
+                    folder_path=data['folder_path'],
+                    hash_algorithm=data.get('hash_algorithm', 'average'),
+                    use_md5=data.get('use_md5', False),
+                    similarity_threshold=data.get('similarity_threshold', 5),
                 )
 
             result = deduplicator.remove_duplicates(
                 duplicates=duplicates,
-                keep_strategy=keep_strategy,
-                dry_run=dry_run
+                keep_strategy=data.get('keep_strategy', 'first'),
+                dry_run=data.get('dry_run', True)
             )
-
-            return jsonify({
-                'success': True,
-                **result
-            })
-
+            merged = {'success': True, **result}
+            return success_response(merged, message='Duplicate removal done')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

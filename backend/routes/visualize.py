@@ -1,7 +1,14 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import AnnotationVisualizer
-from routes.utils import get_json_body, require_value, require_values, error_response
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    success_response,
+    task_queued_response,
+)
 
 
 def create_visualize_blueprint(task_manager):
@@ -10,32 +17,31 @@ def create_visualize_blueprint(task_manager):
     @bp.route('/api/detect-classes', methods=['POST'])
     def detect_classes():
         try:
-            data = get_json_body()
-            ok, resp = require_value(data, 'annotations_dir', 'Missing annotations_dir')
-            if not ok:
-                return resp
+            data = parse_json_request(required=['annotations_dir'], exists=['annotations_dir'], dirs=['annotations_dir'])
 
             visualizer = AnnotationVisualizer()
             result = visualizer.detect_classes(
                 annotations_dir=data['annotations_dir'],
                 annotation_format=data.get('annotation_format')
             )
-
-            return jsonify(result)
+            if result.get('success'):
+                return success_response(result, message='Classes detected')
+            return error_response(result.get('error', 'Class detection failed'), code='ERR_CLASS_SCAN_FAILED')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 
     @bp.route('/api/visualize', methods=['POST'])
     def visualize_annotations():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('images_dir', 'Missing images_dir'),
-                ('annotations_dir', 'Missing annotations_dir'),
-                ('output_dir', 'Missing output_dir'),
-            ])
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['images_dir', 'annotations_dir', 'output_dir'],
+                exists=['images_dir', 'annotations_dir'],
+                dirs=['images_dir', 'annotations_dir'],
+                defaults={'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             def run_visualization(task_id, cancel_event, pause_event):
                 visualizer = AnnotationVisualizer()
@@ -60,15 +66,12 @@ def create_visualize_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting visualization...',
-                run_fn=run_visualization
+                run_fn=run_visualization,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Visualization task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

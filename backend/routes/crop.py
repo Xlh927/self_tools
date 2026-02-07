@@ -1,8 +1,14 @@
 import os
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
-from modules.cv_tools import ImageCropper, DatasetGenerator
-from routes.utils import get_json_body, require_values, require_exists, error_response
+from modules.cv_tools import DatasetGenerator, ImageCropper
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    task_queued_response,
+)
 
 
 def create_crop_blueprint(task_manager):
@@ -11,42 +17,49 @@ def create_crop_blueprint(task_manager):
     @bp.route('/api/crop', methods=['POST'])
     def crop():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('mode', 'Missing required field: mode'),
-                ('input_path', 'Missing required field: input_path'),
-                ('output_dir', 'Missing required field: output_dir'),
-            ])
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['mode', 'input_path', 'output_dir'],
+                exists=['input_path'],
+                defaults={
+                    'crop_mode': 'adaptive',
+                    'window_width': 1024,
+                    'window_height': 1024,
+                    'overlap_x': 512,
+                    'overlap_y': 512,
+                    'overlap_ratio': 0.3,
+                    'max_retries': 1,
+                },
+                coerce={
+                    'window_width': int,
+                    'window_height': int,
+                    'overlap_x': int,
+                    'overlap_y': int,
+                    'overlap_ratio': float,
+                    'max_retries': int,
+                },
+            )
 
             mode = data['mode']
             crop_mode = data.get('crop_mode', 'adaptive')
             input_path = data['input_path']
             annotations_dir = data.get('annotations_dir')
             output_dir = data['output_dir']
-            window_width = int(data.get('window_width', 1024))
-            window_height = int(data.get('window_height', 1024))
-            overlap_x = int(data.get('overlap_x', 512))
-            overlap_y = int(data.get('overlap_y', 512))
-            overlap_ratio = float(data.get('overlap_ratio', 0.3))
-
-            ok, resp = require_exists(input_path, f'Input path does not exist: {input_path}')
-            if not ok:
-                return resp
+            window_width = data['window_width']
+            window_height = data['window_height']
+            overlap_x = data['overlap_x']
+            overlap_y = data['overlap_y']
+            overlap_ratio = data['overlap_ratio']
 
             if crop_mode == 'fixed':
                 if window_width <= 0 or window_height <= 0:
-                    return error_response('Window size must be positive')
-
+                    raise ValidationError('Window size must be positive', code='ERR_INVALID_FIELD')
                 if overlap_x < 0 or overlap_y < 0:
-                    return error_response('Overlap must be non-negative')
-
+                    raise ValidationError('Overlap must be non-negative', code='ERR_INVALID_FIELD')
                 if overlap_x >= window_width or overlap_y >= window_height:
-                    return error_response('Overlap must be less than window size')
+                    raise ValidationError('Overlap must be less than window size', code='ERR_INVALID_FIELD')
             else:
                 if overlap_ratio <= 0 or overlap_ratio >= 1:
-                    return error_response('Overlap ratio must be between 0 and 1')
+                    raise ValidationError('Overlap ratio must be between 0 and 1', code='ERR_INVALID_FIELD')
 
             def run_cropping(task_id, cancel_event, pause_event):
                 cropper = ImageCropper()
@@ -132,15 +145,12 @@ def create_crop_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting cropping...',
-                run_fn=run_cropping
+                run_fn=run_cropping,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Cropping task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

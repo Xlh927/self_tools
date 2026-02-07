@@ -1,7 +1,13 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import DataAugmentor
-from routes.utils import get_json_body, require_values, require_exists, error_response
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    task_queued_response,
+)
 
 
 def create_augment_blueprint(task_manager):
@@ -10,22 +16,13 @@ def create_augment_blueprint(task_manager):
     @bp.route('/api/augment', methods=['POST'])
     def augment_dataset():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('images_dir', 'Missing required field: images_dir'),
-                ('annotations_dir', 'Missing required field: annotations_dir'),
-                ('output_dir', 'Missing required field: output_dir'),
-                ('annotation_format', 'Missing required field: annotation_format'),
-            ])
-            if not ok:
-                return resp
-
-            ok, resp = require_exists(data['images_dir'], f'Images directory does not exist: {data["images_dir"]}')
-            if not ok:
-                return resp
-            ok, resp = require_exists(data['annotations_dir'], f'Annotations directory does not exist: {data["annotations_dir"]}')
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['images_dir', 'annotations_dir', 'output_dir', 'annotation_format'],
+                exists=['images_dir', 'annotations_dir'],
+                dirs=['images_dir', 'annotations_dir'],
+                defaults={'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             def run_augmentation(task_id, cancel_event, pause_event):
                 augmentor = DataAugmentor()
@@ -45,15 +42,12 @@ def create_augment_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting augmentation...',
-                run_fn=run_augmentation
+                run_fn=run_augmentation,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-
+            return task_queued_response(task_id, message='Augmentation task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

@@ -1,8 +1,13 @@
-from flask import Blueprint, jsonify, request
-
-from routes.utils import get_json_body, require_values, error_response
+from flask import Blueprint
 
 from modules.cv_tools import ImageMatcher
+from routes.utils import (
+    ValidationError,
+    error_response,
+    handle_validation_error,
+    parse_json_request,
+    task_queued_response,
+)
 
 
 def create_match_blueprint(task_manager):
@@ -11,14 +16,13 @@ def create_match_blueprint(task_manager):
     @bp.route('/api/match', methods=['POST'])
     def match_images():
         try:
-            data = get_json_body()
-            ok, resp = require_values(data, [
-                ('source_dir', 'Missing source_dir'),
-                ('reference_dir', 'Missing reference_dir'),
-                ('output_dir', 'Missing output_dir'),
-            ])
-            if not ok:
-                return resp
+            data = parse_json_request(
+                required=['source_dir', 'reference_dir', 'output_dir'],
+                exists=['source_dir', 'reference_dir'],
+                dirs=['source_dir', 'reference_dir'],
+                defaults={'copy_intersection': True, 'copy_difference': False, 'dry_run': False, 'max_retries': 1},
+                coerce={'max_retries': int},
+            )
 
             def run_matching(task_id, cancel_event, pause_event):
                 matcher = ImageMatcher()
@@ -43,14 +47,12 @@ def create_match_blueprint(task_manager):
 
             task_id = task_manager.start_task(
                 message='Starting matching...',
-                run_fn=run_matching
+                run_fn=run_matching,
+                max_retries=data.get('max_retries', 1),
             )
-
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
+            return task_queued_response(task_id, message='Matching task queued')
+        except ValidationError as e:
+            return handle_validation_error(e)
         except Exception as e:
             return error_response(str(e), status=500, code='ERR_INTERNAL')
 

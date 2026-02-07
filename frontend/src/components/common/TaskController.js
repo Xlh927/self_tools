@@ -26,7 +26,7 @@ export default function TaskController({
     canStart = true
 }) {
     // Internal state for task status if taskId is provided
-    const [status, setStatus] = useState('idle'); // idle, running, paused, stopped, completed, error
+    const [status, setStatus] = useState('idle'); // idle, queued, running, paused, retrying, stopped, completed, error
     const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState('');
     const [errorCode, setErrorCode] = useState('');
@@ -44,7 +44,7 @@ export default function TaskController({
 
     // Polling logic
     useEffect(() => {
-        if (!localTaskId || (status !== 'running' && status !== 'paused')) {
+        if (!localTaskId || !['queued', 'running', 'paused', 'retrying'].includes(status)) {
             if (pollTimer.current) {
                 clearInterval(pollTimer.current);
                 pollTimer.current = null;
@@ -65,23 +65,28 @@ export default function TaskController({
                 }
                 const data = await res.json();
 
-                setProgress(data.progress);
-                setMessage(data.message);
-                if (data.error_code) {
-                    setErrorCode(data.error_code);
+                const payload = data.data && typeof data.data === 'object' ? { ...data.data, ...data } : data;
+
+                setProgress(payload.progress || 0);
+                setMessage(payload.message || '');
+                if (payload.error_code) {
+                    setErrorCode(payload.error_code);
                 }
 
                 // Allow backend to dictate status, but map correctly
-                if (data.status) {
-                    setStatus(data.status);
+                if (payload.status) {
+                    setStatus(payload.status);
                 }
 
-                if (data.status === 'completed') {
-                    if (onComplete) onComplete(data.result);
-                } else if (data.status === 'error') {
-                    setMessage(data.error || data.message);
-                    if (onError) onError({ error: data.error, error_code: data.error_code });
-                } else if (data.status === 'stopped') {
+                if (payload.status === 'completed') {
+                    setLocalTaskId(null);
+                    if (onComplete) onComplete(payload.result);
+                } else if (payload.status === 'error') {
+                    setLocalTaskId(null);
+                    setMessage(payload.error || payload.message);
+                    if (onError) onError({ error: payload.error, error_code: payload.error_code });
+                } else if (payload.status === 'stopped' || payload.status === 'cancelled') {
+                    setLocalTaskId(null);
                     if (onStop) onStop();
                 }
             } catch (err) {
@@ -96,7 +101,7 @@ export default function TaskController({
 
     const handleStart = async () => {
         if (!onStart) return;
-        setStatus('running');
+        setStatus('queued');
         setProgress(0);
         setMessage('Starting...');
         setErrorCode('');
@@ -220,7 +225,7 @@ export default function TaskController({
         );
     }
 
-    if (status === 'stopped') {
+    if (status === 'stopped' || status === 'cancelled') {
         return e('div', { className: 'task-controller animate-fade-in' },
             e('div', {
                 style: {
@@ -261,8 +266,17 @@ export default function TaskController({
     return e('div', { className: 'task-controller animate-fade-in' },
             e(ProgressBar, {
             progress: progress,
-            message: status === 'paused' ? `⏸️ 已暂停 - ${message}` : formatError(message, errorCode),
-            color: status === 'paused' ? 'var(--color-warning)' : 'var(--color-success)'
+            message:
+                status === 'paused'
+                    ? `⏸️ 已暂停 - ${message}`
+                    : status === 'queued'
+                        ? `🕒 排队中 - ${message || 'Waiting for worker'}`
+                        : status === 'retrying'
+                            ? `🔁 重试中 - ${message}`
+                            : formatError(message, errorCode),
+            color: (status === 'paused' || status === 'queued' || status === 'retrying')
+                ? 'var(--color-warning)'
+                : 'var(--color-success)'
         }),
 
         e('div',
@@ -286,6 +300,20 @@ export default function TaskController({
                     }
                 },
                 '⏸️ 暂停'
+            ),
+            status === 'queued' && e('div',
+                {
+                    style: {
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-secondary)',
+                        border: '1px dashed var(--glass-border)',
+                        borderRadius: 'var(--radius-md)'
+                    }
+                },
+                '等待可用 worker...'
             ),
             status === 'paused' && e('button',
                 {

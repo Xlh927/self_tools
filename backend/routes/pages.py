@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request
+import os
+from flask import Blueprint, render_template, request, Response
 
 
 def create_pages_blueprint():
@@ -10,7 +11,16 @@ def create_pages_blueprint():
 
     @bp.route('/cv-tools')
     def cv_tools():
-        return render_template('cv-tools.html')
+        dist_template = os.path.join('dist', 'cv-tools.html')
+        frontend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        dist_path = os.path.join(frontend_root, 'frontend', 'dist', 'cv-tools.html')
+        if os.path.exists(dist_path):
+            return render_template(dist_template)
+        return Response(
+            "Frontend bundle not found. Run `npm --prefix frontend install && npm --prefix frontend run build`.",
+            status=503,
+            mimetype='text/plain',
+        )
 
     @bp.route('/image-viewer')
     def image_viewer():
