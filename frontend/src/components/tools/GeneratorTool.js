@@ -4,6 +4,7 @@ import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { generateDataset, scanClasses as scanClassesApi } from '../../api/tools.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -24,7 +25,6 @@ export default function GeneratorTool() {
 
     // Result state
     const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
@@ -55,23 +55,18 @@ export default function GeneratorTool() {
     // Auto-detect classes when annotations dir changes
     useEffect(() => {
         if (annotationsDir) {
-            scanClasses();
+            scanAnnotationClasses();
         }
-    }, [annotationsDir]);
+    }, [annotationsDir, annotationFormat]);
 
-    const scanClasses = async () => {
+    const scanAnnotationClasses = async () => {
         if (!annotationsDir) return;
         setScanningClasses(true);
         try {
-            const response = await fetch('/api/scan-classes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    annotations_dir: annotationsDir,
-                    is_yolo_format: annotationFormat === 'yolo'
-                }),
+            const data = await scanClassesApi({
+                annotations_dir: annotationsDir,
+                is_yolo_format: annotationFormat === 'yolo'
             });
-            const data = await response.json();
             if (data.success) {
                 setAvailableClasses(data.classes.map(c => c.name));
                 // Default select all
@@ -95,40 +90,31 @@ export default function GeneratorTool() {
     const handleStartTask = async () => {
         setResult(null);
 
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                annotation_format: annotationFormat,
-                images_dir: imagesDir,
-                annotations_dir: annotationsDir,
-                output_dir: outputDir,
-                classes: selectedClasses,
-                window_width: parseInt(windowWidth),
-                window_height: parseInt(windowHeight),
-                stride_x: parseInt(strideX),
-                stride_y: parseInt(strideY),
-                overlap_threshold: parseInt(overlapThreshold),
-            }),
+        return generateDataset({
+            annotation_format: annotationFormat,
+            images_dir: imagesDir,
+            annotations_dir: annotationsDir,
+            output_dir: outputDir,
+            classes: selectedClasses,
+            window_width: parseInt(windowWidth, 10),
+            window_height: parseInt(windowHeight, 10),
+            stride_x: parseInt(strideX, 10),
+            stride_y: parseInt(strideY, 10),
+            overlap_threshold: parseInt(overlapThreshold, 10),
         });
-
-        const data = await response.json();
-        return data;
     };
 
     const handleComplete = (res) => {
         setResult(res);
-        setTaskId(null);
     };
 
     const handleError = (err) => {
         const normalized = normalizeError(err);
         setResult({ success: false, ...normalized });
-        setTaskId(null);
     };
 
     const handleStop = () => {
-        setTaskId(null);
+        return undefined;
     };
 
     return e('div',
@@ -162,7 +148,7 @@ export default function GeneratorTool() {
                     placeholder: '/path/to/annotations',
                     value: annotationsDir,
                     onChange: (e) => setAnnotationsDir(e.target.value),
-                    onBlur: scanClasses,
+                    onBlur: scanAnnotationClasses,
                 }
             )
         ),
@@ -286,7 +272,6 @@ export default function GeneratorTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
             onStart: handleStartTask,
             onComplete: handleComplete,
             onError: handleError,

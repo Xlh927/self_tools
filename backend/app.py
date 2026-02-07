@@ -68,4 +68,6 @@ app.register_blueprint(create_upload_blueprint())
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=False)
+    host = os.getenv('SELF_TOOLS_BACKEND_HOST', '127.0.0.1')
+    port = int(os.getenv('SELF_TOOLS_BACKEND_PORT', '5000'))
+    app.run(host=host, port=port, debug=False)

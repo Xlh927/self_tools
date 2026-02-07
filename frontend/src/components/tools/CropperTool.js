@@ -4,6 +4,7 @@ import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { cropImages } from '../../api/tools.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -21,7 +22,6 @@ export default function CropperTool() {
 
     // Result state
     const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer output path
     useEffect(() => {
@@ -43,39 +43,31 @@ export default function CropperTool() {
 
     const handleStartTask = async () => {
         setResult(null);
-        const response = await fetch('/api/crop', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                mode: processingMode,
-                crop_mode: cropMode,
-                input_path: inputPath,
-                annotations_dir: annotationsDir || undefined,
-                output_dir: outputDir,
-                window_width: parseInt(windowWidth),
-                window_height: parseInt(windowHeight),
-                overlap_x: parseInt(overlapX),
-                overlap_y: parseInt(overlapY),
-                overlap_ratio: parseFloat(overlapRatio),
-            }),
+        return cropImages({
+            mode: processingMode,
+            crop_mode: cropMode,
+            input_path: inputPath,
+            annotations_dir: annotationsDir || undefined,
+            output_dir: outputDir,
+            window_width: parseInt(windowWidth, 10),
+            window_height: parseInt(windowHeight, 10),
+            overlap_x: parseInt(overlapX, 10),
+            overlap_y: parseInt(overlapY, 10),
+            overlap_ratio: parseFloat(overlapRatio),
         });
-        const data = await response.json();
-        return data; // { success: true, task_id: '...' } or { success: false, error: '...' }
     };
 
     const handleComplete = (res) => {
         setResult(res);
-        setTaskId(null); // Reset task ID to allow new tasks
     };
 
     const handleError = (err) => {
         const normalized = normalizeError(err);
         setResult({ success: false, ...normalized });
-        setTaskId(null);
     };
 
     const handleStop = () => {
-        setTaskId(null);
+        return undefined;
     };
 
     return e('div',
@@ -247,7 +239,6 @@ export default function CropperTool() {
 
         // Task Controller (replaces Progress Bar and Submit Button)
         e(TaskController, {
-            taskId: taskId,
             onStart: handleStartTask,
             onComplete: handleComplete,
             onError: handleError,

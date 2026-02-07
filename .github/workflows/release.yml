@@ -24,7 +24,13 @@ jobs:
           node-version: '20'
 
       - name: Install frontend dependencies
-        run: npm --prefix frontend install
+        run: npm --prefix frontend ci
+
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+
+      - name: Test frontend
+        run: npm --prefix frontend run test
 
       - name: Build frontend bundle
         run: npm --prefix frontend run build
@@ -73,7 +79,13 @@ jobs:
           node-version: '20'
 
       - name: Install frontend dependencies
-        run: npm --prefix frontend install
+        run: npm --prefix frontend ci
+
+      - name: Lint frontend
+        run: npm --prefix frontend run lint
+
+      - name: Test frontend
+        run: npm --prefix frontend run test
 
       - name: Build frontend bundle
         run: npm --prefix frontend run build

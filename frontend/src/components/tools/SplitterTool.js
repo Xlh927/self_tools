@@ -4,6 +4,7 @@ import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { splitDataset } from '../../api/tools.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -20,7 +21,6 @@ export default function SplitterTool() {
 
     // Result state
     const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer paths from imagesDir
     useEffect(() => {
@@ -97,39 +97,30 @@ export default function SplitterTool() {
     const handleStartTask = async () => {
         setResult(null);
 
-        const response = await fetch('/api/split', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                format: format,
-                images_dir: imagesDir,
-                annotations_dir: annotationsDir,
-                output_dir: outputDir,
-                train_ratio: trainRatio,
-                val_ratio: valRatio,
-                test_ratio: testRatio,
-                use_background: useBackground,
-                random_seed: parseInt(randomSeed),
-            }),
+        return splitDataset({
+            format: format,
+            images_dir: imagesDir,
+            annotations_dir: annotationsDir,
+            output_dir: outputDir,
+            train_ratio: trainRatio,
+            val_ratio: valRatio,
+            test_ratio: testRatio,
+            use_background: useBackground,
+            random_seed: parseInt(randomSeed, 10),
         });
-
-        const data = await response.json();
-        return data;
     };
 
     const handleComplete = (res) => {
         setResult(res);
-        setTaskId(null);
     };
 
     const handleError = (err) => {
         const normalized = normalizeError(err);
         setResult({ success: false, ...normalized });
-        setTaskId(null);
     };
 
     const handleStop = () => {
-        setTaskId(null);
+        return undefined;
     };
 
     return e('div',
@@ -260,7 +251,6 @@ export default function SplitterTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
             onStart: handleStartTask,
             onComplete: handleComplete,
             onError: handleError,

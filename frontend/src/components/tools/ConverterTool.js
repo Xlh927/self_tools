@@ -4,6 +4,7 @@ import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
 import { normalizeError } from '../../utils/error.js';
+import { convertDataset, scanVocClasses as scanVocClassesApi } from '../../api/tools.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -16,7 +17,6 @@ export default function ConverterTool() {
 
     // Result state
     const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // New state for class scanning
     const [scannedClasses, setScannedClasses] = useState([]);
@@ -68,13 +68,7 @@ export default function ConverterTool() {
     const scanVocClasses = async () => {
         setScanningClasses(true);
         try {
-            const response = await fetch('/api/scan-voc-classes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ annotations_dir: annotationsDir }),
-            });
-
-            const data = await response.json();
+            const data = await scanVocClassesApi({ annotations_dir: annotationsDir });
 
             if (data.success) {
                 // Add enabled property to each class (default: true)
@@ -131,29 +125,20 @@ export default function ConverterTool() {
             requestBody.custom_class_mapping = customClassMapping;
         }
 
-        const response = await fetch('/api/convert', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
-
-        const data = await response.json();
-        return data;
+        return convertDataset(requestBody);
     };
 
     const handleComplete = (res) => {
         setResult(res);
-        setTaskId(null);
     };
 
     const handleError = (err) => {
         const normalized = normalizeError(err);
         setResult({ success: false, ...normalized });
-        setTaskId(null);
     };
 
     const handleStop = () => {
-        setTaskId(null);
+        return undefined;
     };
 
     return e('div',
@@ -340,7 +325,6 @@ export default function ConverterTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
             onStart: handleStartTask,
             onComplete: handleComplete,
             onError: handleError,
