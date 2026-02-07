@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -95,7 +98,8 @@ export default function AugmentorTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -176,15 +180,15 @@ export default function AugmentorTool() {
         // Annotation Format
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '🏷️ 标注格式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: annotationFormat,
-                    onChange: (e) => setAnnotationFormat(e.target.value),
-                },
-                e('option', { value: 'voc' }, 'VOC (XML)'),
-                e('option', { value: 'yolo' }, 'YOLO (TXT)')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc', label: 'VOC (XML)' },
+                    { value: 'yolo', label: 'YOLO (TXT)' }
+                ],
+                value: annotationFormat,
+                onChange: setAnnotationFormat,
+                ariaLabel: '标注格式'
+            })
         ),
 
         // Classes File (for YOLO)
@@ -285,7 +289,7 @@ export default function AugmentorTool() {
                     `⚠️ 警告: ${result.errors.length} 个文件处理失败`
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

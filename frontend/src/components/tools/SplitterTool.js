@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -120,7 +123,8 @@ export default function SplitterTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -134,15 +138,15 @@ export default function SplitterTool() {
         // Format Selection
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '数据集格式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: format,
-                    onChange: (e) => setFormat(e.target.value),
-                },
-                e('option', { value: 'voc' }, 'VOC (XML)'),
-                e('option', { value: 'yolo' }, 'YOLO (TXT)')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc', label: 'VOC (XML)' },
+                    { value: 'yolo', label: 'YOLO (TXT)' }
+                ],
+                value: format,
+                onChange: setFormat,
+                ariaLabel: '数据集格式'
+            })
         ),
 
         // Annotations Directory
@@ -278,7 +282,7 @@ export default function SplitterTool() {
                 ),
                 result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', wordBreak: 'break-all' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

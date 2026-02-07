@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -119,7 +122,8 @@ export default function GeneratorTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -133,16 +137,16 @@ export default function GeneratorTool() {
         // Format Selection
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '标注格式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: annotationFormat,
-                    onChange: (e) => setAnnotationFormat(e.target.value),
-                },
-                e('option', { value: 'voc' }, 'VOC (XML)'),
-                e('option', { value: 'yolo' }, 'YOLO (TXT)'),
-                e('option', { value: 'json' }, 'COCO (JSON)')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc', label: 'VOC (XML)' },
+                    { value: 'yolo', label: 'YOLO (TXT)' },
+                    { value: 'json', label: 'COCO (JSON)' }
+                ],
+                value: annotationFormat,
+                onChange: setAnnotationFormat,
+                ariaLabel: '标注格式'
+            })
         ),
 
         // Annotations Directory
@@ -303,7 +307,7 @@ export default function GeneratorTool() {
                 ),
                 result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

@@ -85,6 +85,11 @@
     --text-tertiary: #a1a1a1;
     --text-accent: #fe2c55;
 
+    --form-bg: rgba(18, 18, 18, 0.8);
+    --form-border: rgba(37, 244, 238, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
+
     --shadow-xs: 0 1px 2px rgba(254, 44, 85, 0.1);
     --shadow-sm: 0 2px 8px rgba(254, 44, 85, 0.15);
     --shadow-md: 0 4px 16px rgba(254, 44, 85, 0.2);
@@ -123,11 +128,64 @@
     --text-tertiary: #717171;
     --text-accent: #ff0000;
 
+    --form-bg: rgba(33, 33, 33, 0.8);
+    --form-border: rgba(255, 0, 0, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
+
     --shadow-xs: 0 1px 2px rgba(255, 0, 0, 0.1);
     --shadow-sm: 0 2px 8px rgba(255, 0, 0, 0.15);
     --shadow-md: 0 4px 16px rgba(255, 0, 0, 0.2);
     --shadow-lg: 0 8px 32px rgba(255, 0, 0, 0.25);
     --shadow-xl: 0 12px 48px rgba(255, 0, 0, 0.3);
+}
+
+/* Bilibili Theme - White/Pink */
+:root[data-theme="bilibili"] {
+    --primary-blue: #FB7299;
+    --primary-purple: #E4668A;
+    --accent-blue: #FF9DB5;
+    --accent-purple: #FFB3C6;
+    --soft-blue: #FFC9D6;
+    --soft-purple: #FFD6E0;
+
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9f9f9;
+    --bg-tertiary: #f4f4f4;
+    --bg-glass: rgba(255, 255, 255, 0.85);
+    --bg-glass-hover: rgba(255, 255, 255, 0.95);
+
+    --dark-bg-primary: #1a1a1a;
+    --dark-bg-secondary: #252525;
+    --dark-bg-tertiary: #2f2f2f;
+
+    --gradient-primary: linear-gradient(135deg, #FB7299 0%, #E4668A 100%);
+    --gradient-secondary: linear-gradient(135deg, #FF9DB5 0%, #FFB3C6 100%);
+    --gradient-tertiary: linear-gradient(135deg, #FFC9D6 0%, #FFD6E0 100%);
+    --gradient-subtle: linear-gradient(135deg, rgba(251, 114, 153, 0.1) 0%, rgba(228, 102, 138, 0.1) 100%);
+    --gradient-dark: linear-gradient(180deg, #1a1a1a 0%, #252525 100%);
+
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-bg-dark: rgba(37, 37, 37, 0.6);
+    --glass-border: rgba(251, 114, 153, 0.2);
+    --glass-border-dark: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(251, 114, 153, 0.15);
+    --glass-blur: blur(30px);
+
+    --text-primary: #212121;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --text-accent: #FB7299;
+
+    --dark-text-primary: #f1f1f1;
+    --dark-text-secondary: #d1d1d1;
+    --dark-text-tertiary: #a1a1a1;
+
+    --shadow-xs: 0 1px 2px rgba(251, 114, 153, 0.08);
+    --shadow-sm: 0 2px 8px rgba(251, 114, 153, 0.12);
+    --shadow-md: 0 4px 16px rgba(251, 114, 153, 0.15);
+    --shadow-lg: 0 8px 32px rgba(251, 114, 153, 0.18);
+    --shadow-xl: 0 12px 48px rgba(251, 114, 153, 0.2);
 }
 
 /* Common CSS Variables */
@@ -186,6 +244,14 @@
     --form-text: var(--text-primary);
 }
 
+/* Form variables for bilibili theme */
+:root[data-theme="bilibili"] {
+    --form-bg: rgba(255, 255, 255, 0.9);
+    --form-border: rgba(251, 114, 153, 0.3);
+    --form-border-focus: var(--primary-blue);
+    --form-text: var(--text-primary);
+}
+
 /* Dark mode support for default theme */
 @media (prefers-color-scheme: dark) {
     :root[data-theme="default"] {
@@ -197,5 +263,25 @@
         --text-primary: var(--dark-text-primary);
         --text-secondary: var(--dark-text-secondary);
         --text-tertiary: var(--dark-text-tertiary);
+        --form-bg: rgba(26, 31, 46, 0.8);
+        --form-border: rgba(102, 126, 234, 0.3);
+        --form-text: var(--dark-text-primary);
+    }
+}
+
+/* Dark mode support for bilibili theme */
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="bilibili"] {
+        --bg-primary: var(--dark-bg-primary);
+        --bg-secondary: var(--dark-bg-secondary);
+        --bg-tertiary: var(--dark-bg-tertiary);
+        --bg-glass: var(--glass-bg-dark);
+        --glass-border: var(--glass-border-dark);
+        --text-primary: var(--dark-text-primary);
+        --text-secondary: var(--dark-text-secondary);
+        --text-tertiary: var(--dark-text-tertiary);
+        --form-bg: rgba(37, 37, 37, 0.8);
+        --form-border: rgba(251, 114, 153, 0.3);
+        --form-text: var(--dark-text-primary);
     }
 }

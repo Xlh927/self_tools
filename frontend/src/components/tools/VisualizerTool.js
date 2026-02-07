@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -72,7 +75,8 @@ export default function VisualizerTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -150,28 +154,30 @@ export default function VisualizerTool() {
             // Rename Mode
             e('div', { className: 'input-group', style: { flex: 1.5 } },
                 e('label', { className: 'input-label' }, '🏷️ 重命名模式'),
-                e('select', {
-                    className: 'input-field',
+                e(OptionButtons, {
+                    options: [
+                        { value: 'none', label: '不重命名' },
+                        { value: 'prefix', label: '添加前缀' },
+                        { value: 'suffix', label: '添加后缀' }
+                    ],
                     value: renameMode,
-                    onChange: (e) => setRenameMode(e.target.value),
-                },
-                    e('option', { value: 'none' }, '不重命名'),
-                    e('option', { value: 'prefix' }, '添加前缀'),
-                    e('option', { value: 'suffix' }, '添加后缀')
-                )
+                    onChange: setRenameMode,
+                    ariaLabel: '重命名模式'
+                })
             ),
             // Rename Content
             e('div', { className: 'input-group', style: { flex: 1 } },
                 e('label', { className: 'input-label' }, '📝 重命名内容'),
-                e('select', {
-                    className: 'input-field',
+                e(OptionButtons, {
+                    options: [
+                        { value: 'name', label: '标签名称' },
+                        { value: 'id', label: '标签索引' }
+                    ],
                     value: renameContent,
-                    onChange: (e) => setRenameContent(e.target.value),
-                    disabled: renameMode === 'none'
-                },
-                    e('option', { value: 'name' }, '标签名称'),
-                    e('option', { value: 'id' }, '标签索引')
-                )
+                    onChange: setRenameContent,
+                    disabled: renameMode === 'none',
+                    ariaLabel: '重命名内容'
+                })
             )
         ),
 
@@ -218,7 +224,7 @@ export default function VisualizerTool() {
                     )
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

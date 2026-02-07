@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -66,7 +69,8 @@ export default function CropperTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -80,29 +84,29 @@ export default function CropperTool() {
         // Processing Mode
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '处理模式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: processingMode,
-                    onChange: (e) => setProcessingMode(e.target.value),
-                },
-                e('option', { value: 'folder' }, '📁 文件夹批量'),
-                e('option', { value: 'single' }, '📄 单张图片')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'folder', label: '📁 文件夹批量' },
+                    { value: 'single', label: '📄 单张图片' }
+                ],
+                value: processingMode,
+                onChange: setProcessingMode,
+                ariaLabel: '处理模式'
+            })
         ),
 
         // Crop Mode
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '裁剪模式'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: cropMode,
-                    onChange: (ev) => setCropMode(ev.target.value),
-                },
-                e('option', { value: 'adaptive' }, '🎯 自适应模式（横向长条图像优化）'),
-                e('option', { value: 'fixed' }, '📐 固定窗口模式')
-            ),
+            e(OptionButtons, {
+                options: [
+                    { value: 'adaptive', label: '🎯 自适应模式（横向长条图像优化）' },
+                    { value: 'fixed', label: '📐 固定窗口模式' }
+                ],
+                value: cropMode,
+                onChange: setCropMode,
+                ariaLabel: '裁剪模式'
+            }),
             cropMode === 'adaptive' && e('div', {
                 className: 'info-box',
                 style: {
@@ -264,7 +268,7 @@ export default function CropperTool() {
                 ),
                 result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`)
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }

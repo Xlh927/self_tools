@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { basename } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -46,7 +49,8 @@ export default function DeduplicatorTool() {
     };
 
     const handleError = (err) => {
-        setReport({ error: err });
+        const normalized = normalizeError(err);
+        setReport({ ...normalized });
         setTaskId(null);
     };
 
@@ -92,7 +96,8 @@ export default function DeduplicatorTool() {
                 setReport(null);
             }
         } catch (error) {
-            setRemoveResult({ success: false, error: error.message });
+            const normalized = normalizeError(error);
+            setRemoveResult({ success: false, ...normalized });
         } finally {
             setRemoving(false);
         }
@@ -122,17 +127,17 @@ export default function DeduplicatorTool() {
         e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
             e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '哈希算法'),
-                e('select',
-                    {
-                        className: 'select-field',
-                        value: hashAlgorithm,
-                        onChange: (e) => setHashAlgorithm(e.target.value),
-                    },
-                    e('option', { value: 'average' }, 'Average Hash (快速)'),
-                    e('option', { value: 'perceptual' }, 'Perceptual Hash (准确)'),
-                    e('option', { value: 'difference' }, 'Difference Hash'),
-                    e('option', { value: 'wavelet' }, 'Wavelet Hash')
-                )
+                e(OptionButtons, {
+                    options: [
+                        { value: 'average', label: 'Average Hash (快速)' },
+                        { value: 'perceptual', label: 'Perceptual Hash (准确)' },
+                        { value: 'difference', label: 'Difference Hash' },
+                        { value: 'wavelet', label: 'Wavelet Hash' }
+                    ],
+                    value: hashAlgorithm,
+                    onChange: setHashAlgorithm,
+                    ariaLabel: '哈希算法'
+                })
             ),
             e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '相似度阈值 (0-10)'),
@@ -170,6 +175,14 @@ export default function DeduplicatorTool() {
         }),
 
         // Report
+        report && report.error && e('div',
+            {
+                className: 'result-box error animate-fade-in-up',
+            },
+            e('h3', {}, '❌ 扫描失败'),
+            e(ErrorText, { error: report.error, errorCode: report.error_code })
+        ),
+
         report && !report.error && e('div',
             {
                 className: 'result-box info animate-fade-in-up',
@@ -240,17 +253,17 @@ export default function DeduplicatorTool() {
                 e('div', { style: { display: 'flex', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' } },
                     e('div', { style: { flex: 1 } },
                         e('label', { className: 'input-label', style: { fontSize: '0.8rem' } }, '保留策略'),
-                        e('select',
-                            {
-                                className: 'select-field',
-                                value: keepStrategy,
-                                onChange: (e) => setKeepStrategy(e.target.value),
-                            },
-                            e('option', { value: 'first' }, '保留第一个 (First)'),
-                            e('option', { value: 'last' }, '保留最后一个 (Last)'),
-                            e('option', { value: 'smallest' }, '保留最小文件 (Smallest)'),
-                            e('option', { value: 'largest' }, '保留最大文件 (Largest)')
-                        )
+                        e(OptionButtons, {
+                            options: [
+                                { value: 'first', label: '保留第一个 (First)' },
+                                { value: 'last', label: '保留最后一个 (Last)' },
+                                { value: 'smallest', label: '保留最小文件 (Smallest)' },
+                                { value: 'largest', label: '保留最大文件 (Largest)' }
+                            ],
+                            value: keepStrategy,
+                            onChange: setKeepStrategy,
+                            ariaLabel: '保留策略'
+                        })
                     ),
                     e('div', { style: { flex: 1, display: 'flex', alignItems: 'flex-end', paddingBottom: '10px' } },
                         e('label', { style: { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' } },
@@ -288,7 +301,7 @@ export default function DeduplicatorTool() {
                 ),
                 dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际物理删除')
             ),
-            removeResult.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, removeResult.error)
+            e(ErrorText, { error: removeResult.error, errorCode: removeResult.error_code })
         )
     );
 }

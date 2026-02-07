@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import OptionButtons from '../common/OptionButtons.js';
 
 const { createElement: e } = React;
 
@@ -131,6 +132,28 @@ export default function SlurmGeneratorTool() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleModeChange = (nextMode) => {
+        setMode(nextMode);
+        if (nextMode === 'train') {
+            setProject('/runs/train');
+            setModel('yolo11m.pt');
+        }
+        else if (nextMode === 'val') {
+            setProject('/runs/val');
+            setModel('');
+        }
+        else if (nextMode === 'predict') {
+            setProject('/runs/predict');
+            setModel('');
+        }
+        else if (nextMode === 'export') {
+            setModel('');
+        }
+        else if (nextMode === 'subfp') {
+            setModel('');
+        }
+    };
+
     const handleDataChange = (e) => {
         const val = e.target.value;
         setData(val);
@@ -193,49 +216,31 @@ export default function SlurmGeneratorTool() {
             // Operation Mode
             e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '运行模式 (Mode)'),
-                e('select',
-                    {
-                        className: 'select-field',
-                        value: mode,
-                        onChange: (e) => {
-                            setMode(e.target.value);
-                            // Auto-adjust project path based on mode
-                            if (e.target.value === 'train') {
-                                setProject('/runs/train');
-                                setModel('yolo11m.pt');
-                            }
-                            else if (e.target.value === 'val') {
-                                setProject('/runs/val');
-                                setModel('');
-                            }
-                            else if (e.target.value === 'predict') {
-                                setProject('/runs/predict');
-                                setModel('');
-                            }
-                            else if (e.target.value === 'export') setModel('');
-                            else if (e.target.value === 'subfp') setModel('');
-                        },
-                        style: { borderColor: 'var(--color-info)' }
-                    },
-                    e('option', { value: 'train' }, 'Train (训练)'),
-                    e('option', { value: 'val' }, 'Val (验证)'),
-                    e('option', { value: 'predict' }, 'Predict (推理)'),
-                    e('option', { value: 'export' }, 'Export (导出)'),
-                    e('option', { value: 'subfp' }, 'SubFP (压误报/测阈值)')
-                )
+                e(OptionButtons, {
+                    options: [
+                        { value: 'train', label: 'Train (训练)' },
+                        { value: 'val', label: 'Val (验证)' },
+                        { value: 'predict', label: 'Predict (推理)' },
+                        { value: 'export', label: 'Export (导出)' },
+                        { value: 'subfp', label: 'SubFP (压误报/测阈值)' }
+                    ],
+                    value: mode,
+                    onChange: handleModeChange,
+                    ariaLabel: '运行模式'
+                })
             ),
             // Task
             mode !== 'subfp' && e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '任务类型 (Task)'),
-                e('select',
-                    {
-                        className: 'select-field',
-                        value: task,
-                        onChange: (e) => setTask(e.target.value),
-                    },
-                    e('option', { value: 'detect' }, 'Detect (目标检测)'),
-                    e('option', { value: 'segment' }, 'Segment (实例分割)')
-                )
+                e(OptionButtons, {
+                    options: [
+                        { value: 'detect', label: 'Detect (目标检测)' },
+                        { value: 'segment', label: 'Segment (实例分割)' }
+                    ],
+                    value: task,
+                    onChange: setTask,
+                    ariaLabel: '任务类型'
+                })
             ),
             // Model / best.pt / weights
             e('div', { className: 'input-group', style: ['subfp', 'val', 'predict', 'export'].includes(mode) ? { gridColumn: '1 / -1' } : {} },
@@ -297,15 +302,15 @@ export default function SlurmGeneratorTool() {
                 // Cache (Train only)
                 mode === 'train' && e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '缓存数据 (Cache)'),
-                    e('select',
-                        {
-                            value: cache.toString(),
-                            onChange: (e) => setCache(e.target.value === 'true'),
-                            style: { ...inputStyle, cursor: 'pointer' }
-                        },
-                        e('option', { value: 'true' }, 'True'),
-                        e('option', { value: 'false' }, 'False')
-                    )
+                    e(OptionButtons, {
+                        options: [
+                            { value: true, label: 'True' },
+                            { value: false, label: 'False' }
+                        ],
+                        value: cache,
+                        onChange: setCache,
+                        ariaLabel: '缓存数据'
+                    })
                 ),
                 // Name
                 e('div', { style: groupStyle },
@@ -368,15 +373,15 @@ export default function SlurmGeneratorTool() {
                 // Save Txt
                 e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '保存标签 (save_txt)'),
-                    e('select',
-                        {
-                            value: saveTxt.toString(),
-                            onChange: (e) => setSaveTxt(e.target.value === 'true'),
-                            style: { ...inputStyle, cursor: 'pointer' }
-                        },
-                        e('option', { value: 'false' }, 'False'),
-                        e('option', { value: 'true' }, 'True')
-                    )
+                    e(OptionButtons, {
+                        options: [
+                            { value: false, label: 'False' },
+                            { value: true, label: 'True' }
+                        ],
+                        value: saveTxt,
+                        onChange: setSaveTxt,
+                        ariaLabel: '保存标签'
+                    })
                 ),
                 // Device
                 e('div', { style: groupStyle },
@@ -426,15 +431,15 @@ export default function SlurmGeneratorTool() {
                 // Handler
                 e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '处理类型 (Handler)'),
-                    e('select',
-                        {
-                            value: handler,
-                            onChange: (e) => setHandler(e.target.value),
-                            style: { ...inputStyle, cursor: 'pointer' }
-                        },
-                        e('option', { value: 'tv' }, 'tv'),
-                        e('option', { value: 'tf' }, 'tf')
-                    )
+                    e(OptionButtons, {
+                        options: [
+                            { value: 'tv', label: 'tv' },
+                            { value: 'tf', label: 'tf' }
+                        ],
+                        value: handler,
+                        onChange: setHandler,
+                        ariaLabel: '处理类型'
+                    })
                 ),
                 // Imgsz
                 e('div', { style: groupStyle },
@@ -527,29 +532,29 @@ export default function SlurmGeneratorTool() {
                 // Export Format
                 e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '导出格式 (Format)'),
-                    e('select',
-                        {
-                            value: exportFormat,
-                            onChange: (e) => setExportFormat(e.target.value),
-                            style: { ...inputStyle, cursor: 'pointer' }
-                        },
-                        e('option', { value: 'torchscript' }, 'TorchScript'),
-                        e('option', { value: 'onnx' }, 'ONNX'),
-                        e('option', { value: 'engine' }, 'TensorRT (Engine)')
-                    )
+                    e(OptionButtons, {
+                        options: [
+                            { value: 'torchscript', label: 'TorchScript' },
+                            { value: 'onnx', label: 'ONNX' },
+                            { value: 'engine', label: 'TensorRT (Engine)' }
+                        ],
+                        value: exportFormat,
+                        onChange: setExportFormat,
+                        ariaLabel: '导出格式'
+                    })
                 ),
                 // Half Precision
                 e('div', { style: groupStyle },
                     e('label', { style: labelStyle }, '半精度 (half=True)'),
-                    e('select',
-                        {
-                            value: half.toString(),
-                            onChange: (e) => setHalf(e.target.value === 'true'),
-                            style: { ...inputStyle, cursor: 'pointer' }
-                        },
-                        e('option', { value: 'true' }, 'True'),
-                        e('option', { value: 'false' }, 'False')
-                    )
+                    e(OptionButtons, {
+                        options: [
+                            { value: true, label: 'True' },
+                            { value: false, label: 'False' }
+                        ],
+                        value: half,
+                        onChange: setHalf,
+                        ariaLabel: '半精度'
+                    })
                 ),
                 // Device
                 e('div', { style: groupStyle },

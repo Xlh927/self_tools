@@ -211,19 +211,82 @@ pre {
 .input-field:hover,
 .select-field:hover {
     background: var(--bg-secondary);
-    border-color: var(--text-tertiary);
+    border-color: var(--form-border);
 }
 
 .input-field:focus,
 .select-field:focus {
     outline: none;
     border-color: var(--form-border-focus);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--form-border-focus) 30%, transparent);
     background: var(--bg-secondary);
 }
 
 .input-field::placeholder {
     color: var(--text-tertiary);
+}
+
+/* Option Buttons (replace select dropdowns) */
+.option-group {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0.35rem;
+    background: var(--form-bg);
+    border: 1.5px solid var(--form-border);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-normal);
+}
+
+.option-group:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-tertiary);
+}
+
+.option-button {
+    flex: 1 1 auto;
+    min-width: 90px;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.option-button:hover:not(:disabled):not(.is-active) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--form-border);
+    transform: translateY(-1px);
+}
+
+/* 已选选项悬停时无特效 */
+.option-button.is-active:hover {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.option-button.is-active {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.option-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* Checkbox & Radio Styles */
@@ -391,9 +454,13 @@ input[type="radio"]:hover {
     flex-shrink: 0;
 }
 
-.tool-btn span:first-child {
+.tool-btn span:first-child,
+.tool-btn svg {
     font-size: 1.5rem;
     transition: transform var(--transition-fast);
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
 }
 
 .tool-btn span:last-child {
@@ -447,6 +514,19 @@ input[type="radio"]:hover {
     transform: translateY(0) scale(0.95);
 }
 
+/* 暗色主题下工具按钮背景与页面背景保持一致，提升可见度 */
+:root[data-theme="douyin"] .tool-btn,
+:root[data-theme="youtube"] .tool-btn {
+    background: var(--bg-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="default"] .tool-btn,
+    :root[data-theme="bilibili"] .tool-btn {
+        background: var(--bg-primary);
+    }
+}
+
 /* Tool Workspace Layout */
 .tool-workspace-header {
     display: flex;
@@ -473,6 +553,14 @@ input[type="radio"]:hover {
 .tool-header-icon {
     font-size: 1.6rem;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tool-header-icon svg {
+    width: 1.6rem;
+    height: 1.6rem;
 }
 
 .tool-header-title {
@@ -552,6 +640,10 @@ input[type="radio"]:hover {
     border-color: var(--color-danger);
 }
 
-.action-btn span {
+.action-btn span,
+.action-btn svg {
     font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
 }

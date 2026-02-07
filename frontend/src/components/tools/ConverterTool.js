@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
+import ErrorText from '../common/ErrorText.js';
+import OptionButtons from '../common/OptionButtons.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
+import { normalizeError } from '../../utils/error.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -144,7 +147,8 @@ export default function ConverterTool() {
     };
 
     const handleError = (err) => {
-        setResult({ success: false, error: err });
+        const normalized = normalizeError(err);
+        setResult({ success: false, ...normalized });
         setTaskId(null);
     };
 
@@ -158,15 +162,15 @@ export default function ConverterTool() {
         // Conversion Type
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '转换方向'),
-            e('select',
-                {
-                    className: 'select-field',
-                    value: conversionType,
-                    onChange: (e) => setConversionType(e.target.value),
-                },
-                e('option', { value: 'voc_to_yolo' }, 'VOC → YOLO'),
-                e('option', { value: 'yolo_to_voc' }, 'YOLO → VOC')
-            )
+            e(OptionButtons, {
+                options: [
+                    { value: 'voc_to_yolo', label: 'VOC → YOLO' },
+                    { value: 'yolo_to_voc', label: 'YOLO → VOC' }
+                ],
+                value: conversionType,
+                onChange: setConversionType,
+                ariaLabel: '转换方向'
+            })
         ),
 
         // Annotations Directory
@@ -379,7 +383,7 @@ export default function ConverterTool() {
                     )
                 )
             ),
-            result.error && e('p', { style: { color: 'var(--color-danger)', fontWeight: 600 } }, result.error)
+            e(ErrorText, { error: result.error, errorCode: result.error_code })
         )
     );
 }
