@@ -10,7 +10,11 @@ import imagehash
 from collections import defaultdict
 from typing import List, Dict, Tuple, Optional
 import concurrent.futures
-import multiprocessing
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 
 class ImageDeduplicator:
@@ -142,32 +146,52 @@ class ImageDeduplicator:
         print(f"Algorithm: {'MD5 (exact)' if use_md5 else f'{hash_algorithm} hash (similarity)'}")
         
         # Multi-processing for hash calculation
-        num_workers = min(multiprocessing.cpu_count(), total_files)
-        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-            future_to_file = {
-                executor.submit(
-                    self._calculate_hash_task, 
-                    file_path, 
-                    hash_algorithm, 
-                    use_md5, 
-                    self.hash_size
-                ): file_path for file_path in image_files
-            }
-            
-            for future in concurrent.futures.as_completed(future_to_file):
-                file_path, file_hash = future.result()
+        plan = get_executor_plan(total_files, workload='cpu', prefer_process=True)
+        if plan.kind == 'serial':
+            for file_path in image_files:
+                _, file_hash = self._calculate_hash_task(
+                    file_path, hash_algorithm, use_md5, self.hash_size
+                )
                 processed += 1
-                
                 if file_hash:
                     hash_map[file_hash].append(file_path)
                 else:
                     errors += 1
-                
                 if progress_callback and processed % 10 == 0:
                     progress_callback(processed, total_files, f"Computed hash for {os.path.basename(file_path)}")
-                
                 if processed % 100 == 0:
                     print(f"Processed {processed}/{total_files} images...")
+        else:
+            executor_cls = (
+                concurrent.futures.ProcessPoolExecutor
+                if plan.kind == 'process'
+                else concurrent.futures.ThreadPoolExecutor
+            )
+            with executor_cls(max_workers=plan.workers) as executor:
+                future_to_file = {
+                    executor.submit(
+                        self._calculate_hash_task,
+                        file_path,
+                        hash_algorithm,
+                        use_md5,
+                        self.hash_size
+                    ): file_path for file_path in image_files
+                }
+
+                for future in concurrent.futures.as_completed(future_to_file):
+                    file_path, file_hash = future.result()
+                    processed += 1
+
+                    if file_hash:
+                        hash_map[file_hash].append(file_path)
+                    else:
+                        errors += 1
+
+                    if progress_callback and processed % 10 == 0:
+                        progress_callback(processed, total_files, f"Computed hash for {os.path.basename(file_path)}")
+
+                    if processed % 100 == 0:
+                        print(f"Processed {processed}/{total_files} images...")
         
         print(f"✅ Processed {processed} images, {errors} errors")
         

@@ -7,9 +7,15 @@ Paper Grid Generator
 import os
 import cv2
 import numpy as np
+import concurrent.futures
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Union
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 
 class PaperGridGenerator:
@@ -17,6 +23,54 @@ class PaperGridGenerator:
     
     def __init__(self):
         self.default_font = "DejaVuSans.ttf"  # Linux常用字体
+
+    @staticmethod
+    def _prepare_cell_render_task(
+        index: int,
+        cell: Dict,
+        base_w: int,
+        base_h: int,
+        padding: int,
+        subtitle_height: int,
+        margin: int,
+        row_label_width: int,
+        col_label_height: int,
+    ) -> Dict:
+        try:
+            if 'pil_image' in cell and cell['pil_image'] is not None:
+                pil_img = cell['pil_image']
+            elif 'path' in cell and cell['path'] and os.path.exists(cell['path']):
+                with Image.open(cell['path']) as loaded:
+                    pil_img = loaded.copy()
+            else:
+                return {'success': False, 'index': index, 'error': 'No valid image source'}
+
+            r = int(cell.get('row', 0))
+            c = int(cell.get('col', 0))
+            rs = int(cell.get('rowspan', 1))
+            cs = int(cell.get('colspan', 1))
+
+            target_w = (base_w * cs) + (padding * (cs - 1))
+            target_h = (base_h * rs) + (subtitle_height * (rs - 1)) + (padding * (rs - 1))
+
+            pos_x = margin + row_label_width + (c * (base_w + padding))
+            pos_y = margin + col_label_height + (r * (base_h + subtitle_height + padding))
+
+            resized = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+            return {
+                'success': True,
+                'index': index,
+                'image': resized,
+                'pos_x': pos_x,
+                'pos_y': pos_y,
+                'target_w': target_w,
+                'target_h': target_h,
+                'subtitle': cell.get('subtitle'),
+                'row': r,
+                'col': c,
+            }
+        except Exception as e:
+            return {'success': False, 'index': index, 'error': str(e)}
         
     def generate_grid(self, config: Dict) -> Dict:
         """
@@ -189,51 +243,66 @@ class PaperGridGenerator:
                         
                         draw.text((x, y), label, fill=text_color, font=font)
             
-            # 绘制图片
-            for cell in cells:
-                # Check if we have a PIL image object directly
-                if 'pil_image' in cell and cell['pil_image'] is not None:
-                    pil_img = cell['pil_image']
-                elif 'path' in cell and cell['path'] and os.path.exists(cell['path']):
-                    try:
-                        pil_img = Image.open(cell['path'])
-                    except Exception as e:
-                        print(f"Error loading {cell['path']}: {e}")
-                        continue
-                else:
-                    continue  # No valid image source
-                
-                r = int(cell.get('row', 0))
-                c = int(cell.get('col', 0))
-                rs = int(cell.get('rowspan', 1))
-                cs = int(cell.get('colspan', 1))
-                
-                # 计算目标尺寸
-                target_w = (base_w * cs) + (padding * (cs - 1))
-                target_h = (base_h * rs) + (subtitle_height * (rs - 1)) + (padding * (rs - 1))
-                
-                # 计算位置
-                pos_x = margin + row_label_width + (c * (base_w + padding))
-                pos_y = margin + col_label_height + (r * (base_h + subtitle_height + padding))
-                
-                try:
-                    # 缩放
-                    img = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-                    canvas.paste(img, (pos_x, pos_y))
+            prepared_cells = []
+            plan = get_executor_plan(len(cells), workload='io', prefer_process=False)
+            if plan.kind == 'serial':
+                for index, cell in enumerate(cells):
+                    result = self._prepare_cell_render_task(
+                        index,
+                        cell,
+                        base_w,
+                        base_h,
+                        padding,
+                        subtitle_height,
+                        margin,
+                        row_label_width,
+                        col_label_height,
+                    )
+                    prepared_cells.append(result)
+            else:
+                # Cell payload may include in-memory PIL objects, so use threads here.
+                with concurrent.futures.ThreadPoolExecutor(max_workers=plan.workers) as executor:
+                    futures = {
+                        executor.submit(
+                            self._prepare_cell_render_task,
+                            index,
+                            cell,
+                            base_w,
+                            base_h,
+                            padding,
+                            subtitle_height,
+                            margin,
+                            row_label_width,
+                            col_label_height,
+                        ): index
+                        for index, cell in enumerate(cells)
+                    }
+                    for future in concurrent.futures.as_completed(futures):
+                        prepared_cells.append(future.result())
 
-                    # 绘制小标题
-                    subtitle = cell.get('subtitle')
-                    if subtitle:
-                        bbox = draw.textbbox((0, 0), subtitle, font=font)
-                        sw = bbox[2] - bbox[0]
-                        sh = bbox[3] - bbox[1]
-                        
-                        # 居中显示在图片下方
-                        sx = pos_x + (target_w - sw) // 2
-                        sy = pos_y + target_h + (subtitle_height - sh) // 2
-                        draw.text((sx, sy), subtitle, fill=text_color, font=font)
-                except Exception as e:
-                    print(f"Error processing cell at ({r}, {c}): {e}")
+            # 按原始顺序绘制，保持同一输入下输出稳定。
+            prepared_cells.sort(key=lambda item: item.get('index', 0))
+            for item in prepared_cells:
+                if not item.get('success'):
+                    err = item.get('error', 'unknown error')
+                    print(f"Error processing cell index {item.get('index')}: {err}")
+                    continue
+
+                pos_x = item['pos_x']
+                pos_y = item['pos_y']
+                target_w = item['target_w']
+                target_h = item['target_h']
+                img = item['image']
+                canvas.paste(img, (pos_x, pos_y))
+
+                subtitle = item.get('subtitle')
+                if subtitle:
+                    bbox = draw.textbbox((0, 0), subtitle, font=font)
+                    sw = bbox[2] - bbox[0]
+                    sh = bbox[3] - bbox[1]
+                    sx = pos_x + (target_w - sw) // 2
+                    sy = pos_y + target_h + (subtitle_height - sh) // 2
+                    draw.text((sx, sy), subtitle, fill=text_color, font=font)
             
             # 保存结果
             output_dir = os.path.dirname(output_path)

@@ -133,12 +133,26 @@ python3 tests/api_core_test.py
 ### 任务队列能力
 
 - SQLite 持久化任务存储（`data/tasks.db`）
-- 多 worker 并发执行（`SELF_TOOLS_MAX_WORKERS`）
+- 多 worker 并发执行（`SELF_TOOLS_MAX_WORKERS`，默认自动按硬件设置）
 - 失败自动重试（`max_retries` 请求参数）
 - 任务历史追踪（`/api/task/<task_id>/history`）
 - 进度写入节流（默认启用）：
   `SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS`（默认 `300`）、
   `SELF_TOOLS_PROGRESS_MIN_DELTA`（默认 `1`）
+
+### 统一并发策略（自动按硬件）
+
+后端工具并发由 `backend/parallelism_config.py` 统一管理，默认会根据 CPU 核心数和任务规模自动选择串行/线程池/进程池，避免小批量任务被过度并行拖慢。
+已覆盖主要长任务工具：`converter/cropper/generator/splitter/deduplicator/matcher/visualizer/augmentor/label_modifier/cleaner/paper_grid_generator`。
+
+- `SELF_TOOLS_RESERVED_CPUS`：预留 CPU 核心数（默认 4 核及以上机器预留 1 核）
+- `SELF_TOOLS_MIN_PARALLEL_ITEMS`：小于该任务量时强制串行（默认 `4`）
+- `SELF_TOOLS_PROCESS_MIN_ITEMS`：达到该任务量后 CPU 型任务优先进程池（默认 `24`）
+- `SELF_TOOLS_MAX_POOL_WORKERS`：线程池/进程池统一上限（默认不限）
+- `SELF_TOOLS_MAX_PROCESS_WORKERS`：进程池上限（默认不限）
+- `SELF_TOOLS_MAX_THREAD_WORKERS`：线程池上限（默认不限）
+- `SELF_TOOLS_FORCE_EXECUTOR`：强制执行器类型（`auto`/`serial`/`thread`/`process`）
+- `SELF_TOOLS_FORCE_WORKERS`：强制线程/进程数量（默认不强制）
 
 ### 新功能接入模板（后端）
 

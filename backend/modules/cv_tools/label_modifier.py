@@ -1,8 +1,67 @@
 import os
+import concurrent.futures
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 class LabelModifier:
     def __init__(self):
         pass
+
+    @staticmethod
+    def _scan_single_file_task(label_path):
+        class_counts = {}
+        try:
+            with open(label_path, "r") as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if not parts:
+                        continue
+                    try:
+                        class_id = int(parts[0])
+                    except ValueError:
+                        continue
+                    class_counts[class_id] = class_counts.get(class_id, 0) + 1
+        except Exception:
+            return {}
+        return class_counts
+
+    @staticmethod
+    def _modify_single_file_task(file_name, label_dir, mapping, overwrite, output_dir):
+        label_path = os.path.join(label_dir, file_name)
+        save_path = label_path if overwrite else os.path.join(output_dir, file_name)
+
+        try:
+            with open(label_path, "r") as f:
+                lines = f.readlines()
+
+            new_lines = []
+            changed = False
+
+            for line in lines:
+                parts = line.strip().split()
+                if not parts:
+                    continue
+
+                try:
+                    class_id = int(parts[0])
+                    if class_id in mapping:
+                        parts[0] = str(mapping[class_id])
+                        changed = True
+                    new_lines.append(" ".join(parts))
+                except ValueError:
+                    # Keep malformed lines unchanged.
+                    new_lines.append(line.strip())
+
+            if changed or not overwrite:
+                with open(save_path, "w") as f:
+                    f.write("\n".join(new_lines) + "\n")
+
+            return {"success": True, "changed": changed, "file_name": file_name}
+        except Exception as e:
+            return {"success": False, "changed": False, "file_name": file_name, "error": str(e)}
 
     def scan_classes(self, label_dir):
         """
@@ -20,23 +79,28 @@ class LabelModifier:
         class_counts = {}
         
         try:
-            for file_name in os.listdir(label_dir):
-                if not file_name.endswith(".txt"):
-                    continue
-                    
-                label_path = os.path.join(label_dir, file_name)
-                try:
-                    with open(label_path, "r") as f:
-                        for line in f:
-                            parts = line.strip().split()
-                            if parts:
-                                try:
-                                    class_id = int(parts[0])
-                                    class_counts[class_id] = class_counts.get(class_id, 0) + 1
-                                except ValueError:
-                                    continue
-                except Exception:
-                    continue
+            txt_files = [os.path.join(label_dir, file_name) for file_name in os.listdir(label_dir) if file_name.endswith(".txt")]
+            plan = get_executor_plan(len(txt_files), workload='io', prefer_process=False)
+            if plan.kind == 'serial':
+                for label_path in txt_files:
+                    file_counts = self._scan_single_file_task(label_path)
+                    for class_id, count in file_counts.items():
+                        class_counts[class_id] = class_counts.get(class_id, 0) + count
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    futures = [
+                        executor.submit(self._scan_single_file_task, label_path)
+                        for label_path in txt_files
+                    ]
+                    for future in concurrent.futures.as_completed(futures):
+                        file_counts = future.result()
+                        for class_id, count in file_counts.items():
+                            class_counts[class_id] = class_counts.get(class_id, 0) + count
                     
             # Convert to list of dicts sorted by class ID
             classes_list = [{'id': class_id, 'count': count} 
@@ -85,49 +149,48 @@ class LabelModifier:
             txt_files = [f for f in os.listdir(label_dir) if f.endswith(".txt")]
             total_files = len(txt_files)
             
-            for file_name in txt_files:
-                label_path = os.path.join(label_dir, file_name)
-                save_path = label_path if overwrite else os.path.join(output_dir, file_name)
-                
-                try:
-                    with open(label_path, "r") as f:
-                        lines = f.readlines()
+            plan = get_executor_plan(total_files, workload='io', prefer_process=False)
+            if plan.kind == 'serial':
+                for file_name in txt_files:
+                    result = self._modify_single_file_task(file_name, label_dir, mapping, overwrite, output_dir)
+                    if result['success']:
+                        processed_count += 1
+                        if result['changed']:
+                            modified_count += 1
+                    else:
+                        print(f"Error processing file {file_name}: {result.get('error', 'unknown error')}")
+                        error_count += 1
 
-                    new_lines = []
-                    changed = False
+                    if progress_callback:
+                        progress_callback(processed_count + error_count, total_files, f"Processed {file_name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    future_to_name = {
+                        executor.submit(
+                            self._modify_single_file_task,
+                            file_name, label_dir, mapping, overwrite, output_dir
+                        ): file_name
+                        for file_name in txt_files
+                    }
 
-                    for line in lines:
-                        parts = line.strip().split()
-                        if not parts:
-                            continue
-                        
-                        try:
-                            class_id = int(parts[0])
-                            if class_id in mapping:
-                                parts[0] = str(mapping[class_id])
-                                changed = True
-                            new_lines.append(" ".join(parts))
-                        except ValueError:
-                            # Skip lines that don't start with an integer (malformed lines)
-                            new_lines.append(line.strip())
-                            continue
+                    for future in concurrent.futures.as_completed(future_to_name):
+                        file_name = future_to_name[future]
+                        result = future.result()
+                        if result['success']:
+                            processed_count += 1
+                            if result['changed']:
+                                modified_count += 1
+                        else:
+                            print(f"Error processing file {file_name}: {result.get('error', 'unknown error')}")
+                            error_count += 1
 
-                    # If changed, write the new content
-                    # If not changed, we still need to write the file if we are not overwriting (copying)
-                    if changed or not overwrite:
-                        with open(save_path, "w") as f:
-                            f.write("\n".join(new_lines) + "\n")
-                    
-                    processed_count += 1
-                    if changed:
-                        modified_count += 1
-                        
-                except Exception as e:
-                    print(f"Error processing file {file_name}: {e}")
-                    error_count += 1
-                
-                if progress_callback:
-                    progress_callback(processed_count + error_count, total_files, f"Processed {file_name}")
+                        if progress_callback:
+                            progress_callback(processed_count + error_count, total_files, f"Processed {file_name}")
                     
             return {
                 'success': True,

@@ -8,9 +8,12 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Tuple, Dict
 import concurrent.futures
-import multiprocessing
 from PIL import Image
 
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 class DatasetConverter:
     """Handles conversion between VOC and YOLO dataset formats"""
@@ -136,27 +139,44 @@ class DatasetConverter:
                     skipped_count += 1
                     errors.append(f'{xml_file.name}: {str(e)}')
 
-            # Run parallel
-            num_workers = min(multiprocessing.cpu_count(), len(xml_data))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(
-                        self._voc_to_yolo_task, 
-                        item[0], output_dir, item[1], item[2], 
-                        custom_class_mapping, self.classes
-                    ): item[0] for item in xml_data
-                }
-                
-                for future in concurrent.futures.as_completed(futures):
-                    success, error_msg = future.result()
+            plan = get_executor_plan(len(xml_data), workload='cpu', prefer_process=True)
+            if plan.kind == 'serial':
+                for item in xml_data:
+                    success, error_msg = self._voc_to_yolo_task(
+                        item[0], output_dir, item[1], item[2], custom_class_mapping, self.classes
+                    )
                     if success:
                         converted_count += 1
                     else:
                         skipped_count += 1
                         errors.append(error_msg)
-                    
                     if progress_callback:
-                        progress_callback(converted_count + skipped_count, len(xml_files), f"Processed {futures[future].name}")
+                        progress_callback(converted_count + skipped_count, len(xml_files), f"Processed {item[0].name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    futures = {
+                        executor.submit(
+                            self._voc_to_yolo_task,
+                            item[0], output_dir, item[1], item[2],
+                            custom_class_mapping, self.classes
+                        ): item[0] for item in xml_data
+                    }
+
+                    for future in concurrent.futures.as_completed(futures):
+                        success, error_msg = future.result()
+                        if success:
+                            converted_count += 1
+                        else:
+                            skipped_count += 1
+                            errors.append(error_msg)
+
+                        if progress_callback:
+                            progress_callback(converted_count + skipped_count, len(xml_files), f"Processed {futures[future].name}")
             
             # Save classes file
             classes_output = Path(output_dir) / 'classes.txt'
@@ -390,25 +410,43 @@ class DatasetConverter:
             skipped_count = 0
             errors = []
             
-            num_workers = min(multiprocessing.cpu_count(), len(txt_files))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(
-                        self._yolo_to_voc_task, 
+            plan = get_executor_plan(len(txt_files), workload='cpu', prefer_process=True)
+            if plan.kind == 'serial':
+                for txt_file in txt_files:
+                    success, error_msg = self._yolo_to_voc_task(
                         txt_file, images_dir, output_dir, self.classes
-                    ): txt_file for txt_file in txt_files
-                }
-                
-                for future in concurrent.futures.as_completed(futures):
-                    success, error_msg = future.result()
+                    )
                     if success:
                         converted_count += 1
                     else:
                         skipped_count += 1
                         errors.append(error_msg)
-                    
                     if progress_callback:
-                        progress_callback(converted_count + skipped_count, len(txt_files), f"Processed {futures[future].name}")
+                        progress_callback(converted_count + skipped_count, len(txt_files), f"Processed {txt_file.name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    futures = {
+                        executor.submit(
+                            self._yolo_to_voc_task,
+                            txt_file, images_dir, output_dir, self.classes
+                        ): txt_file for txt_file in txt_files
+                    }
+
+                    for future in concurrent.futures.as_completed(futures):
+                        success, error_msg = future.result()
+                        if success:
+                            converted_count += 1
+                        else:
+                            skipped_count += 1
+                            errors.append(error_msg)
+
+                        if progress_callback:
+                            progress_callback(converted_count + skipped_count, len(txt_files), f"Processed {futures[future].name}")
             
             return {
                 'success': True,

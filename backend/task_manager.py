@@ -15,6 +15,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+try:
+    from parallelism_config import default_task_queue_workers
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import default_task_queue_workers
+
 TASK_TERMINAL_STATUSES = {"completed", "error", "stopped", "cancelled"}
 TASK_ACTIVE_STATUSES = {"queued", "running", "paused", "retrying"}
 TASK_RETENTION_LIMIT = 500
@@ -49,7 +54,7 @@ class TaskManager:
         self.db_path = Path(env_db) if env_db else Path(db_path) if db_path else default_db
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.max_workers = max(1, int(max_workers or os.environ.get("SELF_TOOLS_MAX_WORKERS", 2)))
+        self.max_workers = max(1, int(max_workers if max_workers is not None else default_task_queue_workers()))
         self.retry_backoff_seconds = max(1, int(os.environ.get("SELF_TOOLS_RETRY_BACKOFF", 2)))
         self.progress_min_interval_ms = max(0, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS", 300)))
         self.progress_min_delta = max(0, min(100, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_DELTA", 1))))

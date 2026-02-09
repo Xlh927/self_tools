@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from PIL import Image
 import concurrent.futures
-import multiprocessing
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 
 class ImageCropper:
@@ -131,19 +135,11 @@ class ImageCropper:
             errors = []
             results = []
             
-            num_workers = min(multiprocessing.cpu_count(), len(image_files))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                future_to_img = {
-                    executor.submit(
-                        self._crop_single_image_adaptive_task, 
-                        image_file, output_dir, overlap_ratio
-                    ): image_file for image_file in image_files
-                }
-                
-                for future in concurrent.futures.as_completed(future_to_img):
-                    image_file = future_to_img[future]
+            plan = get_executor_plan(len(image_files), workload='cpu', prefer_process=True)
+            if plan.kind == 'serial':
+                for image_file in image_files:
                     try:
-                        result = future.result()
+                        result = self._crop_single_image_adaptive_task(image_file, output_dir, overlap_ratio)
                         if result['success']:
                             results.append(result)
                             total_crops += result['crops_count']
@@ -154,9 +150,40 @@ class ImageCropper:
                     except Exception as e:
                         failed_count += 1
                         errors.append(f"{image_file.name}: {str(e)}")
-                    
+
                     if progress_callback:
                         progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    future_to_img = {
+                        executor.submit(
+                            self._crop_single_image_adaptive_task,
+                            image_file, output_dir, overlap_ratio
+                        ): image_file for image_file in image_files
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_img):
+                        image_file = future_to_img[future]
+                        try:
+                            result = future.result()
+                            if result['success']:
+                                results.append(result)
+                                total_crops += result['crops_count']
+                                processed_count += 1
+                            else:
+                                failed_count += 1
+                                errors.append(f"{image_file.name}: {result['error']}")
+                        except Exception as e:
+                            failed_count += 1
+                            errors.append(f"{image_file.name}: {str(e)}")
+
+                        if progress_callback:
+                            progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
             
             return {
                 'success': True,
@@ -376,19 +403,13 @@ class ImageCropper:
             errors = []
             results = []
             
-            num_workers = min(multiprocessing.cpu_count(), len(image_files))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                future_to_img = {
-                    executor.submit(
-                        self._crop_single_image_task, 
-                        image_file, output_dir, window_width, window_height, overlap_x, overlap_y
-                    ): image_file for image_file in image_files
-                }
-                
-                for future in concurrent.futures.as_completed(future_to_img):
-                    image_file = future_to_img[future]
+            plan = get_executor_plan(len(image_files), workload='cpu', prefer_process=True)
+            if plan.kind == 'serial':
+                for image_file in image_files:
                     try:
-                        result = future.result()
+                        result = self._crop_single_image_task(
+                            image_file, output_dir, window_width, window_height, overlap_x, overlap_y
+                        )
                         if result['success']:
                             results.append(result)
                             total_crops += result['crops_count']
@@ -399,9 +420,40 @@ class ImageCropper:
                     except Exception as e:
                         failed_count += 1
                         errors.append(f"{image_file.name}: {str(e)}")
-                    
+
                     if progress_callback:
                         progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    future_to_img = {
+                        executor.submit(
+                            self._crop_single_image_task,
+                            image_file, output_dir, window_width, window_height, overlap_x, overlap_y
+                        ): image_file for image_file in image_files
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_img):
+                        image_file = future_to_img[future]
+                        try:
+                            result = future.result()
+                            if result['success']:
+                                results.append(result)
+                                total_crops += result['crops_count']
+                                processed_count += 1
+                            else:
+                                failed_count += 1
+                                errors.append(f"{image_file.name}: {result['error']}")
+                        except Exception as e:
+                            failed_count += 1
+                            errors.append(f"{image_file.name}: {str(e)}")
+
+                        if progress_callback:
+                            progress_callback(processed_count + failed_count, len(image_files), f"Cropped {image_file.name}")
             
             return {
                 'success': True,
