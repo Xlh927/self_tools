@@ -82,10 +82,43 @@ const joinPath = (...parts) => {
     return cleaned.join('/');
 };
 
+const PATH_QUERY_KEYS = ['path', 'dir', 'folder', 'image_dir', 'images_dir', 'folder_path'];
+
+function getInitialPathFromUrl() {
+    const url = new URL(window.location.href);
+    for (const key of PATH_QUERY_KEYS) {
+        const value = url.searchParams.get(key);
+        if (value) {
+            return trimTrailingSlash(normalizePath(value.trim()));
+        }
+    }
+
+    const rawHash = window.location.hash ? window.location.hash.slice(1) : '';
+    if (!rawHash) return '';
+    const hashParams = new URLSearchParams(rawHash);
+    const hashPath = hashParams.get('path');
+    if (hashPath) {
+        return trimTrailingSlash(normalizePath(hashPath.trim()));
+    }
+
+    try {
+        return trimTrailingSlash(normalizePath(decodeURIComponent(rawHash).trim()));
+    } catch (error) {
+        return trimTrailingSlash(normalizePath(rawHash.trim()));
+    }
+}
+
+function updateViewerUrlPath(pathValue) {
+    if (!pathValue) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('path', pathValue);
+    history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
+}
+
 // Preload cache for single view images
 const preloadCache = new Map();
 
-// Load path from URL hash or default
+// Load default settings and optional directory from URL query/hash.
 window.addEventListener('load', async () => {
     pathInput.focus();
     await loadConfig();
@@ -115,6 +148,12 @@ window.addEventListener('load', async () => {
     // Initialize scroll mode from localStorage
     scrollMode = localStorage.getItem('scrollMode') || 'center';
     document.getElementById('scroll-mode-select').value = scrollMode;
+
+    const initialPath = getInitialPathFromUrl();
+    if (initialPath) {
+        pathInput.value = initialPath;
+        await loadImages();
+    }
 });
 
 function applyTheme(theme) {
@@ -155,6 +194,7 @@ async function loadImages() {
         currentImages = data.images;
         currentPath = trimTrailingSlash(normalizePath(data.path || normalizedPath));
         pathInput.value = currentPath;
+        updateViewerUrlPath(currentPath);
         // Load historical classifications from backend
         classifications = data.classifications || {};
         renderGrid();

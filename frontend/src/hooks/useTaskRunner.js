@@ -11,6 +11,10 @@ import { reportTaskTelemetry as defaultReportTaskTelemetry } from '../utils/task
 
 const ACTIVE_STATUSES = ['queued', 'running', 'paused', 'retrying'];
 const TERMINAL_STATUSES = ['completed', 'error', 'stopped', 'cancelled'];
+const MIN_SYNC_INTERVAL_MS = 500;
+const STREAM_RECONCILE_INTERVAL_MS = 1000;
+const MAX_POLL_ERRORS_WITH_STREAM = 6;
+const MAX_POLL_ERRORS_WITHOUT_STREAM = 3;
 
 export default function useTaskRunner({
     startTask,
@@ -213,14 +217,32 @@ export default function useTaskRunner({
     }, [applyTaskPayload, stopApi, taskId]);
 
     useEffect(() => {
-        if (!taskId || !ACTIVE_STATUSES.includes(status)) {
+        if (!taskId || TERMINAL_STATUSES.includes(status)) {
             return;
         }
 
         let cancelled = false;
         let isFinished = false;
-        let timer = null;
+        let pollingTimer = null;
         let stream = null;
+        let pollErrorCount = 0;
+
+        const failSync = (phase, err) => {
+            if (cancelled || isFinished) return;
+            const normalized = normalizeError(err);
+            isFinished = true;
+            setStatus('error');
+            setMessage(normalized.error || 'Task sync error');
+            setErrorCode(normalized.error_code || '');
+            setTaskId(null);
+            endRun('tool_task_failed', {
+                status: 'error',
+                phase,
+                error: normalized.error || 'Task sync error',
+                error_code: normalized.error_code || '',
+            });
+            if (onError) onError(normalized);
+        };
 
         const completeTerminalTask = (payload) => {
             if (isFinished) return;
@@ -268,41 +290,53 @@ export default function useTaskRunner({
             }
         };
 
-        const startPolling = () => {
-            if (timer) return;
-            timer = setInterval(async () => {
-                if (cancelled || isFinished) return;
-                try {
-                    const payload = await fetchProgress(taskId);
-                    if (cancelled || isFinished) return;
-                    handleTaskPayload(payload);
-                } catch (err) {
-                    if (cancelled || isFinished) return;
-                    const normalized = normalizeError(err);
-                    isFinished = true;
-                    setStatus('error');
-                    setMessage(normalized.error || 'Polling error');
-                    setErrorCode(normalized.error_code || '');
-                    setTaskId(null);
-                    endRun('tool_task_failed', {
-                        status: 'error',
-                        phase: 'polling',
-                        error: normalized.error || 'Polling error',
-                        error_code: normalized.error_code || '',
-                    });
-                    if (onError) onError(normalized);
-                }
-            }, pollInterval);
+        const fetchAndHandleProgress = async () => {
+            const payload = await fetchProgress(taskId);
+            if (cancelled || isFinished) return;
+            handleTaskPayload(payload);
         };
 
-        const fallbackToPolling = () => {
-            if (cancelled || isFinished) return;
+        const startPolling = () => {
+            if (pollingTimer) return;
+            const intervalMs = stream
+                ? Math.max(MIN_SYNC_INTERVAL_MS, Math.max(pollInterval, STREAM_RECONCILE_INTERVAL_MS))
+                : Math.max(MIN_SYNC_INTERVAL_MS, pollInterval);
+            pollingTimer = setInterval(async () => {
+                if (cancelled || isFinished) return;
+                try {
+                    await fetchAndHandleProgress();
+                    pollErrorCount = 0;
+                } catch (err) {
+                    pollErrorCount += 1;
+                    const threshold = stream ? MAX_POLL_ERRORS_WITH_STREAM : MAX_POLL_ERRORS_WITHOUT_STREAM;
+                    if (pollErrorCount >= threshold) {
+                        failSync('polling', err);
+                    }
+                }
+            }, intervalMs);
+
+            // Immediate first sync to avoid waiting for the first timer tick.
+            fetchAndHandleProgress()
+                .then(() => {
+                    pollErrorCount = 0;
+                })
+                .catch((err) => {
+                    pollErrorCount += 1;
+                    const threshold = stream ? MAX_POLL_ERRORS_WITH_STREAM : MAX_POLL_ERRORS_WITHOUT_STREAM;
+                    if (pollErrorCount >= threshold) {
+                        failSync('polling', err);
+                    }
+                });
+        };
+
+        const disableStream = () => {
             if (stream) {
                 stream.close();
                 stream = null;
             }
-            startPolling();
         };
+
+        startPolling();
 
         if (enableTaskStream && typeof EventSource !== 'undefined') {
             try {
@@ -315,21 +349,18 @@ export default function useTaskRunner({
                             const payload = JSON.parse(event.data);
                             handleTaskPayload(payload);
                         } catch (_err) {
-                            // Ignore malformed chunks and keep the stream alive.
+                            // Malformed stream payload should not block state convergence.
+                            disableStream();
                         }
                     };
                     stream.onerror = () => {
                         if (cancelled || isFinished) return;
-                        fallbackToPolling();
+                        disableStream();
                     };
-                } else {
-                    startPolling();
                 }
             } catch (_err) {
-                startPolling();
+                disableStream();
             }
-        } else {
-            startPolling();
         }
 
         return () => {
@@ -337,8 +368,8 @@ export default function useTaskRunner({
             if (stream) {
                 stream.close();
             }
-            if (timer) {
-                clearInterval(timer);
+            if (pollingTimer) {
+                clearInterval(pollingTimer);
             }
         };
     }, [

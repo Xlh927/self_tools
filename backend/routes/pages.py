@@ -23,6 +23,7 @@ def create_pages_blueprint():
         )
 
     @bp.route('/image-viewer')
+    @bp.route('/viewer')
     def image_viewer():
         return render_template('image-viewer.html')
 

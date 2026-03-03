@@ -67,6 +67,7 @@ class TaskManager:
         self._shutdown = threading.Event()
         self._workers: list[threading.Thread] = []
         self._timers: Dict[str, threading.Timer] = {}
+        self._subscribers: Dict[str, set[queue.Queue]] = {}
 
         self._controls: Dict[str, dict] = {}
         self._runners: Dict[str, Callable[[str, threading.Event, threading.Event], None]] = {}
@@ -269,6 +270,7 @@ class TaskManager:
             (task_id, status, message, max(0, int(max_retries)), int(priority), created_at, created_at, created_at),
         )
         self._log_event(task_id, event_type="created", status=status, message=message)
+        self._publish_task_update(task_id)
         return task_id, cancel_event, pause_event
 
     def start_task(
@@ -339,6 +341,29 @@ class TaskManager:
             message=message,
             payload={"progress": progress, "attempt": attempt, "max_retries": max_retries},
         )
+        self._publish_task_update(task_id)
+
+    def subscribe_task_updates(self, task_id: str) -> "queue.Queue[dict]":
+        subscriber: "queue.Queue[dict]" = queue.Queue(maxsize=32)
+        with self._lock:
+            listeners = self._subscribers.setdefault(task_id, set())
+            listeners.add(subscriber)
+        current = self.get_task(task_id)
+        if current:
+            try:
+                subscriber.put_nowait(dict(current))
+            except queue.Full:
+                pass
+        return subscriber
+
+    def unsubscribe_task_updates(self, task_id: str, subscriber: "queue.Queue[dict]") -> None:
+        with self._lock:
+            listeners = self._subscribers.get(task_id)
+            if not listeners:
+                return
+            listeners.discard(subscriber)
+            if not listeners:
+                self._subscribers.pop(task_id, None)
 
     def finish_task(
         self,
@@ -609,6 +634,31 @@ class TaskManager:
         current = self.get_task(task_id) or {}
         if current.get("status") == "paused":
             self.update_task(task_id, status="running", message="Task resumed")
+
+    def _publish_task_update(self, task_id: str) -> None:
+        with self._lock:
+            listeners = tuple(self._subscribers.get(task_id, ()))
+        if not listeners:
+            return
+
+        current = self.get_task(task_id)
+        if not current:
+            return
+        payload = dict(current)
+
+        for subscriber in listeners:
+            try:
+                subscriber.put_nowait(payload)
+            except queue.Full:
+                try:
+                    subscriber.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    subscriber.put_nowait(payload)
+                except queue.Full:
+                    # Drop update when subscriber keeps lagging.
+                    pass
 
     def _cleanup_runtime(self, task_id: str) -> None:
         self._controls.pop(task_id, None)

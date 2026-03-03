@@ -63,6 +63,12 @@ Python 建议使用 3.9 - 3.12（当前依赖组合未对 3.13 做兼容保证�
 - 首页：`http://localhost:8080`
 - 后端 API：`http://127.0.0.1:5000`
 
+Image Viewer 直链（自动加载目录）：
+
+- `http://<IP>:<前端端口>/image-viewer?path=<图像目录绝对路径>`
+- 兼容别名：`/viewer?path=...`
+- 示例：`http://192.168.1.12:8080/image-viewer?path=/data/images/set01`
+
 端口冲突处理（默认自动避让）：
 
 ```bash

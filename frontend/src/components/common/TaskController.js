@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import ProgressBar from './ProgressBar.js';
 import useTaskRunner from '../../hooks/useTaskRunner.js';
 import { formatError } from '../../utils/error.js';
@@ -24,10 +24,16 @@ export default function TaskController({
 
     const { state, actions } = runner;
     const { taskId: localTaskId, status, progress, message, errorCode } = state;
+    const attachedTaskRef = useRef(null);
 
     useEffect(() => {
-        if (taskId) {
+        if (taskId && attachedTaskRef.current !== taskId) {
             actions.attachTask(taskId, 'running');
+            attachedTaskRef.current = taskId;
+            return;
+        }
+        if (!taskId) {
+            attachedTaskRef.current = null;
         }
     }, [actions, taskId]);
 

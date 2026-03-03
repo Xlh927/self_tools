@@ -153,4 +153,69 @@ describe('useTaskRunner', () => {
             );
         }, { timeout: 1000 });
     });
+
+    it('falls back to polling when stream payload is malformed', async () => {
+        const onComplete = vi.fn();
+        const api = createApiMocks();
+        api.fetchTaskProgress.mockResolvedValueOnce({
+            success: true,
+            status: 'completed',
+            progress: 100,
+            message: 'Done',
+            result: { success: true, converted: 2 },
+        });
+
+        const startTask = vi.fn().mockResolvedValue({
+            success: true,
+            task_id: 'task-stream-fallback',
+            status: 'queued',
+            message: 'Task queued',
+        });
+
+        const originalEventSource = globalThis.EventSource;
+        let streamInstance = null;
+        class MockEventSource {
+            constructor(url) {
+                this.url = url;
+                this.onmessage = null;
+                this.onerror = null;
+                this.onopen = null;
+                this.close = vi.fn();
+                streamInstance = this;
+            }
+        }
+        globalThis.EventSource = MockEventSource;
+
+        try {
+            const { result } = renderHook(() =>
+                useTaskRunner({
+                    startTask,
+                    onComplete,
+                    pollInterval: 10,
+                    api,
+                    telemetry: { enabled: false },
+                })
+            );
+
+            await act(async () => {
+                await result.current.actions.start();
+            });
+
+            await waitFor(() => {
+                expect(streamInstance).not.toBeNull();
+            }, { timeout: 1000 });
+
+            act(() => {
+                streamInstance.onmessage?.({ data: '{not-json' });
+            });
+
+            await waitFor(() => {
+                expect(onComplete).toHaveBeenCalledTimes(1);
+            }, { timeout: 1000 });
+
+            expect(api.fetchTaskProgress).toHaveBeenCalled();
+        } finally {
+            globalThis.EventSource = originalEventSource;
+        }
+    });
 });

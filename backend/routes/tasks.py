@@ -1,5 +1,5 @@
 import json
-import time
+import queue
 
 from flask import Blueprint, Response, stream_with_context
 
@@ -21,7 +21,10 @@ def create_tasks_blueprint(task_manager):
         task = task_manager.get_task(task_id)
         if not task:
             return error_response('Task not found', status=404, code='ERR_TASK_NOT_FOUND')
-        return success_response(task, message='Task fetched')
+        response, status = success_response(task, message='Task fetched')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        return response, status
 
     @bp.route('/api/task/<task_id>/stream')
     def stream_progress(task_id):
@@ -29,39 +32,40 @@ def create_tasks_blueprint(task_manager):
         if not task:
             return error_response('Task not found', status=404, code='ERR_TASK_NOT_FOUND')
 
-        interval_seconds = 0.5
+        interval_seconds = 15.0
 
         def generate():
+            subscriber = task_manager.subscribe_task_updates(task_id)
             last_payload = None
-            last_ping_at = time.time()
-            while True:
-                current = task_manager.get_task(task_id)
-                if not current:
-                    payload = {
-                        'task_id': task_id,
-                        'status': 'error',
-                        'error': 'Task not found',
-                        'error_code': 'ERR_TASK_NOT_FOUND',
-                    }
-                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-                    break
+            try:
+                while True:
+                    try:
+                        current = subscriber.get(timeout=interval_seconds)
+                    except queue.Empty:
+                        latest = task_manager.get_task(task_id)
+                        if not latest:
+                            payload = {
+                                'task_id': task_id,
+                                'status': 'error',
+                                'error': 'Task not found',
+                                'error_code': 'ERR_TASK_NOT_FOUND',
+                            }
+                            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                            break
+                        yield ': keep-alive\n\n'
+                        continue
 
-                if current != last_payload:
-                    yield f"data: {json.dumps(current, ensure_ascii=False)}\n\n"
-                    last_payload = current
-                    last_ping_at = time.time()
-                elif time.time() - last_ping_at >= 15:
-                    # Keep-alive comment for proxies and browsers.
-                    yield ': keep-alive\n\n'
-                    last_ping_at = time.time()
+                    if current != last_payload:
+                        yield f"data: {json.dumps(current, ensure_ascii=False)}\n\n"
+                        last_payload = current
 
-                if current.get('status') in terminal_statuses:
-                    break
-
-                time.sleep(interval_seconds)
+                    if current.get('status') in terminal_statuses:
+                        break
+            finally:
+                task_manager.unsubscribe_task_updates(task_id, subscriber)
 
         response = Response(stream_with_context(generate()), mimetype='text/event-stream')
-        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
         response.headers['Connection'] = 'keep-alive'
         response.headers['X-Accel-Buffering'] = 'no'
         return response
