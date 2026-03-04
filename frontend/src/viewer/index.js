@@ -84,6 +84,29 @@ const joinPath = (...parts) => {
 
 const PATH_QUERY_KEYS = ['path', 'dir', 'folder', 'image_dir', 'images_dir', 'folder_path'];
 
+function getSliderMidpoint(slider) {
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+        return slider.value;
+    }
+    return String(Math.round(min + (max - min) / 2));
+}
+
+function getInitialSliderValue(storageKey, slider) {
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    const stored = localStorage.getItem(storageKey);
+    if (stored !== null) {
+        const value = Number(stored);
+        if (Number.isFinite(value) && Number.isFinite(min) && Number.isFinite(max)) {
+            const clamped = Math.min(max, Math.max(min, value));
+            return String(Math.round(clamped));
+        }
+    }
+    return getSliderMidpoint(slider);
+}
+
 function getInitialPathFromUrl() {
     const url = new URL(window.location.href);
     for (const key of PATH_QUERY_KEYS) {
@@ -122,13 +145,13 @@ const preloadCache = new Map();
 window.addEventListener('load', async () => {
     pathInput.focus();
     await loadConfig();
-    // Initialize grid size from localStorage or default
-    const savedSize = localStorage.getItem('gridSize') || '150';
+    // Initialize grid size from localStorage or range midpoint
+    const savedSize = getInitialSliderValue('gridSize', gridSizeSlider);
     gridSizeSlider.value = savedSize;
     updateGridSize(savedSize);
 
-    // Initialize grid gap from localStorage or default
-    const savedGap = localStorage.getItem('gridGap') || '10';
+    // Initialize grid gap from localStorage or range midpoint
+    const savedGap = getInitialSliderValue('gridGap', gridGapSlider);
     gridGapSlider.value = savedGap;
     updateGridGap(savedGap);
 

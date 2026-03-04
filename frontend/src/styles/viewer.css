@@ -1,6 +1,6 @@
         :root {
-            --grid-size: 150px;
-            --grid-gap: 10px;
+            --grid-size: 540px;
+            --grid-gap: 25px;
             --brightness: 100%;
 
             /* Default (nomacs) */
