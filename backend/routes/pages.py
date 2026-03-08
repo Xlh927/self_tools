@@ -17,7 +17,11 @@ def create_pages_blueprint():
         if os.path.exists(dist_path):
             return render_template(dist_template)
         return Response(
-            "Frontend bundle not found. Run `npm --prefix frontend install && npm --prefix frontend run build`.",
+            (
+                "Frontend bundle not found. Build it on a machine with Node.js via "
+                "`./start.sh --bootstrap` or `npm --prefix frontend run build`, "
+                "or use a runtime bundle created by `./scripts/build_runtime_bundle.sh`."
+            ),
             status=503,
             mimetype='text/plain',
         )

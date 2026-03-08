@@ -40,7 +40,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-前端使用 Vite 构建，需安装 Node.js 18+（含 `npm`）。  
+前端使用 Vite 构建。只有在“重新构建前端产物”时才需要 Node.js 18+（含 `npm`）。  
+如果仓库中已经存在 `frontend/dist`，或你使用的是运行包，则运行时不依赖 `npm`。  
 Python 建议使用 3.9 - 3.12（当前依赖组合未对 3.13 做兼容保证）。
 
 ### 2. 一次性 Bootstrap（首次/依赖更新后）
@@ -56,24 +57,24 @@ Python 建议使用 3.9 - 3.12（当前依赖组合未对 3.13 做兼容保证�
 ```
 
 说明：若首次启动且 `.venv` 不存在，`start.sh` 会自动执行一次 bootstrap；后续启动不会重复安装依赖。
-对于 `build_runtime_bundle.sh` 产出的运行包，`start.sh` 在自动 bootstrap 时会跳过前端 npm 安装与构建（直接使用已打包的 `frontend/dist`）。
+对于 `build_runtime_bundle.sh` 产出的运行包，或仓库里已存在的 `frontend/dist`，`start.sh` 在自动 bootstrap 时会跳过前端 npm 安装与构建（直接使用现成前端产物）。
 
 默认地址：
 
-- 首页：`http://localhost:8080`
-- 后端 API：`http://127.0.0.1:5000`
+- 首页：`http://localhost:8081`
+- 后端 API：`http://localhost:8080/api`
 
 Image Viewer 直链（自动加载目录）：
 
 - `http://<IP>:<前端端口>/image-viewer?path=<图像目录绝对路径>`
 - 兼容别名：`/viewer?path=...`
-- 示例：`http://192.168.1.12:8080/image-viewer?path=/data/images/set01`
+- 示例：`http://192.168.1.12:8081/image-viewer?path=/data/images/set01`
 
 端口冲突处理：
 
 ```bash
 # 手动指定端口
-./start.sh --backend-port 5001 --frontend-port 8081
+./start.sh --backend-port 8082 --frontend-port 8081
 
 # 如默认端口被占用，启动会直接失败并提示你改用其他端口
 ./start.sh
@@ -84,6 +85,24 @@ Image Viewer 直链（自动加载目录）：
 ```bash
 ./start.sh --bootstrap
 ```
+
+局域网共享模式：
+
+- 默认前端监听 `0.0.0.0:8081`，同局域网其他设备可通过你的机器 IP 访问。
+- 默认后端也监听 `0.0.0.0:8080`，因此同局域网其他设备既可以访问前端，也可以直接调用 API。
+- 启动完成后，终端会直接打印可分享的局域网 URL，例如：
+  `http://192.168.1.12:8081/cv-tools`
+  `http://192.168.1.12:8080/api`
+- 如需限制只绑定到某个地址，可使用：
+  `./start.sh --frontend-host 192.168.1.12`
+- 如需将 API 收回到本机使用，可使用：
+  `./start.sh --backend-host 127.0.0.1`
+
+免 npm 运行说明：
+
+- 只要 `frontend/dist/cv-tools.html` 已存在，运行机可不安装 Node.js / npm。
+- 若你修改了 `frontend/src` 源码，需要在有 Node.js 的构建机重新执行一次前端构建。
+- 推荐将“构建”与“运行”分离：构建机负责生成 `frontend/dist`，运行机只执行 `./start.sh`。
 
 ### 4. 无 Node.js 运行包（部署机器可不安装 Node）
 

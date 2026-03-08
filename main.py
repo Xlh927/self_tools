@@ -21,7 +21,7 @@ from backend.app import app
 def open_browser():
     """在服务器启动后打开浏览器"""
     time.sleep(1.5)  # 等待服务器启动
-    webbrowser.open('http://127.0.0.1:5000')
+    webbrowser.open('http://127.0.0.1:8080')
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
     print("Self Tools - CV 数据集工具平台")
     print("=" * 60)
     print("\n正在启动服务器...")
-    print("服务器地址: http://127.0.0.1:5000")
+    print("服务器地址: http://127.0.0.1:8080")
     print("\n按 Ctrl+C 停止服务器\n")
     
     # 在新线程中打开浏览器
@@ -38,7 +38,7 @@ def main():
     
     # 启动 Flask 应用
     try:
-        app.run(host='127.0.0.1', port=5000, debug=False)
+        app.run(host='127.0.0.1', port=8080, debug=False)
     except KeyboardInterrupt:
         print("\n\n服务器已停止")
         sys.exit(0)

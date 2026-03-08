@@ -216,31 +216,35 @@ export default function SlurmGeneratorTool() {
             // Operation Mode
             e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '运行模式 (Mode)'),
-                e(OptionButtons, {
-                    options: [
-                        { value: 'train', label: 'Train (训练)' },
-                        { value: 'val', label: 'Val (验证)' },
-                        { value: 'predict', label: 'Predict (推理)' },
-                        { value: 'export', label: 'Export (导出)' },
-                        { value: 'subfp', label: 'SubFP (压误报/测阈值)' }
-                    ],
-                    value: mode,
-                    onChange: handleModeChange,
-                    ariaLabel: '运行模式'
-                })
+                e(
+                    'select',
+                    {
+                        className: 'select-field',
+                        value: mode,
+                        onChange: (event) => handleModeChange(event.target.value),
+                        'aria-label': '运行模式',
+                    },
+                    e('option', { value: 'train' }, 'Train (训练)'),
+                    e('option', { value: 'val' }, 'Val (验证)'),
+                    e('option', { value: 'predict' }, 'Predict (推理)'),
+                    e('option', { value: 'export' }, 'Export (导出)'),
+                    e('option', { value: 'subfp' }, 'SubFP (压误报/测阈值)'),
+                )
             ),
             // Task
             mode !== 'subfp' && e('div', { className: 'input-group' },
                 e('label', { className: 'input-label' }, '任务类型 (Task)'),
-                e(OptionButtons, {
-                    options: [
-                        { value: 'detect', label: 'Detect (目标检测)' },
-                        { value: 'segment', label: 'Segment (实例分割)' }
-                    ],
-                    value: task,
-                    onChange: setTask,
-                    ariaLabel: '任务类型'
-                })
+                e(
+                    'select',
+                    {
+                        className: 'select-field',
+                        value: task,
+                        onChange: (event) => setTask(event.target.value),
+                        'aria-label': '任务类型',
+                    },
+                    e('option', { value: 'detect' }, 'Detect (目标检测)'),
+                    e('option', { value: 'segment' }, 'Segment (实例分割)'),
+                )
             ),
             // Model / best.pt / weights
             e('div', { className: 'input-group', style: ['subfp', 'val', 'predict', 'export'].includes(mode) ? { gridColumn: '1 / -1' } : {} },

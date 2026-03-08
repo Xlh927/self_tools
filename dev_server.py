@@ -4,7 +4,7 @@ Simple development server for React frontend
 Serves static files from frontend directory and proxies API requests to Flask backend
 """
 
-from http.server import HTTPServer, SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
 import sys
 import urllib.request
@@ -14,8 +14,9 @@ import json
 
 # Use 127.0.0.1 to avoid IPv6 issues with localhost
 BACKEND_HOST = os.getenv('SELF_TOOLS_BACKEND_HOST', '127.0.0.1')
-BACKEND_PORT = int(os.getenv('SELF_TOOLS_BACKEND_PORT', '5000'))
+BACKEND_PORT = int(os.getenv('SELF_TOOLS_BACKEND_PORT', '8080'))
 BACKEND_URL = f'http://{BACKEND_HOST}:{BACKEND_PORT}'
+FRONTEND_HOST = os.getenv('SELF_TOOLS_FRONTEND_HOST', '0.0.0.0')
 
 class DevServerHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -145,7 +146,7 @@ class DevServerHandler(SimpleHTTPRequestHandler):
             return
         super().log_error(format, *args)
 
-def run(port=8080):
+def run(port=8081):
     project_root = os.getcwd()
     frontend_dir = os.path.join(project_root, 'frontend')
     
@@ -155,12 +156,12 @@ def run(port=8080):
     else:
         print(f'⚠️ Frontend directory not found at {frontend_dir}, serving from current directory')
 
-    server_address = ('', port)
+    server_address = (FRONTEND_HOST, port)
     # Using ThreadingHTTPServer for better parallelism
     httpd = ThreadingHTTPServer(server_address, DevServerHandler)
-    print(f'🚀 Frontend dev server running at http://localhost:{port}')
-    print(f'📡 Proxying API requests to {BACKEND_URL}')
-    print('Press Ctrl+C to stop')
+    print(f'Frontend shared server running at http://{FRONTEND_HOST}:{port}')
+    print(f'Proxying API requests to {BACKEND_URL}')
+    print('Use Ctrl+C to stop')
     
     try:
         httpd.serve_forever()
@@ -169,5 +170,5 @@ def run(port=8080):
         httpd.server_close()
 
 if __name__ == '__main__':
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8081
     run(port)

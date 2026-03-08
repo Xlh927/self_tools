@@ -6,25 +6,30 @@ import { TOOLS } from './config/tools.js';
 
 const { createElement: e } = React;
 
+function normalizeToolOrder(tools) {
+    const slurmTool = tools.find((tool) => tool.id === 'slurm-generator');
+    const otherTools = tools.filter((tool) => tool.id !== 'slurm-generator');
+    return slurmTool ? [...otherTools, slurmTool] : otherTools;
+}
+
 function loadToolOrder() {
     const savedOrder = localStorage.getItem('tool-order');
-    if (!savedOrder) return TOOLS;
+    if (!savedOrder) return normalizeToolOrder(TOOLS);
     const orderIds = JSON.parse(savedOrder);
     const orderedTools = orderIds.map((id) => TOOLS.find((tool) => tool.id === id)).filter(Boolean);
     const newTools = TOOLS.filter((tool) => !orderIds.includes(tool.id));
-    return [...orderedTools, ...newTools];
+    return normalizeToolOrder([...orderedTools, ...newTools]);
 }
 
 export default function App() {
     const [activeTools, setActiveTools] = useState([]);
-    const [sidebarPosition, setSidebarPosition] = useState('top');
     const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('app-theme') || 'bilibili');
     const [nextInstanceId, setNextInstanceId] = useState(1);
     const [toolList, setToolList] = useState(loadToolOrder);
     const [draggedToolId, setDraggedToolId] = useState(null);
 
     const canvasRef = useRef(null);
-    const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
+    const isHorizontal = true;
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -56,7 +61,8 @@ export default function App() {
     };
 
     const clearAllTools = () => {
-        if (confirm(`确定要清除所有 ${activeTools.length} 个任务吗？`)) {
+        if (activeTools.length === 0) return;
+        if (confirm(`确定要清空当前工作台中的 ${activeTools.length} 个工具吗？`)) {
             setActiveTools([]);
         }
     };
@@ -97,32 +103,23 @@ export default function App() {
         display: 'flex',
         height: '100vh',
         overflow: 'hidden',
-        flexDirection: sidebarPosition === 'left'
-            ? 'row'
-            : sidebarPosition === 'right'
-                ? 'row-reverse'
-                : sidebarPosition === 'top'
-                    ? 'column'
-                    : 'column-reverse',
+        flexDirection: 'column',
     };
 
     return e('div',
         { className: 'app-container', style: layoutStyle },
         e(ToolSidebar, {
             toolList,
-            activeToolsCount: activeTools.length,
             currentTheme,
-            sidebarPosition,
+            activeToolsCount: activeTools.length,
             isHorizontal,
             draggedToolId,
-            onHorizontalScroll: handleHorizontalScroll,
             onDragStart: handleDragStart,
             onDragOver: handleDragOver,
             onDrop: handleDrop,
             onAddTool: addTool,
             onClearAll: clearAllTools,
             onThemeChange: setCurrentTheme,
-            onSidebarPositionChange: setSidebarPosition,
         }),
         e('main',
             {

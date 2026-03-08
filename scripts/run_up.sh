@@ -6,8 +6,10 @@ VENV_DIR="$ROOT_DIR/.venv"
 PYTHON_BIN="$VENV_DIR/bin/python"
 DIST_ENTRY="$ROOT_DIR/frontend/dist/cv-tools.html"
 
-BACKEND_PORT="${SELF_TOOLS_BACKEND_PORT:-5000}"
-FRONTEND_PORT="${SELF_TOOLS_FRONTEND_PORT:-8080}"
+BACKEND_PORT="${SELF_TOOLS_BACKEND_PORT:-8080}"
+FRONTEND_PORT="${SELF_TOOLS_FRONTEND_PORT:-8081}"
+BACKEND_HOST="${SELF_TOOLS_BACKEND_HOST:-0.0.0.0}"
+FRONTEND_HOST="${SELF_TOOLS_FRONTEND_HOST:-0.0.0.0}"
 BACKEND_PID=""
 FRONTEND_PID=""
 
@@ -16,8 +18,10 @@ print_usage() {
 Usage: ./scripts/run_up.sh [options]
 
 Options:
-  --backend-port <port>   Backend port (default: 5000)
-  --frontend-port <port>  Frontend port (default: 8080)
+  --backend-port <port>   Backend port (default: 8080)
+  --backend-host <host>   Backend bind host (default: 0.0.0.0)
+  --frontend-port <port>  Frontend port (default: 8081)
+  --frontend-host <host>  Frontend bind host (default: 0.0.0.0)
   -h, --help              Show this help
 EOF
 }
@@ -72,6 +76,87 @@ print_port_owner() {
   echo "unknown process"
 }
 
+detect_lan_ips() {
+  "$PYTHON_BIN" - <<'PY'
+import socket
+
+ips = set()
+
+try:
+    hostname = socket.gethostname()
+    for result in socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM):
+        ip = result[4][0]
+        if not ip.startswith("127."):
+            ips.add(ip)
+except Exception:
+    pass
+
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.connect(("8.8.8.8", 80))
+    ip = sock.getsockname()[0]
+    sock.close()
+    if not ip.startswith("127."):
+        ips.add(ip)
+except Exception:
+    pass
+
+for ip in sorted(ips):
+    print(ip)
+PY
+}
+
+print_access_urls() {
+  echo "Servers started."
+  echo "Local access:"
+  echo "  Home    : http://localhost:$FRONTEND_PORT"
+  echo "  CV Tools: http://localhost:$FRONTEND_PORT/cv-tools"
+  echo "  Viewer  : http://localhost:$FRONTEND_PORT/image-viewer"
+  echo "  API Base: http://127.0.0.1:$BACKEND_PORT/api"
+
+  local frontend_is_shared=0
+  local backend_is_shared=0
+  if [ "$FRONTEND_HOST" = "0.0.0.0" ] || [ "$FRONTEND_HOST" = "::" ] || [ -z "$FRONTEND_HOST" ]; then
+    frontend_is_shared=1
+  fi
+  if [ "$BACKEND_HOST" = "0.0.0.0" ] || [ "$BACKEND_HOST" = "::" ] || [ -z "$BACKEND_HOST" ]; then
+    backend_is_shared=1
+  fi
+
+  if [ "$frontend_is_shared" = "1" ] || [ "$backend_is_shared" = "1" ]; then
+    local lan_ips
+    lan_ips="$(detect_lan_ips)"
+    if [ -n "$lan_ips" ]; then
+      echo "LAN share URLs:"
+      while IFS= read -r ip; do
+        [ -n "$ip" ] || continue
+        if [ "$frontend_is_shared" = "1" ]; then
+          echo "  Frontend: http://$ip:$FRONTEND_PORT/cv-tools"
+        fi
+        if [ "$backend_is_shared" = "1" ]; then
+          echo "  API Base: http://$ip:$BACKEND_PORT/api"
+        fi
+      done <<< "$lan_ips"
+    else
+      echo "LAN share URLs: unable to auto-detect a non-loopback IPv4 address."
+    fi
+  else
+    echo "LAN sharing is disabled for both frontend and backend."
+    echo "Use --frontend-host or --backend-host to expose them."
+  fi
+
+  if [ "$frontend_is_shared" = "0" ] && [ -n "$FRONTEND_HOST" ]; then
+    echo "Frontend is limited to bind host: $FRONTEND_HOST"
+    echo "  http://$FRONTEND_HOST:$FRONTEND_PORT/cv-tools"
+  fi
+  if [ "$backend_is_shared" = "0" ] && [ -n "$BACKEND_HOST" ]; then
+    echo "Backend API is limited to bind host: $BACKEND_HOST"
+    echo "  http://$BACKEND_HOST:$BACKEND_PORT/api"
+  fi
+
+  echo "Press Ctrl+C to stop."
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --backend-port)
@@ -79,10 +164,20 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -gt 0 ] || { echo "Missing value for --backend-port"; exit 1; }
       BACKEND_PORT="$1"
       ;;
+    --backend-host)
+      shift
+      [ "$#" -gt 0 ] || { echo "Missing value for --backend-host"; exit 1; }
+      BACKEND_HOST="$1"
+      ;;
     --frontend-port)
       shift
       [ "$#" -gt 0 ] || { echo "Missing value for --frontend-port"; exit 1; }
       FRONTEND_PORT="$1"
+      ;;
+    --frontend-host)
+      shift
+      [ "$#" -gt 0 ] || { echo "Missing value for --frontend-host"; exit 1; }
+      FRONTEND_HOST="$1"
       ;;
     -h|--help)
       print_usage
@@ -107,7 +202,7 @@ if ! is_valid_port "$FRONTEND_PORT"; then
 fi
 if [ "$BACKEND_PORT" = "$FRONTEND_PORT" ]; then
   echo "Backend and frontend ports must be different."
-  echo "Try: ./start.sh --backend-port 5000 --frontend-port 8080"
+  echo "Try: ./start.sh --backend-port 8080 --frontend-port 8081"
   exit 1
 fi
 
@@ -128,14 +223,14 @@ fi
 if port_in_use "$BACKEND_PORT"; then
   echo "Backend port $BACKEND_PORT is occupied by $(print_port_owner "$BACKEND_PORT")."
   echo "Use another port, for example:"
-  echo "  ./start.sh --backend-port 5001 --frontend-port $FRONTEND_PORT"
+  echo "  ./start.sh --backend-port 8082 --frontend-port $FRONTEND_PORT"
   exit 1
 fi
 
 if port_in_use "$FRONTEND_PORT"; then
   echo "Frontend port $FRONTEND_PORT is occupied by $(print_port_owner "$FRONTEND_PORT")."
   echo "Use another port, for example:"
-  echo "  ./start.sh --backend-port $BACKEND_PORT --frontend-port 8081"
+  echo "  ./start.sh --backend-port $BACKEND_PORT --frontend-port 8082"
   exit 1
 fi
 
@@ -150,21 +245,18 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-echo "Starting backend on http://127.0.0.1:$BACKEND_PORT"
-SELF_TOOLS_BACKEND_PORT="$BACKEND_PORT" "$PYTHON_BIN" "$ROOT_DIR/backend/app.py" &
+echo "Starting backend on http://$BACKEND_HOST:$BACKEND_PORT"
+SELF_TOOLS_BACKEND_HOST="$BACKEND_HOST" SELF_TOOLS_BACKEND_PORT="$BACKEND_PORT" "$PYTHON_BIN" "$ROOT_DIR/backend/app.py" &
 BACKEND_PID=$!
 
 if ! wait_for_backend_ready; then
   exit 1
 fi
 
-echo "Starting frontend dev server on http://localhost:$FRONTEND_PORT"
-SELF_TOOLS_BACKEND_PORT="$BACKEND_PORT" "$PYTHON_BIN" "$ROOT_DIR/dev_server.py" "$FRONTEND_PORT" &
+echo "Starting frontend shared server on http://$FRONTEND_HOST:$FRONTEND_PORT"
+SELF_TOOLS_BACKEND_PORT="$BACKEND_PORT" SELF_TOOLS_FRONTEND_HOST="$FRONTEND_HOST" "$PYTHON_BIN" "$ROOT_DIR/dev_server.py" "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
-echo "Servers started."
-echo "  Home: http://localhost:$FRONTEND_PORT"
-echo "  API : http://127.0.0.1:$BACKEND_PORT"
-echo "Press Ctrl+C to stop."
+print_access_urls
 
 wait

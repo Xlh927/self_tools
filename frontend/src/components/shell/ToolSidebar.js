@@ -1,27 +1,204 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Icon from '../common/Icon.js';
 
 const { createElement: e } = React;
 
+const THEME_OPTIONS = [
+    { id: 'bilibili', shortLabel: 'B', label: 'Bilibili' },
+    { id: 'default', shortLabel: 'D', label: 'Default' },
+    { id: 'douyin', shortLabel: 'T', label: 'Douyin' },
+    { id: 'youtube', shortLabel: 'Y', label: 'YouTube' },
+];
+
+function getSidebarStyle(isHorizontal) {
+    if (isHorizontal) {
+        return {
+            width: 'calc(100% - var(--spacing-sm) * 2)',
+            minHeight: 'auto',
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+        };
+    }
+
+    return {
+        height: 'calc(100vh - var(--spacing-sm) * 2)',
+        width: '280px',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+    };
+}
+
 export default function ToolSidebar({
     toolList,
-    activeToolsCount,
     currentTheme,
-    sidebarPosition,
+    activeToolsCount,
     isHorizontal,
     draggedToolId,
-    onHorizontalScroll,
     onDragStart,
     onDragOver,
     onDrop,
     onAddTool,
     onClearAll,
     onThemeChange,
-    onSidebarPositionChange,
 }) {
+    const sidebarRef = useRef(null);
+    const toolNavRef = useRef(null);
+    const themeSwitcherRef = useRef(null);
+    const controlsRef = useRef(null);
+    const [shouldCompactThemeSwitcher, setShouldCompactThemeSwitcher] = useState(false);
+
+    const sidebarStyle = getSidebarStyle(isHorizontal);
+
+    useEffect(() => {
+        if (!isHorizontal) {
+            setShouldCompactThemeSwitcher(false);
+            return undefined;
+        }
+
+        const measure = () => {
+            const sidebar = sidebarRef.current;
+            const toolNav = toolNavRef.current;
+            const themeSwitcher = themeSwitcherRef.current;
+            const controls = controlsRef.current;
+            if (!sidebar || !toolNav || !themeSwitcher || !controls) return;
+
+            const toolButtons = Array.from(toolNav.querySelectorAll('.tool-btn-horizontal'));
+            const themeButtons = Array.from(themeSwitcher.querySelectorAll('.toolbar-segment-btn'));
+            if (!toolButtons.length || !themeButtons.length) {
+                setShouldCompactThemeSwitcher(false);
+                return;
+            }
+
+            const sidebarStyle = window.getComputedStyle(sidebar);
+            const toolNavStyle = window.getComputedStyle(toolNav);
+            const themeStyle = window.getComputedStyle(themeSwitcher);
+            const controlsStyle = window.getComputedStyle(controls);
+
+            const sidebarGap = parseFloat(sidebarStyle.columnGap || sidebarStyle.gap || '0');
+            const toolGap = parseFloat(toolNavStyle.columnGap || toolNavStyle.gap || '0');
+            const themeGap = parseFloat(themeStyle.columnGap || themeStyle.gap || '0');
+            const controlsGap = parseFloat(controlsStyle.columnGap || controlsStyle.gap || '0');
+
+            const toolWidth = toolButtons.reduce((sum, button) => sum + button.offsetWidth, 0)
+                + toolGap * Math.max(toolButtons.length - 1, 0);
+
+            const themeButtonsWidth = themeButtons.reduce((sum, button) => sum + button.offsetWidth, 0);
+            const themeSingleRowWidth = themeButtonsWidth
+                + themeGap * Math.max(themeButtons.length - 1, 0)
+                + parseFloat(themeStyle.paddingLeft || '0')
+                + parseFloat(themeStyle.paddingRight || '0')
+                + parseFloat(themeStyle.borderLeftWidth || '0')
+                + parseFloat(themeStyle.borderRightWidth || '0');
+
+            const themeCompactWidth = (28 * 2) + themeGap
+                + parseFloat(themeStyle.paddingLeft || '0')
+                + parseFloat(themeStyle.paddingRight || '0')
+                + parseFloat(themeStyle.borderLeftWidth || '0')
+                + parseFloat(themeStyle.borderRightWidth || '0');
+
+            const controlsWidth = controls.offsetWidth;
+            const clearButtonWidth = Math.max(0, controlsWidth - themeSwitcher.offsetWidth - controlsGap);
+            const singleControlsWidth = clearButtonWidth + themeSingleRowWidth + (clearButtonWidth > 0 ? controlsGap : 0);
+            const compactControlsWidth = clearButtonWidth + themeCompactWidth + (clearButtonWidth > 0 ? controlsGap : 0);
+
+            const requiredSingle = toolWidth + singleControlsWidth + sidebarGap;
+            const requiredCompact = toolWidth + compactControlsWidth + sidebarGap;
+
+            if (shouldCompactThemeSwitcher) {
+                setShouldCompactThemeSwitcher(requiredCompact > sidebar.clientWidth + 1 || requiredSingle > sidebar.clientWidth + 1);
+            } else {
+                setShouldCompactThemeSwitcher(requiredSingle > sidebar.clientWidth + 1);
+            }
+        };
+
+        measure();
+
+        const resizeObserver = new ResizeObserver(() => {
+            window.requestAnimationFrame(measure);
+        });
+
+        if (sidebarRef.current) resizeObserver.observe(sidebarRef.current);
+        if (toolNavRef.current) resizeObserver.observe(toolNavRef.current);
+        if (themeSwitcherRef.current) resizeObserver.observe(themeSwitcherRef.current);
+        if (controlsRef.current) resizeObserver.observe(controlsRef.current);
+
+        window.addEventListener('resize', measure);
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', measure);
+        };
+    }, [isHorizontal, toolList.length, shouldCompactThemeSwitcher]);
+
+    const themeSwitcher = e('div',
+        {
+            ref: themeSwitcherRef,
+            className: `toolbar-segment ${shouldCompactThemeSwitcher ? 'is-compact-grid' : ''}`,
+            role: 'group',
+            'aria-label': '选择主题',
+        },
+        ...THEME_OPTIONS.map((theme) =>
+            e('button',
+                {
+                    key: theme.id,
+                    onClick: () => onThemeChange(theme.id),
+                    className: `toolbar-segment-btn ${currentTheme === theme.id ? 'active' : ''}`,
+                    title: theme.label,
+                    'aria-label': `切换到 ${theme.label} 主题`,
+                },
+                theme.shortLabel
+            )
+        )
+    );
+
+    const clearButton = e('button',
+        {
+            type: 'button',
+            className: 'toolbar-clear-btn',
+            onClick: onClearAll,
+            disabled: activeToolsCount === 0,
+            title: activeToolsCount === 0 ? '当前没有打开的工作台' : '清空工作台',
+            'aria-label': '清空工作台',
+        },
+        e(Icon, { name: 'trash', size: 16 }),
+        e('span', {}, '清空工作台')
+    );
+
+    const controlsBlock = e('div',
+        {
+            ref: controlsRef,
+            className: `sidebar-controls ${isHorizontal ? 'is-horizontal' : 'is-vertical'} ${shouldCompactThemeSwitcher ? 'is-compact' : ''}`,
+        },
+        clearButton,
+        themeSwitcher
+    );
+
+    const toolButtons = toolList.map((tool) => {
+        const isDragging = draggedToolId === tool.id;
+        return e('button',
+            {
+                key: tool.id,
+                draggable: true,
+                onDragStart: (evt) => onDragStart(evt, tool.id),
+                onDragOver: (evt) => onDragOver(evt, tool.id),
+                onDrop: onDrop,
+                onClick: () => onAddTool(tool.id),
+                className: `tool-btn ${isHorizontal ? 'tool-btn-horizontal' : 'tool-btn-vertical'} ${isDragging ? 'dragging' : ''}`,
+                title: tool.name,
+            },
+            e('span', { className: 'tool-btn-icon' },
+                e(Icon, { name: tool.icon, size: isHorizontal ? 18 : 24 })
+            ),
+            e('span', { className: 'tool-btn-label' }, tool.name)
+        );
+    });
+
     return e('aside',
         {
-            className: 'sidebar glass-card',
+            className: `sidebar glass-card ${isHorizontal ? 'sidebar-horizontal' : 'sidebar-vertical'}`,
+            ref: sidebarRef,
             style: {
                 margin: 'var(--spacing-sm)',
                 padding: 'var(--spacing-md)',
@@ -32,268 +209,17 @@ export default function ToolSidebar({
                 zIndex: 100,
                 transition: 'all var(--transition-normal)',
                 display: 'flex',
-                gap: 'var(--spacing-md)',
-                ...(isHorizontal ? {
-                    width: 'calc(100% - var(--spacing-sm) * 2)',
-                    height: '85px',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    overflowX: 'auto',
-                } : {
-                    height: 'calc(100vh - var(--spacing-sm) * 2)',
-                    width: '260px',
-                    flexDirection: 'column',
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                })
+                gap: '10px',
+                ...sidebarStyle,
             },
-            onWheel: isHorizontal ? onHorizontalScroll : undefined
         },
-        e('div',
-            {
-                style: {
-                    display: 'flex',
-                    flexDirection: isHorizontal ? 'row' : 'column',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 'var(--spacing-sm)',
-                    marginBottom: isHorizontal ? 0 : 'var(--spacing-md)',
-                    marginRight: isHorizontal ? 'var(--spacing-md)' : 0,
-                    borderBottom: isHorizontal ? 'none' : '1px solid var(--glass-border)',
-                    borderRight: isHorizontal ? '1px solid var(--glass-border)' : 'none',
-                    paddingBottom: isHorizontal ? 0 : 'var(--spacing-sm)',
-                    paddingRight: isHorizontal ? 'var(--spacing-sm)' : 0,
-                    flexShrink: 0
-                }
-            },
-            e('div',
-                {
-                    style: {
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }
-                },
-                e('a',
-                    {
-                        href: '/',
-                        title: '返回主页',
-                        style: {
-                            textDecoration: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--bg-tertiary)',
-                            padding: '8px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--glass-border)',
-                            color: 'var(--primary-blue)',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: 'var(--shadow-sm)'
-                        },
-                        onMouseEnter: (evt) => {
-                            evt.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
-                            evt.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            evt.currentTarget.style.background = 'var(--bg-secondary)';
-                        },
-                        onMouseLeave: (evt) => {
-                            evt.currentTarget.style.transform = 'translateY(0) scale(1)';
-                            evt.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            evt.currentTarget.style.background = 'var(--bg-tertiary)';
-                        }
-                    },
-                    e(Icon, { name: 'home', size: 24 })
-                ),
-                !isHorizontal && e('div',
-                    {
-                        style: {
-                            fontSize: '1.25rem',
-                            fontWeight: '800',
-                            background: 'var(--gradient-primary)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            whiteSpace: 'nowrap',
-                            letterSpacing: '-0.5px'
-                        }
-                    },
-                    '工作台'
-                )
-            ),
-        ),
         e('nav',
             {
-                style: {
-                    display: 'grid',
-                    gridTemplateColumns: isHorizontal ? 'repeat(auto-fill, var(--nav-btn-width))' : '1fr',
-                    gridAutoFlow: isHorizontal ? 'column' : 'row',
-                    gap: 'var(--spacing-md)',
-                    flex: 1,
-                    overflow: isHorizontal ? 'visible' : 'auto',
-                }
+                ref: toolNavRef,
+                className: `tool-nav ${isHorizontal ? 'tool-nav-horizontal' : 'tool-nav-vertical'}`,
             },
-            ...toolList.map((tool) => {
-                const isDragging = draggedToolId === tool.id;
-                return e('button',
-                    {
-                        key: tool.id,
-                        draggable: true,
-                        onDragStart: (evt) => onDragStart(evt, tool.id),
-                        onDragOver: (evt) => onDragOver(evt, tool.id),
-                        onDrop: onDrop,
-                        onClick: () => onAddTool(tool.id),
-                        className: `tool-btn ${isDragging ? 'dragging' : ''}`,
-                        title: tool.name,
-                        style: {
-                            width: '100%',
-                            height: 'var(--nav-btn-height)',
-                            margin: '0 auto'
-                        }
-                    },
-                    e(Icon, { name: tool.icon, size: 24 }),
-                    e('span', {}, tool.name)
-                );
-            })
+            ...toolButtons
         ),
-        e('div',
-            {
-                style: {
-                    marginTop: isHorizontal ? 0 : 'var(--spacing-md)',
-                    marginLeft: isHorizontal ? 'var(--spacing-md)' : 0,
-                    display: 'flex',
-                    flexDirection: isHorizontal ? 'row' : 'column',
-                    gap: 'var(--spacing-sm)',
-                    paddingTop: isHorizontal ? 0 : 'var(--spacing-sm)',
-                    borderTop: isHorizontal ? 'none' : '1px solid var(--glass-border)',
-                    alignItems: 'center',
-                    justifyContent: isHorizontal ? 'flex-end' : 'stretch',
-                    flexShrink: 0
-                }
-            },
-            activeToolsCount > 0 && e('div', {
-                style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.8rem',
-                    padding: '0.6rem 0.8rem',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--glass-border)',
-                    width: '100%',
-                }
-            },
-                e('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-                    e('span', { style: { fontSize: '1.2rem' } }, '🚀'),
-                    e('span', { style: { color: 'var(--text-primary)', fontSize: '0.95rem', whiteSpace: 'nowrap', fontWeight: 800 } },
-                        `${activeToolsCount} 个任务`
-                    )
-                ),
-                e('button',
-                    {
-                        onClick: onClearAll,
-                        title: '一键清空工作区',
-                        style: {
-                            background: 'var(--color-danger-bg)',
-                            color: 'var(--color-danger)',
-                            border: '1px solid var(--color-danger)',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            padding: '4px 8px',
-                            borderRadius: 'var(--radius-sm)',
-                            fontWeight: 'bold',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                        }
-                    },
-                    e('span', {}, '🗑️'),
-                    '清空'
-                )
-            ),
-            e('div', {
-                style: {
-                    display: 'flex',
-                    flexDirection: isHorizontal ? 'row' : 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    width: '100%',
-                    marginTop: isHorizontal ? 0 : 'var(--spacing-sm)',
-                    paddingTop: isHorizontal ? 0 : 'var(--spacing-sm)',
-                    borderTop: isHorizontal ? 'none' : '1px solid rgba(255,255,255,0.05)',
-                    gap: '12px'
-                }
-            },
-                e('div', {
-                    style: {
-                        display: 'flex',
-                        gap: '6px',
-                        background: 'var(--bg-tertiary)',
-                        padding: '4px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--glass-border)',
-                    }
-                },
-                    [
-                        { id: 'bilibili', icon: '📺' },
-                        { id: 'default', icon: '💎' },
-                        { id: 'douyin', icon: '🎵' },
-                        { id: 'youtube', icon: '🔴' }
-                    ].map((theme) =>
-                        e('button',
-                            {
-                                key: theme.id,
-                                onClick: () => onThemeChange(theme.id),
-                                style: {
-                                    width: '28px',
-                                    height: '28px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: currentTheme === theme.id ? 'var(--gradient-primary)' : 'transparent',
-                                    color: currentTheme === theme.id ? 'white' : 'var(--text-secondary)',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-sm)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s'
-                                },
-                            },
-                            theme.icon
-                        )
-                    )
-                ),
-                e('div',
-                    {
-                        style: {
-                            display: 'flex',
-                            gap: '4px',
-                            alignItems: 'center',
-                            background: 'var(--bg-tertiary)',
-                            padding: '4px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--glass-border)',
-                        }
-                    },
-                    ['left', 'right', 'top', 'bottom'].map((pos) =>
-                        e('button',
-                            {
-                                key: pos,
-                                onClick: () => onSidebarPositionChange(pos),
-                                className: `pos-btn ${sidebarPosition === pos ? 'active' : ''}`,
-                                style: {
-                                    width: '24px',
-                                    height: '24px',
-                                    fontSize: '0.7rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }
-                            },
-                            pos[0].toUpperCase()
-                        )
-                    )
-                )
-            )
-        )
+        controlsBlock
     );
 }
