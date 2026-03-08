@@ -5,14 +5,40 @@ Identify and move images without corresponding YOLO annotations to a background 
 
 import os
 import shutil
+import concurrent.futures
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
+
 
 class DatasetCleaner:
     """Clean datasets by moving unlabeled images to backgrounds"""
     
     def __init__(self):
         self.supported_image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']
+
+    @staticmethod
+    def _move_single_image_task(img_path_str: str, output_dir: str) -> Dict:
+        img_path = Path(img_path_str)
+        dest_path = Path(output_dir) / img_path.name
+        try:
+            # Avoid overwrite by suffixing duplicate names.
+            if dest_path.exists():
+                base = dest_path.stem
+                ext = dest_path.suffix
+                counter = 1
+                while (Path(output_dir) / f"{base}_{counter}{ext}").exists():
+                    counter += 1
+                dest_path = Path(output_dir) / f"{base}_{counter}{ext}"
+
+            shutil.move(str(img_path), str(dest_path))
+            return {"success": True, "image_name": img_path.name}
+        except Exception as e:
+            return {"success": False, "image_name": img_path.name, "error": str(e)}
     
     def scan_dataset(self, images_dir: str, labels_dir: str) -> Tuple[List[Path], List[Path]]:
         """
@@ -77,22 +103,35 @@ class DatasetCleaner:
             
             if not dry_run and len(unlabeled) > 0:
                 os.makedirs(output_dir, exist_ok=True)
-                for img_path in unlabeled:
-                    dest_path = Path(output_dir) / img_path.name
-                    # Ensure we don't overwrite if file already exists in dest (append suffix if needed)
-                    if dest_path.exists():
-                        base = dest_path.stem
-                        ext = dest_path.suffix
-                        counter = 1
-                        while (Path(output_dir) / f"{base}_{counter}{ext}").exists():
-                            counter += 1
-                        dest_path = Path(output_dir) / f"{base}_{counter}{ext}"
-                    
-                    shutil.move(str(img_path), str(dest_path))
-                    move_count += 1
-                    
-                    if progress_callback:
-                        progress_callback(move_count, len(unlabeled), f"Moving {img_path.name}...")
+                total_unlabeled = len(unlabeled)
+                plan = get_executor_plan(total_unlabeled, workload='io', prefer_process=False)
+                if plan.kind == 'serial':
+                    for img_path in unlabeled:
+                        result = self._move_single_image_task(str(img_path), output_dir)
+                        if result.get('success'):
+                            move_count += 1
+                        if progress_callback:
+                            progress_callback(move_count, total_unlabeled, f"Moving {img_path.name}...")
+                else:
+                    executor_cls = (
+                        concurrent.futures.ProcessPoolExecutor
+                        if plan.kind == 'process'
+                        else concurrent.futures.ThreadPoolExecutor
+                    )
+                    completed = 0
+                    with executor_cls(max_workers=plan.workers) as executor:
+                        future_to_img = {
+                            executor.submit(self._move_single_image_task, str(img_path), output_dir): img_path
+                            for img_path in unlabeled
+                        }
+                        for future in concurrent.futures.as_completed(future_to_img):
+                            img_path = future_to_img[future]
+                            completed += 1
+                            result = future.result()
+                            if result.get('success'):
+                                move_count += 1
+                            if progress_callback:
+                                progress_callback(completed, total_unlabeled, f"Moving {img_path.name}...")
             else:
                 move_count = len(unlabeled)
             

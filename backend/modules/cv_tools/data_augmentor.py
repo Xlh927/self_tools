@@ -12,9 +12,12 @@ from typing import List, Dict, Tuple
 from PIL import Image
 import random
 import concurrent.futures
-import multiprocessing
 import shutil
 
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 class DataAugmentor:
     """数据集增强器 - 支持多种增强方法和标注格式"""
@@ -147,15 +150,11 @@ class DataAugmentor:
             generated = 0
             errors = []
             
-            # Use ProcessPoolExecutor for parallel processing
-            num_workers = min(multiprocessing.cpu_count(), len(image_files))
-            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                future_to_img = {executor.submit(self._augment_single_image_task, img_file, config): img_file for img_file in image_files}
-                
-                for future in concurrent.futures.as_completed(future_to_img):
-                    img_file = future_to_img[future]
+            plan = get_executor_plan(len(image_files), workload='cpu', prefer_process=True)
+            if plan.kind == 'serial':
+                for img_file in image_files:
                     try:
-                        result = future.result()
+                        result = self._augment_single_image_task(img_file, config)
                         if result['success']:
                             processed += 1
                             generated += result['generated']
@@ -163,9 +162,35 @@ class DataAugmentor:
                             errors.append(f"{result['image']}: {result['error']}")
                     except Exception as e:
                         errors.append(f"{img_file.name}: {str(e)}")
-                    
+
                     if progress_callback:
                         progress_callback(processed, len(image_files), f"Augmenting {img_file.name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    future_to_img = {
+                        executor.submit(self._augment_single_image_task, img_file, config): img_file
+                        for img_file in image_files
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_img):
+                        img_file = future_to_img[future]
+                        try:
+                            result = future.result()
+                            if result['success']:
+                                processed += 1
+                                generated += result['generated']
+                            else:
+                                errors.append(f"{result['image']}: {result['error']}")
+                        except Exception as e:
+                            errors.append(f"{img_file.name}: {str(e)}")
+
+                        if progress_callback:
+                            progress_callback(processed, len(image_files), f"Augmenting {img_file.name}")
             
             # If YOLO format, copy classes.txt
             if annotation_format == 'yolo' and classes_file and os.path.exists(classes_file):

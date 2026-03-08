@@ -3,6 +3,7 @@ Flask Web Application for Image Processing Tools
 Splits routes into blueprints under backend/routes.
 """
 
+import atexit
 import os
 import sys
 from flask import Flask
@@ -36,6 +37,7 @@ app = Flask(
     static_url_path=''
 )
 task_manager = TaskManager()
+atexit.register(task_manager.close)
 
 
 # Enable CORS for development
@@ -66,4 +68,6 @@ app.register_blueprint(create_upload_blueprint())
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=False)
+    host = os.getenv('SELF_TOOLS_BACKEND_HOST', '127.0.0.1')
+    port = int(os.getenv('SELF_TOOLS_BACKEND_PORT', '5000'))
+    app.run(host=host, port=port, debug=False)

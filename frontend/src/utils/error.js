@@ -12,6 +12,12 @@ export function normalizeError(err) {
         return { error: err, error_code: undefined };
     }
     if (typeof err === 'object') {
+        if (err.payload && typeof err.payload === 'object') {
+            return {
+                error: err.payload.error || err.payload.message || err.message || 'Error',
+                error_code: err.payload.error_code || err.code
+            };
+        }
         return {
             error: err.error || err.message || 'Error',
             error_code: err.error_code || err.code

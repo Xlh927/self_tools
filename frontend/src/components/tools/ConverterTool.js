@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
-import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
+import { convertDataset, scanVocClasses as scanVocClassesApi } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
+import useDatasetPathInference from '../../hooks/useDatasetPathInference.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
 
@@ -14,46 +15,21 @@ export default function ConverterTool() {
     const [outputDir, setOutputDir] = useState('');
     const [classesFile, setClassesFile] = useState('');
 
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
-
     // New state for class scanning
     const [scannedClasses, setScannedClasses] = useState([]);
     const [scanningClasses, setScanningClasses] = useState(false);
     const [showClassEditor, setShowClassEditor] = useState(false);
+    const defaultOutputFolder = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
 
-    // Auto-infer paths from annotationsDir
-    useEffect(() => {
-        const normalized = normalizePath(annotationsDir);
-        if (normalized && !imagesDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setImagesDir(joinPaths(parentDir, 'images'));
-            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
-            setOutputDir(joinPaths(parentDir, defaultOut));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
-            setOutputDir(joinPaths(parentDir, defaultOut));
-        }
-    }, [annotationsDir, conversionType]);
-
-    // Auto-infer paths from imagesDir
-    useEffect(() => {
-        const normalized = normalizePath(imagesDir);
-        if (normalized && !annotationsDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            // Try common annotation folder names
-            const possibleNames = ['annotations', 'labels', 'Annotations', 'Labels', 'xml'];
-            setAnnotationsDir(joinPaths(parentDir, possibleNames[0]));
-            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
-            setOutputDir(joinPaths(parentDir, defaultOut));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            const defaultOut = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
-            setOutputDir(joinPaths(parentDir, defaultOut));
-        }
-    }, [imagesDir, conversionType]);
+    useDatasetPathInference({
+        imagesDir,
+        setImagesDir,
+        annotationsDir,
+        setAnnotationsDir,
+        outputDir,
+        setOutputDir,
+        outputFolderName: defaultOutputFolder,
+    });
 
     // Auto-scan VOC classes when annotationsDir changes for voc_to_yolo
     useEffect(() => {
@@ -68,13 +44,7 @@ export default function ConverterTool() {
     const scanVocClasses = async () => {
         setScanningClasses(true);
         try {
-            const response = await fetch('/api/scan-voc-classes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ annotations_dir: annotationsDir }),
-            });
-
-            const data = await response.json();
+            const data = await scanVocClassesApi({ annotations_dir: annotationsDir });
 
             if (data.success) {
                 // Add enabled property to each class (default: true)
@@ -110,9 +80,9 @@ export default function ConverterTool() {
         ));
     };
 
-    const handleStartTask = async () => {
-        setResult(null);
-
+    const task = useToolTask({
+        toolName: 'converter',
+        startTask: () => {
         const requestBody = {
             conversion_type: conversionType,
             annotations_dir: annotationsDir,
@@ -131,30 +101,9 @@ export default function ConverterTool() {
             requestBody.custom_class_mapping = customClassMapping;
         }
 
-        const response = await fetch('/api/convert', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+        return convertDataset(requestBody);
+        },
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -340,31 +289,27 @@ export default function ConverterTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(annotationsDir && imagesDir && outputDir)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 转换成功！' : '❌ 转换失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 转换成功！' : '❌ 转换失败'),
+            task.result.success && e('div', {},
                 e('p', { style: { fontWeight: 600 } }, `统计信息:`),
                 e('div', { style: { display: 'flex', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' } },
-                    e('div', { style: { color: 'var(--color-success)' } }, `已转换: ${result.converted}`),
-                    result.skipped > 0 && e('div', { style: { color: 'var(--color-warning)' } }, `跳过: ${result.skipped}`),
+                    e('div', { style: { color: 'var(--color-success)' } }, `已转换: ${task.result.converted}`),
+                    task.result.skipped > 0 && e('div', { style: { color: 'var(--color-warning)' } }, `跳过: ${task.result.skipped}`),
                 ),
-                result.classes && e('div', {},
+                task.result.classes && e('div', {},
                     e('p', { style: { fontSize: '0.85rem', marginBottom: '0.4rem' } }, '检测到的类别:'),
                     e('div',
                         { style: { display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)' } },
-                        ...result.classes.map(cls =>
+                        ...task.result.classes.map(cls =>
                             e('span',
                                 {
                                     key: cls,
@@ -383,7 +328,7 @@ export default function ConverterTool() {
                     )
                 )
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

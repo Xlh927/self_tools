@@ -1,230 +1,200 @@
-# 数据集格式转换工具 / Dataset Format Converter
+# Self Tools - CV 数据集工具平台
 
-一个简单易用的Web应用，支持VOC和YOLO数据集格式的双向转换。专为新手设计，只需输入几个路径即可完成转换。
+Self Tools 是一个面向计算机视觉数据集处理的本地化工具平台。  
+它将数据集转换、清洗、增强、可视化和浏览归拢到同一套 Web 界面中，适合日常标注集生产与训练前准备。
 
-## ✨ 特性
+## 功能定位
 
-- 🔄 **双向转换**：支持 VOC ↔ YOLO 格式互转
-- 🎨 **现代界面**：美观的深色主题UI，操作简单直观
-- 🚀 **批量处理**：自动处理整个目录的标注文件
-- 📊 **实时反馈**：显示转换进度和详细结果
-- 🏷️ **自动检测**：VOC转YOLO时自动检测类别
-- ⚡ **快速高效**：基于Python的高性能转换
+- 一个应用，覆盖数据集处理全流程
+- 本地运行，不依赖云端服务
+- 任务可视化进度，支持暂停/恢复/终止
 
-## 📋 系统要求
+## 功能清单（CV Tools）
 
-- Python 3.7+
-- Flask
-- Pillow (PIL)
+- 数据集格式转换：VOC ↔ YOLO
+- 图像滑窗裁剪：大图切片
+- 数据集生成器：按标注生成训练样本
+- 数据集划分：训练/验证/测试拆分
+- 图像去重：哈希与相似度检测
+- 图像匹配：按参考集合筛选复制
+- 标注可视化：标注渲染检查
+- YOLO 标签修改：类别 ID 批量映射
+- 数据集增强：翻转/旋转等扩增
+- 论文宫格排版：对比图网格输出
+- Slurm 命令生成：YOLO 训练命令模板
+- 数据集清洗：无标注背景样本分离
 
-## 📦 下载使用
+## 功能清单（Image Viewer）
 
-### 方式一：下载可执行文件（推荐）
+- 本地目录快速浏览与缩略图缓存
+- 快捷键分类/反分类
+- 分类目录联动与统计
 
-从 [Releases](https://github.com/GGbao8848/self_tools/releases) 页面下载对应平台的可执行文件：
-
-- **Windows**: `self_tools-windows.exe`
-- **macOS**: `self_tools-macos`
-- **Linux**: `self_tools-linux`
-
-下载后直接双击运行，浏览器会自动打开应用界面。
-
-### 方式二：从源码运行
-
+## 运行方式
 
 ### 1. 安装依赖
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 启动服务器
+前端使用 Vite 构建，需安装 Node.js 18+（含 `npm`）。  
+Python 建议使用 3.9 - 3.12（当前依赖组合未对 3.13 做兼容保证）。
+
+### 2. 一次性 Bootstrap（首次/依赖更新后）
 
 ```bash
-python dev_server.py
+./scripts/bootstrap_dev.sh
 ```
 
-### 3. 打开浏览器
-
-访问：http://localhost:5000
-
-## 📖 使用说明
-
-### VOC → YOLO 转换
-
-1. 选择转换方向：**VOC → YOLO**
-2. 填写以下路径：
-   - **标注文件目录**：包含 `.xml` 文件的目录
-   - **图片文件目录**：包含对应图片的目录
-   - **输出目录**：转换后的文件保存位置
-   - **类别文件**（可选）：`classes.txt` 文件路径，如不提供将自动生成
-3. 点击"开始转换"
-
-**输出文件：**
-- 每个XML文件对应一个 `.txt` 标注文件
-- 自动生成 `classes.txt` 类别文件
-
-### YOLO → VOC 转换
-
-1. 选择转换方向：**YOLO → VOC**
-2. 填写以下路径：
-   - **标注文件目录**：包含 `.txt` 文件的目录
-   - **图片文件目录**：包含对应图片的目录
-   - **输出目录**：转换后的文件保存位置
-   - **类别文件**（可选）：`classes.txt` 文件路径，留空时直接使用索引作为XML的标签类别
-3. 点击"开始转换"
-
-**输出文件：**
-- 每个TXT文件对应一个 `.xml` 标注文件
-
-## 📁 目录结构示例
-
-```
-dataset/
-├── images/              # 图片目录
-│   ├── img001.jpg
-│   ├── img002.jpg
-│   └── ...
-├── annotations/         # 标注目录
-│   ├── img001.xml      # VOC格式
-│   └── img002.xml
-└── classes.txt         # 类别文件（每行一个类别）
-```
-
-## 📝 格式说明
-
-### VOC 格式 (XML)
-
-```xml
-<annotation>
-  <size>
-    <width>640</width>
-    <height>480</height>
-  </size>
-  <object>
-    <name>cat</name>
-    <bndbox>
-      <xmin>100</xmin>
-      <ymin>150</ymin>
-      <xmax>300</xmax>
-      <ymax>350</ymax>
-    </bndbox>
-  </object>
-</annotation>
-```
-
-### YOLO 格式 (TXT)
-
-```
-0 0.3125 0.5208 0.3125 0.4167
-```
-
-格式：`class_id x_center y_center width height`（所有坐标已归一化）
-
-### Classes 文件
-
-```
-cat
-dog
-person
-car
-```
-
-每行一个类别名称，行号对应类别ID（从0开始）
-
-## 🔧 API 接口
-
-### POST /api/convert
-
-**请求体：**
-
-```json
-{
-  "conversion_type": "voc_to_yolo",
-  "annotations_dir": "/path/to/annotations",
-  "images_dir": "/path/to/images",
-  "output_dir": "/path/to/output",
-  "classes_file": "/path/to/classes.txt"
-}
-```
-
-**响应：**
-
-```json
-{
-  "success": true,
-  "converted": 100,
-  "skipped": 2,
-  "total": 102,
-  "classes": ["cat", "dog", "person"],
-  "errors": []
-}
-```
-
-## ⚠️ 注意事项
-
-1. **路径要求**：请使用绝对路径，确保路径存在且有读写权限
-2. **文件命名**：标注文件名应与图片文件名一致（扩展名除外）
-3. **类别文件**：
-   - VOC→YOLO：可选，不提供时自动生成
-   - YOLO→VOC：必需，确保类别顺序正确
-4. **图片格式**：支持 `.jpg`, `.jpeg`, `.png`, `.bmp`
-5. **输出目录**：如不存在会自动创建
-
-## 🐛 故障排除
-
-### 转换失败
-
-- 检查路径是否正确
-- 确认文件权限
-- 查看错误提示信息
-
-### 找不到图片
-
-- 确保图片文件名与标注文件名匹配
-- 检查图片格式是否支持
-
-### 类别ID错误
-
-- 确认 `classes.txt` 文件格式正确
-- 检查类别顺序是否与训练时一致
-
-## 📄 许可证
-
-MIT License
-
-## 🔧 开发者
-
-### 本地开发
+### 3. 纯启动（不重复安装依赖/不重复构建）
 
 ```bash
-# 克隆仓库
-git clone https://github.com/GGbao8848/self_tools.git
-cd self_tools
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动开发服务器
-python dev_server.py
+./start.sh
 ```
 
-### 发布新版本
+说明：若首次启动且 `.venv` 不存在，`start.sh` 会自动执行一次 bootstrap；后续启动不会重复安装依赖。
+对于 `build_runtime_bundle.sh` 产出的运行包，`start.sh` 在自动 bootstrap 时会跳过前端 npm 安装与构建（直接使用已打包的 `frontend/dist`）。
 
-详细的发布流程请参考 [RELEASE.md](RELEASE.md)
+默认地址：
 
-简要步骤：
+- 首页：`http://localhost:8080`
+- 后端 API：`http://127.0.0.1:5000`
+
+Image Viewer 直链（自动加载目录）：
+
+- `http://<IP>:<前端端口>/image-viewer?path=<图像目录绝对路径>`
+- 兼容别名：`/viewer?path=...`
+- 示例：`http://192.168.1.12:8080/image-viewer?path=/data/images/set01`
+
+端口冲突处理（默认自动避让）：
+
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# 默认 ./start.sh 也会自动寻找可用端口
+./start.sh --auto-port
+
+# 也可手动指定端口
+./start.sh --backend-port 5001 --frontend-port 8081
+
+# 如需冲突即失败（不自动改端口）
+./start.sh --no-auto-port
 ```
 
-GitHub Actions 会自动构建并发布到 Releases。
+需要时可手动重新 bootstrap：
 
-## 🤝 贡献
+```bash
+./start.sh --bootstrap
+```
 
-欢迎提交 Issue 和 Pull Request！
+### 4. 无 Node.js 运行包（部署机器可不安装 Node）
 
----
+在构建机执行：
 
-**提示**：首次使用建议先用少量文件测试，确认转换结果正确后再批量处理。
+```bash
+./scripts/build_runtime_bundle.sh
+# 或
+python3 scripts/build_runtime_bundle.py
+```
+
+生成物位于：
+
+- 目录：`release/self_tools_runtime_<timestamp>/`
+- 压缩包：`release/self_tools_runtime_<timestamp>.tar.gz`
+- 压缩包：`release/self_tools_runtime_<timestamp>.zip`
+
+运行机解压后直接执行：
+
+```bash
+./start.sh
+```
+
+说明：
+
+- 运行包已包含 `frontend/dist`，运行时不依赖 Node.js。
+- 运行包已包含 `wheelhouse/`，首次启动可离线安装 Python 依赖。
+- 启动时会检测 `frontend/dist/cv-tools.html` 是否存在；若缺失会给出友好提示。
+- 若系统默认是 Python 3.13，可指定解释器启动：
+  `SELF_TOOLS_PYTHON=/usr/bin/python3 ./start.sh`
+
+### 5. 停止
+
+在启动终端按 `Ctrl+C`，脚本会自动清理进程。
+
+## 开发测试
+
+### 烟雾测试
+
+```bash
+python3 tests/smoke_test.py
+```
+
+### 核心 API 测试
+
+```bash
+python3 tests/api_core_test.py
+```
+
+### 任务队列能力
+
+- SQLite 持久化任务存储（`data/tasks.db`）
+- 多 worker 并发执行（`SELF_TOOLS_MAX_WORKERS`，默认自动按硬件设置）
+- 失败自动重试（`max_retries` 请求参数）
+- 任务历史追踪（`/api/task/<task_id>/history`）
+- 进度写入节流（默认启用）：
+  `SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS`（默认 `300`）、
+  `SELF_TOOLS_PROGRESS_MIN_DELTA`（默认 `1`）
+
+### 统一并发策略（自动按硬件）
+
+后端工具并发由 `backend/parallelism_config.py` 统一管理，默认会根据 CPU 核心数和任务规模自动选择串行/线程池/进程池，避免小批量任务被过度并行拖慢。
+已覆盖主要长任务工具：`converter/cropper/generator/splitter/deduplicator/matcher/visualizer/augmentor/label_modifier/cleaner/paper_grid_generator`。
+
+- `SELF_TOOLS_RESERVED_CPUS`：预留 CPU 核心数（默认 4 核及以上机器预留 1 核）
+- `SELF_TOOLS_MIN_PARALLEL_ITEMS`：小于该任务量时强制串行（默认 `4`）
+- `SELF_TOOLS_PROCESS_MIN_ITEMS`：达到该任务量后 CPU 型任务优先进程池（默认 `24`）
+- `SELF_TOOLS_MAX_POOL_WORKERS`：线程池/进程池统一上限（默认不限）
+- `SELF_TOOLS_MAX_PROCESS_WORKERS`：进程池上限（默认不限）
+- `SELF_TOOLS_MAX_THREAD_WORKERS`：线程池上限（默认不限）
+- `SELF_TOOLS_FORCE_EXECUTOR`：强制执行器类型（`auto`/`serial`/`thread`/`process`）
+- `SELF_TOOLS_FORCE_WORKERS`：强制线程/进程数量（默认不强制）
+
+### 新功能接入模板（后端）
+
+新增异步工具接口时，建议复用 `backend/routes/utils.py` 中的两个抽象：
+
+- `queue_json_task(...)`：统一参数解析、任务入队、进度回调、完成态收敛
+- `run_with_error_handling(...)`：统一 `ValidationError` 与内部异常响应
+
+可参考 `backend/routes/split.py`、`backend/routes/match.py`、`backend/routes/visualize.py` 的写法。
+
+### 新功能接入模板（前端）
+
+新增工具组件时，建议优先复用以下抽象：
+
+- `useToolTask(...)`：统一任务启动/完成/失败/停止结果收敛
+- `useDatasetPathInference(...)`：统一 `images/annotations/output` 路径自动推断
+- `TaskController`：统一任务进度、暂停/恢复/终止与状态展示
+
+### 工具执行链埋点（前端）
+
+前端统一在 `useTaskRunner` 里上报任务埋点事件：
+
+- `tool_task_started`
+- `tool_task_completed`
+- `tool_task_failed`
+- `tool_task_stopped`
+
+每条事件默认包含 `tool_name`、`task_id`、`duration_ms`（终态事件）等字段。  
+事件会被推入 `window.__SELF_TOOLS_TASK_TELEMETRY__`（最多 200 条），并通过浏览器事件 `self-tools:task-telemetry` 分发，便于外部监控接入。
+
+## 打包发布
+
+推送 `v*` 标签后，GitHub Actions 会自动构建三平台可执行文件并发布到 Releases。
+
+- Windows: `self_tools-windows.exe`
+- macOS: `self_tools-macos`
+- Linux: `self_tools-linux`
+
+详细流程见 `RELEASE.md`。

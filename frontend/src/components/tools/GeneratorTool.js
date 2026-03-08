@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
-import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
+import { generateDataset, scanClasses as scanClassesApi } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
+import useDatasetPathInference from '../../hooks/useDatasetPathInference.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -22,56 +23,31 @@ export default function GeneratorTool() {
     const [selectedClasses, setSelectedClasses] = useState([]);
     const [scanningClasses, setScanningClasses] = useState(false);
 
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
-
-    // Auto-infer paths from imagesDir
-    useEffect(() => {
-        const normalized = normalizePath(imagesDir);
-        if (normalized && !annotationsDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setAnnotationsDir(joinPaths(parentDir, 'annotations'));
-            setOutputDir(joinPaths(parentDir, 'generated_dataset'));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, 'generated_dataset'));
-        }
-    }, [imagesDir]);
-
-    // Auto-infer paths from annotationsDir
-    useEffect(() => {
-        const normalized = normalizePath(annotationsDir);
-        if (normalized && !imagesDir && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setImagesDir(joinPaths(parentDir, 'images'));
-            setOutputDir(joinPaths(parentDir, 'generated_dataset'));
-        } else if (normalized && !outputDir) {
-            const parentDir = getParentDir(normalized) || normalized;
-            setOutputDir(joinPaths(parentDir, 'generated_dataset'));
-        }
-    }, [annotationsDir]);
+    useDatasetPathInference({
+        imagesDir,
+        setImagesDir,
+        annotationsDir,
+        setAnnotationsDir,
+        outputDir,
+        setOutputDir,
+        outputFolderName: 'generated_dataset',
+    });
 
     // Auto-detect classes when annotations dir changes
     useEffect(() => {
         if (annotationsDir) {
-            scanClasses();
+            scanAnnotationClasses();
         }
-    }, [annotationsDir]);
+    }, [annotationsDir, annotationFormat]);
 
-    const scanClasses = async () => {
+    const scanAnnotationClasses = async () => {
         if (!annotationsDir) return;
         setScanningClasses(true);
         try {
-            const response = await fetch('/api/scan-classes', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    annotations_dir: annotationsDir,
-                    is_yolo_format: annotationFormat === 'yolo'
-                }),
+            const data = await scanClassesApi({
+                annotations_dir: annotationsDir,
+                is_yolo_format: annotationFormat === 'yolo'
             });
-            const data = await response.json();
             if (data.success) {
                 setAvailableClasses(data.classes.map(c => c.name));
                 // Default select all
@@ -92,44 +68,21 @@ export default function GeneratorTool() {
         }
     };
 
-    const handleStartTask = async () => {
-        setResult(null);
-
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                annotation_format: annotationFormat,
-                images_dir: imagesDir,
-                annotations_dir: annotationsDir,
-                output_dir: outputDir,
-                classes: selectedClasses,
-                window_width: parseInt(windowWidth),
-                window_height: parseInt(windowHeight),
-                stride_x: parseInt(strideX),
-                stride_y: parseInt(strideY),
-                overlap_threshold: parseInt(overlapThreshold),
-            }),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+    const task = useToolTask({
+        toolName: 'generator',
+        startTask: () => generateDataset({
+            annotation_format: annotationFormat,
+            images_dir: imagesDir,
+            annotations_dir: annotationsDir,
+            output_dir: outputDir,
+            classes: selectedClasses,
+            window_width: parseInt(windowWidth, 10),
+            window_height: parseInt(windowHeight, 10),
+            stride_x: parseInt(strideX, 10),
+            stride_y: parseInt(strideY, 10),
+            overlap_threshold: parseInt(overlapThreshold, 10),
+        }),
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -162,7 +115,7 @@ export default function GeneratorTool() {
                     placeholder: '/path/to/annotations',
                     value: annotationsDir,
                     onChange: (e) => setAnnotationsDir(e.target.value),
-                    onBlur: scanClasses,
+                    onBlur: scanAnnotationClasses,
                 }
             )
         ),
@@ -286,28 +239,24 @@ export default function GeneratorTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(imagesDir && annotationsDir && outputDir)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 生成完成！' : '❌ 生成失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 生成完成！' : '❌ 生成失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', {}, `生成图片数: ${result.total_images || 0}`),
-                    e('div', {}, `生成标注数: ${result.total_annotations || 0}`),
+                    e('div', {}, `生成图片数: ${task.result.total_images || 0}`),
+                    e('div', {}, `生成标注数: ${task.result.total_annotations || 0}`),
                 ),
-                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } }, `输出目录: ${result.output_dir}`)
+                task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } }, `输出目录: ${task.result.output_dir}`)
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

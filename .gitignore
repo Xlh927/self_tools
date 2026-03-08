@@ -67,6 +67,9 @@ backend/data/.DS_Store
 backend/data/todo/
 temp_uploads/
 frontend/.cache/
+frontend/node_modules/
+frontend/dist/
+release/
 
 # PyInstaller
 *.spec.bak

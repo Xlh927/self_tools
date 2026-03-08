@@ -5,11 +5,17 @@ Generates small datasets from large annotated images using sliding windows
 
 import os
 import json
+import concurrent.futures
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Union
 from PIL import Image
 from dataclasses import dataclass
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 # Remove PIL image size limit for large images
 Image.MAX_IMAGE_PIXELS = None
@@ -314,6 +320,140 @@ class DatasetGenerator:
         height = max(0.0, min(1.0, height))
         
         return (annotation.class_id, x_center, y_center, width, height)
+
+    @staticmethod
+    def _process_single_image_task(
+        img_file: Path,
+        annotation_format: str,
+        annotations_dir: str,
+        classes_filter: List[Union[str, int]],
+        class_to_id: Dict[str, int],
+        yolo_classes: List[str],
+        window_width: int,
+        window_height: int,
+        stride_x: int,
+        stride_y: int,
+        overlap_threshold: float,
+        output_images_dir: str,
+        output_labels_dir: str,
+    ) -> Dict:
+        try:
+            generator = DatasetGenerator()
+
+            ann_file = None
+            if annotation_format == 'voc':
+                ann_file = Path(annotations_dir) / f'{img_file.stem}.xml'
+            elif annotation_format == 'yolo':
+                ann_file = Path(annotations_dir) / f'{img_file.stem}.txt'
+            elif annotation_format == 'json':
+                ann_file = Path(annotations_dir) / f'{img_file.stem}.json'
+
+            if not ann_file or not ann_file.exists():
+                return {
+                    'success': True,
+                    'processed': False,
+                    'image_name': img_file.name,
+                    'total_crops': 0,
+                    'crops_with_annotations': 0,
+                    'empty_crops_skipped': 0,
+                    'annotations_extracted': 0,
+                    'classes_found': [],
+                }
+
+            with Image.open(img_file) as img:
+                img_width, img_height = img.size
+
+                annotations = []
+                if annotation_format == 'voc':
+                    class_filter = classes_filter if classes_filter else None
+                    annotations, _ = generator.parser.parse_voc(str(ann_file), class_filter)
+                elif annotation_format == 'yolo':
+                    filter_indices = classes_filter if classes_filter else None
+                    annotations = generator.parser.parse_yolo(
+                        str(ann_file),
+                        img_width,
+                        img_height,
+                        yolo_classes,
+                        filter_indices,
+                    )
+                elif annotation_format == 'json':
+                    class_filter = classes_filter if classes_filter else None
+                    annotations, _ = generator.parser.parse_json(str(ann_file), class_filter)
+
+                classes_found = set()
+                for ann in annotations:
+                    if ann.class_id == -1:
+                        ann.class_id = class_to_id.get(ann.class_name, 0)
+                    classes_found.add(ann.class_name)
+
+                total_crops = 0
+                crops_with_annotations = 0
+                empty_crops_skipped = 0
+                annotations_extracted = 0
+                crop_idx = 0
+
+                for y in range(0, img_height, stride_y):
+                    for x in range(0, img_width, stride_x):
+                        x2 = min(x + window_width, img_width)
+                        y2 = min(y + window_height, img_height)
+
+                        x_start = max(0, x2 - window_width) if x2 == img_width else x
+                        y_start = max(0, y2 - window_height) if y2 == img_height else y
+                        window = (x_start, y_start, x_start + window_width, y_start + window_height)
+
+                        window_annotations = []
+                        for ann in annotations:
+                            overlap = generator.calculate_overlap(ann, window)
+                            if overlap >= overlap_threshold:
+                                yolo_ann = generator.transform_annotation_to_window(
+                                    ann,
+                                    window,
+                                    (window_width, window_height),
+                                )
+                                if yolo_ann:
+                                    window_annotations.append(yolo_ann)
+                                    annotations_extracted += 1
+
+                        if not window_annotations:
+                            empty_crops_skipped += 1
+                            continue
+
+                        crop = img.crop((x_start, y_start, x_start + window_width, y_start + window_height))
+                        crop_name = f'{img_file.stem}_crop_{crop_idx}'
+                        crop_path = os.path.join(output_images_dir, f'{crop_name}.jpg')
+                        crop.save(crop_path, 'JPEG', quality=95)
+
+                        label_path = os.path.join(output_labels_dir, f'{crop_name}.txt')
+                        with open(label_path, 'w') as f:
+                            for class_id, xc, yc, w, h in window_annotations:
+                                f.write(f'{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n')
+
+                        total_crops += 1
+                        crops_with_annotations += 1
+                        crop_idx += 1
+
+            return {
+                'success': True,
+                'processed': True,
+                'image_name': img_file.name,
+                'total_crops': total_crops,
+                'crops_with_annotations': crops_with_annotations,
+                'empty_crops_skipped': empty_crops_skipped,
+                'annotations_extracted': annotations_extracted,
+                'classes_found': sorted(classes_found),
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'processed': False,
+                'image_name': img_file.name,
+                'error': str(e),
+                'total_crops': 0,
+                'crops_with_annotations': 0,
+                'empty_crops_skipped': 0,
+                'annotations_extracted': 0,
+                'classes_found': [],
+            }
     
     def generate_dataset(self, config: Dict, progress_callback=None) -> Dict:
         """
@@ -369,7 +509,6 @@ class DatasetGenerator:
             crops_with_annotations = 0
             empty_crops_skipped = 0
             annotations_extracted = 0
-            classes_found = set()
             
             # Build class mapping
             class_to_id = {}
@@ -395,95 +534,83 @@ class DatasetGenerator:
                 for idx, class_name in enumerate(classes_filter):
                     class_to_id[class_name] = idx
             
-            # Process each image
-            for img_index, img_file in enumerate(image_files, start=1):
-                # Find corresponding annotation file
-                ann_file = None
-                if annotation_format == 'voc':
-                    ann_file = Path(annotations_dir) / f'{img_file.stem}.xml'
-                elif annotation_format == 'yolo':
-                    ann_file = Path(annotations_dir) / f'{img_file.stem}.txt'
-                elif annotation_format == 'json':
-                    ann_file = Path(annotations_dir) / f'{img_file.stem}.json'
-                
-                if not ann_file or not ann_file.exists():
-                    continue
-                
-                # Load image
-                img = Image.open(img_file)
-                img_width, img_height = img.size
-                
-                # Parse annotations
-                annotations = []
-                if annotation_format == 'voc':
-                    annotations, _ = self.parser.parse_voc(str(ann_file), classes_filter if classes_filter else None)
-                elif annotation_format == 'yolo':
-                    all_classes = list(class_to_id.keys())
-                    filter_indices = classes_filter if classes_filter else None
-                    annotations = self.parser.parse_yolo(str(ann_file), img_width, img_height, all_classes, filter_indices)
-                elif annotation_format == 'json':
-                    annotations, _ = self.parser.parse_json(str(ann_file), classes_filter if classes_filter else None)
-                
-                # Assign class IDs if not already assigned
-                for ann in annotations:
-                    if ann.class_id == -1:
-                        ann.class_id = class_to_id.get(ann.class_name, 0)
-                    classes_found.add(ann.class_name)
-                
-                # Slide window across image
-                crop_idx = 0
-                for y in range(0, img_height, stride_y):
-                    for x in range(0, img_width, stride_x):
-                        # Define window
-                        x2 = min(x + window_width, img_width)
-                        y2 = min(y + window_height, img_height)
-                        
-                        # Adjust window to exact size if at edge
-                        if x2 == img_width:
-                            x = max(0, x2 - window_width)
-                        if y2 == img_height:
-                            y = max(0, y2 - window_height)
-                        
-                        window = (x, y, x + window_width, y + window_height)
-                        
-                        # Find annotations in this window
-                        window_annotations = []
-                        for ann in annotations:
-                            overlap = self.calculate_overlap(ann, window)
-                            if overlap >= overlap_threshold:
-                                yolo_ann = self.transform_annotation_to_window(
-                                    ann, window, (window_width, window_height)
-                                )
-                                if yolo_ann:
-                                    window_annotations.append(yolo_ann)
-                                    annotations_extracted += 1
-                        
-                        # Skip if no annotations
-                        if not window_annotations:
-                            empty_crops_skipped += 1
-                            continue
-                        
-                        # Crop image
-                        crop = img.crop((x, y, x + window_width, y + window_height))
-                        
-                        # Save crop
-                        crop_name = f'{img_file.stem}_crop_{crop_idx}'
-                        crop_path = os.path.join(output_images_dir, f'{crop_name}.jpg')
-                        crop.save(crop_path, 'JPEG', quality=95)
-                        
-                        # Save annotations
-                        label_path = os.path.join(output_labels_dir, f'{crop_name}.txt')
-                        with open(label_path, 'w') as f:
-                            for class_id, xc, yc, w, h in window_annotations:
-                                f.write(f'{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n')
-                        
-                        total_crops += 1
-                        crops_with_annotations += 1
-                        crop_idx += 1
-                
-                # Report progress for each image
-                if progress_callback:
-                    progress_callback(img_index, total_images, f"Processed {img_file.name}")
+            yolo_classes = list(class_to_id.keys())
+            classes_found = set()
+            errors = []
+
+            plan = get_executor_plan(total_images, workload='cpu', prefer_process=True)
+            completed_images = 0
+            if plan.kind == 'serial':
+                for img_file in image_files:
+                    result = self._process_single_image_task(
+                        img_file,
+                        annotation_format,
+                        annotations_dir,
+                        classes_filter,
+                        class_to_id,
+                        yolo_classes,
+                        window_width,
+                        window_height,
+                        stride_x,
+                        stride_y,
+                        overlap_threshold,
+                        output_images_dir,
+                        output_labels_dir,
+                    )
+                    completed_images += 1
+
+                    total_crops += result.get('total_crops', 0)
+                    crops_with_annotations += result.get('crops_with_annotations', 0)
+                    empty_crops_skipped += result.get('empty_crops_skipped', 0)
+                    annotations_extracted += result.get('annotations_extracted', 0)
+                    classes_found.update(result.get('classes_found', []))
+                    if not result.get('success'):
+                        errors.append(f"{img_file.name}: {result.get('error', 'unknown error')}")
+
+                    if progress_callback:
+                        progress_callback(completed_images, total_images, f"Processed {img_file.name}")
+            else:
+                executor_cls = (
+                    concurrent.futures.ProcessPoolExecutor
+                    if plan.kind == 'process'
+                    else concurrent.futures.ThreadPoolExecutor
+                )
+                with executor_cls(max_workers=plan.workers) as executor:
+                    future_to_image = {
+                        executor.submit(
+                            self._process_single_image_task,
+                            img_file,
+                            annotation_format,
+                            annotations_dir,
+                            classes_filter,
+                            class_to_id,
+                            yolo_classes,
+                            window_width,
+                            window_height,
+                            stride_x,
+                            stride_y,
+                            overlap_threshold,
+                            output_images_dir,
+                            output_labels_dir,
+                        ): img_file
+                        for img_file in image_files
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_image):
+                        img_file = future_to_image[future]
+                        result = future.result()
+                        completed_images += 1
+
+                        total_crops += result.get('total_crops', 0)
+                        crops_with_annotations += result.get('crops_with_annotations', 0)
+                        empty_crops_skipped += result.get('empty_crops_skipped', 0)
+                        annotations_extracted += result.get('annotations_extracted', 0)
+                        classes_found.update(result.get('classes_found', []))
+                        if not result.get('success'):
+                            errors.append(f"{img_file.name}: {result.get('error', 'unknown error')}")
+
+                        if progress_callback:
+                            progress_callback(completed_images, total_images, f"Processed {img_file.name}")
             
             # Save classes.txt
             if class_to_id:
@@ -499,7 +626,8 @@ class DatasetGenerator:
                 'crops_with_annotations': crops_with_annotations,
                 'empty_crops_skipped': empty_crops_skipped,
                 'annotations_extracted': annotations_extracted,
-                'classes_found': sorted(list(classes_found))
+                'classes_found': sorted(list(classes_found)),
+                'errors': errors,
             }
             
         except Exception as e:

@@ -6,8 +6,14 @@ Split datasets into train/val/test sets with support for VOC and YOLO formats
 import os
 import shutil
 import random
+import concurrent.futures
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
 
 
 class DatasetSplitter:
@@ -15,6 +21,53 @@ class DatasetSplitter:
     
     def __init__(self):
         self.supported_image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']
+
+    @staticmethod
+    def _find_image_file(images_path: Path, basename: str, supported_extensions: List[str]) -> Path:
+        for ext in supported_extensions:
+            lower = images_path / f'{basename}{ext}'
+            if lower.exists():
+                return lower
+            upper = images_path / f'{basename}{ext.upper()}'
+            if upper.exists():
+                return upper
+        return None
+
+    @staticmethod
+    def _copy_single_sample_task(
+        basename: str,
+        images_dir: str,
+        annotations_dir: str,
+        output_images_dir: str,
+        output_labels_dir: str,
+        annotation_ext: str,
+        supported_extensions: List[str],
+    ) -> None:
+        images_path = Path(images_dir)
+        annotations_path = Path(annotations_dir)
+        output_images_path = Path(output_images_dir)
+        output_labels_path = Path(output_labels_dir)
+
+        image_file = DatasetSplitter._find_image_file(images_path, basename, supported_extensions)
+        if image_file:
+            shutil.copy2(image_file, output_images_path / image_file.name)
+
+        annotation_file = annotations_path / f'{basename}{annotation_ext}'
+        if annotation_file.exists():
+            shutil.copy2(annotation_file, output_labels_path / annotation_file.name)
+
+    @staticmethod
+    def _copy_single_background_task(
+        basename: str,
+        images_dir: str,
+        background_output_dir: str,
+        supported_extensions: List[str],
+    ) -> None:
+        images_path = Path(images_dir)
+        output_path = Path(background_output_dir)
+        image_file = DatasetSplitter._find_image_file(images_path, basename, supported_extensions)
+        if image_file:
+            shutil.copy2(image_file, output_path / image_file.name)
     
     def scan_dataset(self, images_dir: str, annotations_dir: str, format_type: str) -> Tuple[List[str], List[str]]:
         """
@@ -110,31 +163,47 @@ class DatasetSplitter:
         labels_dir.mkdir(parents=True, exist_ok=True)
         
         annotation_ext = '.xml' if format_type == 'voc' else '.txt'
-        
-        for idx, basename in enumerate(basenames, start=1):
-            # Find and copy image
-            image_file = None
-            for ext in self.supported_image_extensions:
-                potential_file = images_path / f'{basename}{ext}'
-                if potential_file.exists():
-                    image_file = potential_file
-                    break
-                potential_file = images_path / f'{basename}{ext.upper()}'
-                if potential_file.exists():
-                    image_file = potential_file
-                    break
-            
-            if image_file:
-                shutil.copy2(image_file, images_dir / image_file.name)
-            
-            # Copy annotation
-            annotation_file = annotations_path / f'{basename}{annotation_ext}'
-            if annotation_file.exists():
-                shutil.copy2(annotation_file, labels_dir / annotation_file.name)
-            
-            # Report progress
-            if progress_callback:
-                progress_callback(offset + idx, total, f"Copying {split_name} files...")
+        plan = get_executor_plan(len(basenames), workload='io', prefer_process=False)
+        if plan.kind == 'serial':
+            for idx, basename in enumerate(basenames, start=1):
+                self._copy_single_sample_task(
+                    basename,
+                    str(images_path),
+                    str(annotations_path),
+                    str(images_dir),
+                    str(labels_dir),
+                    annotation_ext,
+                    self.supported_image_extensions,
+                )
+                if progress_callback:
+                    progress_callback(offset + idx, total, f"Copying {split_name} files...")
+        else:
+            executor_cls = (
+                concurrent.futures.ProcessPoolExecutor
+                if plan.kind == 'process'
+                else concurrent.futures.ThreadPoolExecutor
+            )
+            completed = 0
+            with executor_cls(max_workers=plan.workers) as executor:
+                future_to_base = {
+                    executor.submit(
+                        self._copy_single_sample_task,
+                        basename,
+                        str(images_path),
+                        str(annotations_path),
+                        str(images_dir),
+                        str(labels_dir),
+                        annotation_ext,
+                        self.supported_image_extensions,
+                    ): basename
+                    for basename in basenames
+                }
+                for future in concurrent.futures.as_completed(future_to_base):
+                    # Preserve previous behavior: any file-level exception fails split.
+                    future.result()
+                    completed += 1
+                    if progress_callback:
+                        progress_callback(offset + completed, total, f"Copying {split_name} files...")
     
     def copy_background_files(self, basenames: List[str], images_dir: str, output_dir: str):
         """
@@ -148,18 +217,35 @@ class DatasetSplitter:
         images_path = Path(images_dir)
         output_path = Path(output_dir) / 'background' / 'images'
         output_path.mkdir(parents=True, exist_ok=True)
-        
-        for basename in basenames:
-            # Find and copy image
-            for ext in self.supported_image_extensions:
-                image_file = images_path / f'{basename}{ext}'
-                if image_file.exists():
-                    shutil.copy2(image_file, output_path / image_file.name)
-                    break
-                image_file = images_path / f'{basename}{ext.upper()}'
-                if image_file.exists():
-                    shutil.copy2(image_file, output_path / image_file.name)
-                    break
+
+        plan = get_executor_plan(len(basenames), workload='io', prefer_process=False)
+        if plan.kind == 'serial':
+            for basename in basenames:
+                self._copy_single_background_task(
+                    basename,
+                    str(images_path),
+                    str(output_path),
+                    self.supported_image_extensions,
+                )
+        else:
+            executor_cls = (
+                concurrent.futures.ProcessPoolExecutor
+                if plan.kind == 'process'
+                else concurrent.futures.ThreadPoolExecutor
+            )
+            with executor_cls(max_workers=plan.workers) as executor:
+                futures = [
+                    executor.submit(
+                        self._copy_single_background_task,
+                        basename,
+                        str(images_path),
+                        str(output_path),
+                        self.supported_image_extensions,
+                    )
+                    for basename in basenames
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
     
     def split_dataset(self, config: Dict, progress_callback=None) -> Dict:
         """

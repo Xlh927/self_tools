@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
+import { matchImages } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -14,9 +15,17 @@ export default function MatcherTool() {
     const [copyDifference, setCopyDifference] = useState(false);
     const [dryRun, setDryRun] = useState(false);
 
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
+    const task = useToolTask({
+        toolName: 'matcher',
+        startTask: () => matchImages({
+            source_dir: sourceDir,
+            reference_dir: referenceDir,
+            output_dir: outputDir,
+            copy_intersection: copyIntersection,
+            copy_difference: copyDifference,
+            dry_run: dryRun,
+        }),
+    });
 
     // Auto-infer output path
     useEffect(() => {
@@ -26,41 +35,6 @@ export default function MatcherTool() {
             setOutputDir(joinPaths(parentDir, 'matched_images'));
         }
     }, [sourceDir]);
-
-    const handleStartTask = async () => {
-        setResult(null);
-
-        const response = await fetch('/api/match', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                source_dir: sourceDir,
-                reference_dir: referenceDir,
-                output_dir: outputDir,
-                copy_intersection: copyIntersection,
-                copy_difference: copyDifference,
-                dry_run: dryRun,
-            }),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -146,30 +120,26 @@ export default function MatcherTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(sourceDir && referenceDir && outputDir)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', { style: { marginTop: 0 } }, result.success ? '✅ 匹配完成！' : '❌ 匹配失败'),
-            result.success && e('div', {},
+            e('h3', { style: { marginTop: 0 } }, task.result.success ? '✅ 匹配完成！' : '❌ 匹配失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', {}, `扫描总数: ${result.total_scanned}`),
-                    e('div', { style: { color: 'var(--color-info)', fontWeight: 600 } }, `交集匹配: ${result.matched_count}`),
-                    e('div', { style: { color: 'var(--color-warning)', fontWeight: 600 } }, `差集数量: ${result.unmatched_count}`),
+                    e('div', {}, `扫描总数: ${task.result.total_scanned}`),
+                    e('div', { style: { color: 'var(--color-info)', fontWeight: 600 } }, `交集匹配: ${task.result.matched_count}`),
+                    e('div', { style: { color: 'var(--color-warning)', fontWeight: 600 } }, `差集数量: ${task.result.unmatched_count}`),
                 ),
-                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`),
+                task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${task.result.output_dir}`),
                 dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际复制文件')
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

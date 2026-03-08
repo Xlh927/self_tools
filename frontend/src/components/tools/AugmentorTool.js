@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import OptionButtons from '../common/OptionButtons.js';
-import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
+import { augmentDataset } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
+import useDatasetPathInference from '../../hooks/useDatasetPathInference.js';
 
-const { createElement: e, useState: useStateHook, useEffect: useEffectHook, useRef: useRefHook } = React;
+const { createElement: e, useState: useStateHook, useRef: useRefHook } = React;
 
 export default function AugmentorTool() {
     const [imagesDir, setImagesDir] = useState('');
@@ -13,10 +14,6 @@ export default function AugmentorTool() {
     const [outputDir, setOutputDir] = useState('');
     const [annotationFormat, setAnnotationFormat] = useState('yolo');
     const [classesFile, setClassesFile] = useState('');
-
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // Augmentation options
     const [selectedAugmentations, setSelectedAugmentations] = useState({
@@ -33,29 +30,16 @@ export default function AugmentorTool() {
         blur: false,
     });
 
-    // Auto-infer paths from Images Directory
-    useEffect(() => {
-        const normalizedImagesDir = normalizePath(imagesDir);
-        if (normalizedImagesDir && !annotationsDir && !outputDir) {
-            const parentDir = getParentDir(normalizedImagesDir);
-            const guessedParent = parentDir || normalizedImagesDir;
-            setAnnotationsDir(joinPaths(guessedParent, 'annotations'));
-            setOutputDir(joinPaths(guessedParent, 'augmented'));
-        } else if (normalizedImagesDir && !outputDir) {
-            const parentDir = getParentDir(normalizedImagesDir) || normalizedImagesDir;
-            setOutputDir(joinPaths(parentDir, 'augmented'));
-        }
-    }, [imagesDir]);
-
-    // Auto-infer paths from Annotations Directory
-    useEffect(() => {
-        const normalizedAnnotationsDir = normalizePath(annotationsDir);
-        if (normalizedAnnotationsDir && !imagesDir && !outputDir) {
-            const parentDir = getParentDir(normalizedAnnotationsDir) || normalizedAnnotationsDir;
-            setImagesDir(joinPaths(parentDir, 'images'));
-            setOutputDir(joinPaths(parentDir, 'augmented'));
-        }
-    }, [annotationsDir]);
+    useDatasetPathInference({
+        imagesDir,
+        setImagesDir,
+        annotationsDir,
+        setAnnotationsDir,
+        outputDir,
+        setOutputDir,
+        outputFolderName: 'augmented',
+        outputFromAnnotationsMode: 'when_images_empty',
+    });
 
     const toggleAugmentation = (key) => {
         setSelectedAugmentations(prev => ({
@@ -64,48 +48,26 @@ export default function AugmentorTool() {
         }));
     };
 
-    const handleStartTask = async () => {
-        setResult(null);
+    const task = useToolTask({
+        toolName: 'augmentor',
+        startTask: () => {
+            const augmentations = Object.keys(selectedAugmentations)
+                .filter(key => selectedAugmentations[key]);
 
-        // Get selected augmentations
-        const augmentations = Object.keys(selectedAugmentations)
-            .filter(key => selectedAugmentations[key]);
+            if (augmentations.length === 0) {
+                throw new Error('请至少选择一种增强方法');
+            }
 
-        if (augmentations.length === 0) {
-            throw new Error('请至少选择一种增强方法');
-        }
-
-        const response = await fetch('/api/augment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            return augmentDataset({
                 images_dir: imagesDir,
                 annotations_dir: annotationsDir,
                 output_dir: outputDir,
                 annotation_format: annotationFormat,
                 augmentations: augmentations,
                 classes_file: classesFile || undefined,
-            }),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+            });
+        },
+    });
 
     const augmentationOptions = [
         { key: 'hflip', label: '水平翻转', icon: '↔️', category: 'geometric' },
@@ -263,33 +225,29 @@ export default function AugmentorTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(imagesDir && annotationsDir && outputDir && selectedCount > 0)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 增强成功！' : '❌ 增强失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 增强成功！' : '❌ 增强失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', {}, `原始图片: ${result.processed} 张`),
-                    e('div', {}, `增强图片: ${result.generated} 张`),
+                    e('div', {}, `原始图片: ${task.result.processed} 张`),
+                    e('div', {}, `增强图片: ${task.result.generated} 张`),
                 ),
                 e('p', { style: { fontWeight: 'bold', color: 'var(--color-success)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' } },
-                    `总计图片: ${result.total_images} 张 (${Math.round((result.generated / result.processed) * 100)}% 增长)`
+                    `总计图片: ${task.result.total_images} 张 (${Math.round((task.result.generated / task.result.processed) * 100)}% 增长)`
                 ),
-                result.errors && result.errors.length > 0 && e('div', { style: { marginTop: 'var(--spacing-md)', color: 'var(--color-danger)', fontWeight: 600 } },
-                    `⚠️ 警告: ${result.errors.length} 个文件处理失败`
+                task.result.errors && task.result.errors.length > 0 && e('div', { style: { marginTop: 'var(--spacing-md)', color: 'var(--color-danger)', fontWeight: 600 } },
+                    `⚠️ 警告: ${task.result.errors.length} 个文件处理失败`
                 )
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }

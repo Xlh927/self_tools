@@ -8,6 +8,12 @@ import random
 import concurrent.futures
 from PIL import Image
 
+try:
+    from parallelism_config import get_executor_plan
+except Exception:  # pragma: no cover - import path differs by runtime entrypoint
+    from backend.parallelism_config import get_executor_plan
+
+
 class AnnotationVisualizer:
     def __init__(self):
         self.colors = self._generate_colors(100)
@@ -290,12 +296,7 @@ class AnnotationVisualizer:
                                rename_mode='none', rename_content='name'):
         """Process a single image for visualization"""
         try:
-            # Robust image reading
-            # ... (image reading code remains same, omitted for brevity in diff but must be preserved)
-            # Actually I need to be careful with replace_file_content context. 
-            # I will use the surrounding context to target the right place.
-            
-            # ... Image loading ...
+            # Robust image loading with PIL fallback when cv2 decoding fails.
             try:
                 # First try cv2
                 image = cv2.imread(str(img_file))
@@ -445,7 +446,6 @@ class AnnotationVisualizer:
             output_path = output_dir / output_filename
             cv2.imwrite(str(output_path), image)
             return True, None
-            return True, None
             
         except Exception as e:
             return False, f"Error processing {img_file.name}: {str(e)}"
@@ -508,31 +508,13 @@ class AnnotationVisualizer:
         image_files = [f for f in images_dir.iterdir() if f.suffix.lower() in image_extensions]
         total_files = len(image_files)
         
-        # Multi-threading
-        # Use simple ThreadPoolExecutor. 
-        # Note: CV2 is GIL-releasing for heavy ops, but python logic isn't. 
-        # But reading/writing files is IO bound so threads help.
-        import multiprocessing
-        max_workers = min(multiprocessing.cpu_count() * 2, 8) 
-        
         completed_files = 0
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(
-                    self._process_single_image,
-                    img_file, annotations_dir, output_dir, annotation_format,
-                    all_classes, selected_classes, draw_mode, class_colors,
-                    box_thickness, text_size, rename_mode, rename_content
-                ): img_file for img_file in image_files
-            }
-            
-            for future in concurrent.futures.as_completed(futures):
-                # Check for cancellation
+        plan = get_executor_plan(total_files, workload='io', prefer_process=False)
+        if plan.kind == 'serial':
+            for img_file in image_files:
                 if cancel_event and cancel_event.is_set():
-                    executor.shutdown(wait=False, cancel_futures=True)
                     return {
-                        'success': False, 
+                        'success': False,
                         'error': 'Operation cancelled by user',
                         'processed_count': processed_count,
                         'total_classes': len(all_classes),
@@ -540,16 +522,59 @@ class AnnotationVisualizer:
                         'errors': errors
                     }
 
-                success, error_msg = future.result()
+                success, error_msg = self._process_single_image(
+                    img_file, annotations_dir, output_dir, annotation_format,
+                    all_classes, selected_classes, draw_mode, class_colors,
+                    box_thickness, text_size, rename_mode, rename_content
+                )
                 completed_files += 1
-                
+
                 if success:
                     processed_count += 1
                 elif error_msg:
                     errors.append(error_msg)
-                
+
                 if progress_callback:
-                    progress_callback(completed_files, total_files, f"Processed {futures[future].name}")
+                    progress_callback(completed_files, total_files, f"Processed {img_file.name}")
+        else:
+            executor_cls = (
+                concurrent.futures.ProcessPoolExecutor
+                if plan.kind == 'process'
+                else concurrent.futures.ThreadPoolExecutor
+            )
+            with executor_cls(max_workers=plan.workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._process_single_image,
+                        img_file, annotations_dir, output_dir, annotation_format,
+                        all_classes, selected_classes, draw_mode, class_colors,
+                        box_thickness, text_size, rename_mode, rename_content
+                    ): img_file for img_file in image_files
+                }
+
+                for future in concurrent.futures.as_completed(futures):
+                    # Check for cancellation
+                    if cancel_event and cancel_event.is_set():
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        return {
+                            'success': False,
+                            'error': 'Operation cancelled by user',
+                            'processed_count': processed_count,
+                            'total_classes': len(all_classes),
+                            'selected_classes': len(selected_classes),
+                            'errors': errors
+                        }
+
+                    success, error_msg = future.result()
+                    completed_files += 1
+
+                    if success:
+                        processed_count += 1
+                    elif error_msg:
+                        errors.append(error_msg)
+
+                    if progress_callback:
+                        progress_callback(completed_files, total_files, f"Processed {futures[future].name}")
         
         return {
             'success': True,

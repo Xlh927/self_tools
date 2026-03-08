@@ -1,7 +1,10 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint
 
 from modules.cv_tools import DatasetCleaner
-from routes.utils import get_json_body, require_values, error_response
+from routes.utils import (
+    queue_json_task,
+    run_with_error_handling,
+)
 
 
 def create_clean_blueprint(task_manager):
@@ -9,45 +12,31 @@ def create_clean_blueprint(task_manager):
 
     @bp.route('/api/clean-dataset', methods=['POST'])
     def clean_dataset():
-        try:
-            data = get_json_body()
-
-            images_dir = data.get('images_dir')
-            labels_dir = data.get('labels_dir')
-            output_dir = data.get('output_dir')
-            dry_run = data.get('dry_run', False)
-            ok, resp = require_values(data, [
-                ('images_dir', 'Missing required fields: images_dir, labels_dir, or output_dir'),
-                ('labels_dir', 'Missing required fields: images_dir, labels_dir, or output_dir'),
-                ('output_dir', 'Missing required fields: images_dir, labels_dir, or output_dir'),
-            ])
-            if not ok:
-                return resp
-
-            def run_cleaning(task_id, cancel_event, pause_event):
+        def _handle():
+            def _work(data, _task_id, _cancel_event, _pause_event, progress_callback):
                 cleaner = DatasetCleaner()
-                progress_callback = task_manager.make_progress_callback(task_id, cancel_event, pause_event)
-
-                result = cleaner.clean(images_dir, labels_dir, output_dir, dry_run, progress_callback=progress_callback)
-
-                task_manager.finish_task(
-                    task_id,
-                    status='completed',
-                    message='Cleaning completed',
-                    result=result
+                return cleaner.clean(
+                    data['images_dir'],
+                    data['labels_dir'],
+                    data['output_dir'],
+                    data.get('dry_run', False),
+                    progress_callback=progress_callback,
                 )
 
-            task_id = task_manager.start_task(
-                message='Starting cleaning...',
-                run_fn=run_cleaning
+            return queue_json_task(
+                task_manager,
+                parse_kwargs={
+                    'required': ['images_dir', 'labels_dir', 'output_dir'],
+                    'exists': ['images_dir', 'labels_dir'],
+                    'dirs': ['images_dir', 'labels_dir'],
+                    'defaults': {'dry_run': False},
+                },
+                start_message='Starting cleaning...',
+                queued_message='Cleaning task queued',
+                success_message='Cleaning completed',
+                work_fn=_work,
             )
 
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'status': 'started'
-            })
-        except Exception as e:
-            return error_response(str(e), status=500, code='ERR_INTERNAL')
+        return run_with_error_handling(_handle)
 
     return bp

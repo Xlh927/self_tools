@@ -9,10 +9,13 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import urllib.parse
 import json
 
 # Use 127.0.0.1 to avoid IPv6 issues with localhost
-BACKEND_URL = 'http://127.0.0.1:5000'
+BACKEND_HOST = os.getenv('SELF_TOOLS_BACKEND_HOST', '127.0.0.1')
+BACKEND_PORT = int(os.getenv('SELF_TOOLS_BACKEND_PORT', '5000'))
+BACKEND_URL = f'http://{BACKEND_HOST}:{BACKEND_PORT}'
 
 class DevServerHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -31,17 +34,22 @@ class DevServerHandler(SimpleHTTPRequestHandler):
     
     def do_GET(self):
         try:
-            if self.path.startswith('/api/'):
+            parsed = urllib.parse.urlsplit(self.path)
+            request_path = parsed.path or '/'
+
+            if request_path.startswith('/api/'):
                 self.proxy_request()
             else:
+                # Strip query/hash before static file resolution.
+                self.path = request_path
                 # Handle root path - serve landing page
                 if self.path == '/':
                     self.path = '/index.html'
                 # Handle /cv-tools route
                 elif self.path == '/cv-tools':
-                    self.path = '/cv-tools.html'
+                    self.path = '/dist/cv-tools.html'
                 # Handle /image-viewer route
-                elif self.path == '/image-viewer':
+                elif self.path in ('/image-viewer', '/viewer'):
                     self.path = '/image-viewer.html'
                 
                 super().do_GET()
@@ -50,7 +58,8 @@ class DevServerHandler(SimpleHTTPRequestHandler):
             
     def do_POST(self):
         try:
-            if self.path.startswith('/api/'):
+            request_path = urllib.parse.urlsplit(self.path).path or '/'
+            if request_path.startswith('/api/'):
                 self.proxy_request()
             else:
                 self.send_json_error(404, "Not Found")
@@ -95,7 +104,18 @@ class DevServerHandler(SimpleHTTPRequestHandler):
                     if key.lower() != 'transfer-encoding':
                         self.send_header(key, value)
                 self.end_headers()
-                self.wfile.write(response.read())
+                content_type = (response.headers.get('Content-Type') or '').lower()
+                is_sse = content_type.startswith('text/event-stream')
+
+                if is_sse:
+                    while True:
+                        chunk = response.read(1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                else:
+                    self.wfile.write(response.read())
                 
         except urllib.error.HTTPError as e:
             # Forward backend error

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import TaskController from '../common/TaskController.js';
 import ErrorText from '../common/ErrorText.js';
 import { getParentDir, joinPaths, normalizePath } from '../../utils/path.js';
-import { normalizeError } from '../../utils/error.js';
+import { cleanDataset } from '../../api/tools.js';
+import useToolTask from '../../hooks/useToolTask.js';
 
 const { createElement: e, useState: useStateHook, useEffect: useEffectHook } = React;
 
@@ -11,10 +12,6 @@ export default function CleanerTool() {
     const [labelsDir, setLabelsDir] = useState('');
     const [backgroundsDir, setBackgroundsDir] = useState('');
     const [dryRun, setDryRun] = useState(false);
-
-    // Result state
-    const [result, setResult] = useState(null);
-    const [taskId, setTaskId] = useState(null);
 
     // Auto-infer labels and backgrounds paths
     useEffect(() => {
@@ -34,38 +31,15 @@ export default function CleanerTool() {
         }
     }, [imagesDir]);
 
-    const handleStartTask = async () => {
-        setResult(null);
-
-        const response = await fetch('/api/clean-dataset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                images_dir: imagesDir,
-                labels_dir: labelsDir,
-                output_dir: backgroundsDir,
-                dry_run: dryRun,
-            }),
-        });
-
-        const data = await response.json();
-        return data;
-    };
-
-    const handleComplete = (res) => {
-        setResult(res);
-        setTaskId(null);
-    };
-
-    const handleError = (err) => {
-        const normalized = normalizeError(err);
-        setResult({ success: false, ...normalized });
-        setTaskId(null);
-    };
-
-    const handleStop = () => {
-        setTaskId(null);
-    };
+    const task = useToolTask({
+        toolName: 'cleaner',
+        startTask: () => cleanDataset({
+            images_dir: imagesDir,
+            labels_dir: labelsDir,
+            output_dir: backgroundsDir,
+            dry_run: dryRun,
+        }),
+    });
 
     return e('div',
         { style: { display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' } },
@@ -146,31 +120,27 @@ export default function CleanerTool() {
 
         // Task Controller
         e(TaskController, {
-            taskId: taskId,
-            onStart: handleStartTask,
-            onComplete: handleComplete,
-            onError: handleError,
-            onStop: handleStop,
+            ...task.taskControllerProps,
             canStart: !!(imagesDir && labelsDir && backgroundsDir)
         }),
 
         // Result
-        result && e('div',
+        task.result && e('div',
             {
-                className: `result-box ${result.success ? 'success' : 'error'} animate-fade-in-up`,
+                className: `result-box ${task.result.success ? 'success' : 'error'} animate-fade-in-up`,
             },
-            e('h3', {}, result.success ? '✅ 清洗完成！' : '❌ 清洗失败'),
-            result.success && e('div', {},
+            e('h3', {}, task.result.success ? '✅ 清洗完成！' : '❌ 清洗失败'),
+            task.result.success && e('div', {},
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
-                    e('div', {}, `图片总数: ${result.total_count}`),
-                    e('div', {}, `有标注图片: ${result.labeled_count}`),
-                    e('div', {}, `无标注图片: ${result.unlabeled_count}`),
-                    e('div', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, `已移动图片: ${result.moved_count}`),
+                    e('div', {}, `图片总数: ${task.result.total_count}`),
+                    e('div', {}, `有标注图片: ${task.result.labeled_count}`),
+                    e('div', {}, `无标注图片: ${task.result.unlabeled_count}`),
+                    e('div', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, `已移动图片: ${task.result.moved_count}`),
                 ),
-                result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${result.output_dir}`),
+                task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${task.result.output_dir}`),
                 dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际移动文件')
             ),
-            e(ErrorText, { error: result.error, errorCode: result.error_code })
+            e(ErrorText, { error: task.result.error, errorCode: task.result.error_code })
         )
     );
 }
