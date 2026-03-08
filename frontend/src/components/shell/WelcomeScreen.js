@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from '../common/Icon.js';
 
 const { createElement: e } = React;
 
@@ -20,12 +21,20 @@ export default function WelcomeScreen() {
         e('div',
             {
                 style: {
-                    fontSize: '6rem',
+                    width: '112px',
+                    height: '112px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     marginBottom: 'var(--spacing-xl)',
+                    borderRadius: '32px',
+                    background: 'var(--gradient-subtle)',
+                    color: 'var(--text-accent)',
+                    boxShadow: 'var(--shadow-lg)',
                     animation: 'pulse 2s ease-in-out infinite',
                 }
             },
-            '🚀'
+            e(Icon, { name: 'layout-grid', size: 52, strokeWidth: 1.8 })
         ),
         e('h2',
             {
