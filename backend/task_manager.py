@@ -1,11 +1,10 @@
 """
-Persistent task queue with retry, concurrency control and task history.
+Persistent async task runtime with retry, control, and task history.
 """
 
 from __future__ import annotations
 
 import json
-import multiprocessing
 import os
 import queue
 import sqlite3
@@ -14,11 +13,6 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
-
-try:
-    from parallelism_config import default_task_queue_workers
-except Exception:  # pragma: no cover - import path differs by runtime entrypoint
-    from backend.parallelism_config import default_task_queue_workers
 
 TASK_TERMINAL_STATUSES = {"completed", "error", "stopped", "cancelled"}
 TASK_ACTIVE_STATUSES = {"queued", "running", "paused", "retrying"}
@@ -45,7 +39,7 @@ def _from_json(value: Optional[str]) -> Any:
 
 
 class TaskManager:
-    """SQLite-backed in-process task queue."""
+    """SQLite-backed in-process async task runtime."""
 
     def __init__(self, db_path: Optional[str] = None, max_workers: Optional[int] = None):
         root = Path.cwd()
@@ -54,7 +48,6 @@ class TaskManager:
         self.db_path = Path(env_db) if env_db else Path(db_path) if db_path else default_db
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self.max_workers = max(1, int(max_workers if max_workers is not None else default_task_queue_workers()))
         self.retry_backoff_seconds = max(1, int(os.environ.get("SELF_TOOLS_RETRY_BACKOFF", 2)))
         self.progress_min_interval_ms = max(0, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS", 300)))
         self.progress_min_delta = max(0, min(100, int(os.environ.get("SELF_TOOLS_PROGRESS_MIN_DELTA", 1))))
@@ -63,23 +56,17 @@ class TaskManager:
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
 
-        self._queue: "queue.PriorityQueue[tuple[int, float, str]]" = queue.PriorityQueue()
         self._shutdown = threading.Event()
-        self._workers: list[threading.Thread] = []
+        self._runner_threads: Dict[str, threading.Thread] = {}
         self._timers: Dict[str, threading.Timer] = {}
         self._subscribers: Dict[str, set[queue.Queue]] = {}
 
         self._controls: Dict[str, dict] = {}
         self._runners: Dict[str, Callable[[str, threading.Event, threading.Event], None]] = {}
         self._progress_runtime: Dict[str, dict] = {}
-        self._process_name = multiprocessing.current_process().name
 
         self._init_db()
-        # Avoid mutating task lifecycle from multiprocessing child processes
-        # (e.g. ProcessPoolExecutor workers importing backend.app on macOS spawn).
-        if self._process_name == "MainProcess":
-            self._recover_unfinished_tasks()
-            self._start_workers()
+        self._recover_unfinished_tasks()
 
     # -----------------------------
     # DB helpers
@@ -145,12 +132,6 @@ class TaskManager:
     # -----------------------------
     # Lifecycle
     # -----------------------------
-    def _start_workers(self) -> None:
-        for index in range(self.max_workers):
-            worker = threading.Thread(target=self._worker_loop, name=f"task-worker-{index + 1}", daemon=True)
-            worker.start()
-            self._workers.append(worker)
-
     def close(self) -> None:
         self._shutdown.set()
         for timer in list(self._timers.values()):
@@ -158,8 +139,8 @@ class TaskManager:
                 timer.cancel()
             except Exception:
                 pass
-        for worker in self._workers:
-            worker.join(timeout=0.2)
+        for runner in list(self._runner_threads.values()):
+            runner.join(timeout=0.2)
         with self._lock:
             self._conn.close()
 
@@ -289,7 +270,7 @@ class TaskManager:
             priority=priority,
         )
         self._runners[task_id] = run_fn
-        self._enqueue_task(task_id, priority=priority)
+        self._launch_task(task_id)
         return task_id
 
     def update_task(self, task_id: str, **fields) -> None:
@@ -424,7 +405,7 @@ class TaskManager:
 
         if task["status"] == "paused" and task.get("started_at") is None:
             self.update_task(task_id, status="queued", message="Task resumed")
-            self._enqueue_task(task_id, priority=task.get("priority", 100))
+            self._launch_task(task_id)
         else:
             self.update_task(task_id, status="running", message="Task resumed")
         return True
@@ -464,15 +445,36 @@ class TaskManager:
             error_code=None,
             next_run_at=_now(),
         )
-        self._enqueue_task(task_id, priority=task.get("priority", 100))
+        self._launch_task(task_id)
         return True
 
     # -----------------------------
-    # Queue worker internals
+    # Async runtime internals
     # -----------------------------
-    def _enqueue_task(self, task_id: str, *, priority: int) -> None:
-        self._queue.put((int(priority), _now(), task_id))
-        self._log_event(task_id, event_type="enqueued", status="queued", message="Task enqueued")
+    def _launch_task(self, task_id: str) -> None:
+        with self._lock:
+            existing = self._runner_threads.get(task_id)
+            if existing and existing.is_alive():
+                return
+            runner = threading.Thread(
+                target=self._run_task_wrapper,
+                args=(task_id,),
+                name=f"task-runner-{task_id[:8]}",
+                daemon=True,
+            )
+            self._runner_threads[task_id] = runner
+
+        self._log_event(task_id, event_type="scheduled", status="queued", message="Task scheduled")
+        runner.start()
+
+    def _run_task_wrapper(self, task_id: str) -> None:
+        try:
+            self._run_task(task_id)
+        finally:
+            with self._lock:
+                current = self._runner_threads.get(task_id)
+                if current is threading.current_thread():
+                    self._runner_threads.pop(task_id, None)
 
     def _schedule_retry(self, task_id: str, delay: int, priority: int) -> None:
         def _enqueue():
@@ -481,23 +483,12 @@ class TaskManager:
             if not task or task["status"] != "retrying":
                 return
             self.update_task(task_id, status="queued", message="Retry queued", next_run_at=_now())
-            self._enqueue_task(task_id, priority=priority)
+            self._launch_task(task_id)
 
         timer = threading.Timer(delay, _enqueue)
         timer.daemon = True
         self._timers[task_id] = timer
         timer.start()
-
-    def _worker_loop(self) -> None:
-        while not self._shutdown.is_set():
-            try:
-                _, _, task_id = self._queue.get(timeout=0.2)
-            except queue.Empty:
-                continue
-            try:
-                self._run_task(task_id)
-            finally:
-                self._queue.task_done()
 
     def _run_task(self, task_id: str) -> None:
         runner = self._runners.get(task_id)
@@ -593,7 +584,7 @@ class TaskManager:
                 raise Exception("Operation cancelled by user")
             self.wait_if_paused(task_id, pause_event, cancel_event)
             if total > 0:
-                progress = int((current / total) * 100)
+                progress = min(99, int((current / total) * 100))
                 runtime = self._progress_runtime.setdefault(
                     task_id,
                     {"last_progress": None, "last_emit_at": 0.0},

@@ -72,22 +72,6 @@ git push origin --tags
    - `self_tools-macos`
    - `self_tools-linux`
 
-## 本地测试打包
-
-在推送标签前，可以本地测试打包：
-
-```bash
-# 安装 PyInstaller
-pip install pyinstaller
-
-# 运行打包
-pyinstaller build.spec
-
-# 测试生成的可执行文件
-./dist/self_tools  # macOS/Linux
-dist\self_tools.exe  # Windows
-```
-
 ## 预发布版本
 
 如果要创建测试版本：
@@ -118,20 +102,16 @@ git push origin :refs/tags/v1.0.0
 
 1. 检查 Actions 日志查看错误信息
 2. 确认 `requirements.txt` 中的依赖版本兼容
-3. 验证 `build.spec` 配置正确
 
 ### 文件缺失
 
 如果打包后缺少文件：
-1. 检查 `build.spec` 中的 `datas` 配置
-2. 确保所有资源文件都被包含
+1. 确保所有资源文件都被包含
 
 ### 运行时错误
 
 如果可执行文件无法运行：
-1. 检查 `hiddenimports` 是否包含所有必要的模块
-2. 在本地使用 PyInstaller 测试
-3. 查看控制台输出的错误信息
+1. 查看控制台输出的错误信息
 
 ## 回滚版本
 

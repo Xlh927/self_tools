@@ -106,9 +106,14 @@ def parse_args_request(*, required: Optional[Iterable[str]] = None, defaults: Op
     return data
 
 
-def task_queued_response(task_id: str, message: str = "Task queued"):
+def task_queued_response(task_manager, task_id: str, queued_message: str = "Task queued", running_message: Optional[str] = None):
+    task = task_manager.get_task(task_id) or {}
+    status = task.get("status") or "queued"
+    message = queued_message
+    if status == "running" and running_message:
+        message = running_message
     return success_response(
-        data={"task_id": task_id, "status": "queued"},
+        data={"task_id": task_id, "status": status},
         message=message,
         status=202,
     )
@@ -195,7 +200,12 @@ def queue_json_task(
         max_retries=data.get("max_retries", 1),
         priority=priority,
     )
-    return task_queued_response(task_id, message=queued_message)
+    return task_queued_response(
+        task_manager,
+        task_id,
+        queued_message=queued_message,
+        running_message=start_message,
+    )
 
 
 def handle_validation_error(exc: ValidationError):

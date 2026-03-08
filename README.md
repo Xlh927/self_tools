@@ -69,17 +69,14 @@ Image Viewer 直链（自动加载目录）：
 - 兼容别名：`/viewer?path=...`
 - 示例：`http://192.168.1.12:8080/image-viewer?path=/data/images/set01`
 
-端口冲突处理（默认自动避让）：
+端口冲突处理：
 
 ```bash
-# 默认 ./start.sh 也会自动寻找可用端口
-./start.sh --auto-port
-
-# 也可手动指定端口
+# 手动指定端口
 ./start.sh --backend-port 5001 --frontend-port 8081
 
-# 如需冲突即失败（不自动改端口）
-./start.sh --no-auto-port
+# 如默认端口被占用，启动会直接失败并提示你改用其他端口
+./start.sh
 ```
 
 需要时可手动重新 bootstrap：
@@ -139,32 +136,23 @@ python3 tests/api_core_test.py
 ### 任务队列能力
 
 - SQLite 持久化任务存储（`data/tasks.db`）
-- 多 worker 并发执行（`SELF_TOOLS_MAX_WORKERS`，默认自动按硬件设置）
+- 单任务独立线程异步执行（无 worker 池排队机制）
 - 失败自动重试（`max_retries` 请求参数）
 - 任务历史追踪（`/api/task/<task_id>/history`）
 - 进度写入节流（默认启用）：
   `SELF_TOOLS_PROGRESS_MIN_INTERVAL_MS`（默认 `300`）、
   `SELF_TOOLS_PROGRESS_MIN_DELTA`（默认 `1`）
 
-### 统一并发策略（自动按硬件）
+### 统一执行策略（固定串行）
 
-后端工具并发由 `backend/parallelism_config.py` 统一管理，默认会根据 CPU 核心数和任务规模自动选择串行/线程池/进程池，避免小批量任务被过度并行拖慢。
+后端工具执行由 `backend/parallelism_config.py` 统一管理，当前固定为串行执行，不再启用线程池/进程池 worker。
 已覆盖主要长任务工具：`converter/cropper/generator/splitter/deduplicator/matcher/visualizer/augmentor/label_modifier/cleaner/paper_grid_generator`。
-
-- `SELF_TOOLS_RESERVED_CPUS`：预留 CPU 核心数（默认 4 核及以上机器预留 1 核）
-- `SELF_TOOLS_MIN_PARALLEL_ITEMS`：小于该任务量时强制串行（默认 `4`）
-- `SELF_TOOLS_PROCESS_MIN_ITEMS`：达到该任务量后 CPU 型任务优先进程池（默认 `24`）
-- `SELF_TOOLS_MAX_POOL_WORKERS`：线程池/进程池统一上限（默认不限）
-- `SELF_TOOLS_MAX_PROCESS_WORKERS`：进程池上限（默认不限）
-- `SELF_TOOLS_MAX_THREAD_WORKERS`：线程池上限（默认不限）
-- `SELF_TOOLS_FORCE_EXECUTOR`：强制执行器类型（`auto`/`serial`/`thread`/`process`）
-- `SELF_TOOLS_FORCE_WORKERS`：强制线程/进程数量（默认不强制）
 
 ### 新功能接入模板（后端）
 
 新增异步工具接口时，建议复用 `backend/routes/utils.py` 中的两个抽象：
 
-- `queue_json_task(...)`：统一参数解析、任务入队、进度回调、完成态收敛
+- `queue_json_task(...)`：统一参数解析、任务启动、进度回调、完成态收敛
 - `run_with_error_handling(...)`：统一 `ValidationError` 与内部异常响应
 
 可参考 `backend/routes/split.py`、`backend/routes/match.py`、`backend/routes/visualize.py` 的写法。

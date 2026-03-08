@@ -136,7 +136,7 @@ export default function TaskController({
                 status === 'paused'
                     ? `⏸️ 已暂停 - ${message}`
                     : status === 'queued'
-                        ? `🕒 排队中 - ${message || 'Waiting for worker'}`
+                        ? `🕒 启动中 - ${message || 'Starting task'}`
                         : status === 'retrying'
                             ? `🔁 重试中 - ${message}`
                             : formatError(message, errorCode),
@@ -178,7 +178,7 @@ export default function TaskController({
                         borderRadius: 'var(--radius-md)'
                     }
                 },
-                '等待可用 worker...'
+                '任务启动中...'
             ),
             status === 'paused' && e('button',
                 {

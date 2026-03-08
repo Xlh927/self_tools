@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=self_tools
-Comment=Start self_tools
-Exec=/bin/bash -lc '"/media/qzq/4t/AAA_myproject/self_tools/start_desktop.sh"'
-Icon=/media/qzq/4t/AAA_myproject/self_tools/frontend/assets/self_tools_icon.svg
-Terminal=false
-Type=Application
-Categories=Development;

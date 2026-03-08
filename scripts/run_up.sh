@@ -8,7 +8,6 @@ DIST_ENTRY="$ROOT_DIR/frontend/dist/cv-tools.html"
 
 BACKEND_PORT="${SELF_TOOLS_BACKEND_PORT:-5000}"
 FRONTEND_PORT="${SELF_TOOLS_FRONTEND_PORT:-8080}"
-AUTO_PORT="${SELF_TOOLS_AUTO_PORT:-1}"
 BACKEND_PID=""
 FRONTEND_PID=""
 
@@ -19,8 +18,6 @@ Usage: ./scripts/run_up.sh [options]
 Options:
   --backend-port <port>   Backend port (default: 5000)
   --frontend-port <port>  Frontend port (default: 8080)
-  --auto-port             Auto-find next available port when conflict occurs (default)
-  --no-auto-port          Fail on port conflict instead of auto-switching
   -h, --help              Show this help
 EOF
 }
@@ -43,20 +40,6 @@ result = sock.connect_ex(("127.0.0.1", port))
 sock.close()
 sys.exit(0 if result == 0 else 1)
 PY
-}
-
-find_next_free_port() {
-  local start="$1"
-  local port="$start"
-  local limit=$((start + 200))
-  while [ "$port" -le "$limit" ]; do
-    if ! port_in_use "$port"; then
-      echo "$port"
-      return 0
-    fi
-    port=$((port + 1))
-  done
-  return 1
 }
 
 wait_for_backend_ready() {
@@ -101,12 +84,6 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -gt 0 ] || { echo "Missing value for --frontend-port"; exit 1; }
       FRONTEND_PORT="$1"
       ;;
-    --auto-port)
-      AUTO_PORT=1
-      ;;
-    --no-auto-port)
-      AUTO_PORT=0
-      ;;
     -h|--help)
       print_usage
       exit 0
@@ -149,55 +126,17 @@ if [ ! -f "$DIST_ENTRY" ]; then
 fi
 
 if port_in_use "$BACKEND_PORT"; then
-  if [ "$AUTO_PORT" = "1" ]; then
-    next_port="$(find_next_free_port "$BACKEND_PORT")" || {
-      echo "No available backend port found near $BACKEND_PORT"
-      exit 1
-    }
-    echo "Backend port $BACKEND_PORT is occupied by $(print_port_owner "$BACKEND_PORT")."
-    echo "Auto-selected backend port: $next_port"
-    BACKEND_PORT="$next_port"
-  else
-    echo "Backend port $BACKEND_PORT is occupied by $(print_port_owner "$BACKEND_PORT")."
-    echo "Use another port, for example:"
-    echo "  ./start.sh --backend-port 5001 --frontend-port $FRONTEND_PORT"
-    echo "Or auto-select ports:"
-    echo "  ./start.sh --auto-port"
-    exit 1
-  fi
+  echo "Backend port $BACKEND_PORT is occupied by $(print_port_owner "$BACKEND_PORT")."
+  echo "Use another port, for example:"
+  echo "  ./start.sh --backend-port 5001 --frontend-port $FRONTEND_PORT"
+  exit 1
 fi
 
 if port_in_use "$FRONTEND_PORT"; then
-  if [ "$AUTO_PORT" = "1" ]; then
-    next_port="$(find_next_free_port "$FRONTEND_PORT")" || {
-      echo "No available frontend port found near $FRONTEND_PORT"
-      exit 1
-    }
-    echo "Frontend port $FRONTEND_PORT is occupied by $(print_port_owner "$FRONTEND_PORT")."
-    echo "Auto-selected frontend port: $next_port"
-    FRONTEND_PORT="$next_port"
-  else
-    echo "Frontend port $FRONTEND_PORT is occupied by $(print_port_owner "$FRONTEND_PORT")."
-    echo "Use another port, for example:"
-    echo "  ./start.sh --backend-port $BACKEND_PORT --frontend-port 8081"
-    echo "Or auto-select ports:"
-    echo "  ./start.sh --auto-port"
-    exit 1
-  fi
-fi
-
-# Auto-port mode could pick equal values after conflict handling.
-if [ "$BACKEND_PORT" = "$FRONTEND_PORT" ]; then
-  if [ "$AUTO_PORT" = "1" ]; then
-    next_port="$(find_next_free_port "$FRONTEND_PORT")" || {
-      echo "No available frontend port found near $FRONTEND_PORT"
-      exit 1
-    }
-    FRONTEND_PORT="$next_port"
-  else
-    echo "Backend and frontend ports conflict after resolution."
-    exit 1
-  fi
+  echo "Frontend port $FRONTEND_PORT is occupied by $(print_port_owner "$FRONTEND_PORT")."
+  echo "Use another port, for example:"
+  echo "  ./start.sh --backend-port $BACKEND_PORT --frontend-port 8081"
+  exit 1
 fi
 
 cleanup() {
