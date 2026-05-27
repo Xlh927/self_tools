@@ -3,6 +3,24 @@ import OptionButtons from '../common/OptionButtons.js';
 
 const { createElement: e } = React;
 
+export function inferDataYamlRunFields(value, mode) {
+    const match = value.match(/^(.*)\/datasets?\/(.+)$/);
+    if (!match) return null;
+
+    const [, basePath, dataPath] = match;
+    const suffixByMode = {
+        val: 'runs/val',
+        predict: 'runs/predict',
+    };
+    const fileNameWithExt = dataPath.split('/').pop() || '';
+    const fileName = fileNameWithExt.replace(/\.ya?ml$/i, '');
+
+    return {
+        project: `${basePath}/${suffixByMode[mode] || 'runs/train'}`,
+        name: fileName,
+    };
+}
+
 export default function SlurmGeneratorTool() {
     const groupStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
     const labelStyle = { fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' };
@@ -21,7 +39,7 @@ export default function SlurmGeneratorTool() {
     const [epochs, setEpochs] = useState(200);
     const [imgsz, setImgsz] = useState(800);
     const [batch, setBatch] = useState(24);
-    const [cache, setCache] = useState(true);  // New cache parameter
+    const [cache, setCache] = useState('disk');
     const [workers, setWorkers] = useState(4); // New workers parameter
     const [project, setProject] = useState('/runs/train');
     const [name, setName] = useState('baseline');
@@ -60,7 +78,7 @@ export default function SlurmGeneratorTool() {
             if (imgsz) cmd += ` imgsz=${imgsz}`;
             if (batch) cmd += ` batch=${batch}`;
             if (workers) cmd += ` workers=${workers}`;
-            if (cache) cmd += ` cache=True`;
+            if (cache) cmd += ` cache=${cache}`;
             if (project) cmd += ` project="${project}"`;
             if (name) cmd += ` name="${name}"`;
         } else if (mode === 'val') {
@@ -158,23 +176,10 @@ export default function SlurmGeneratorTool() {
         const val = e.target.value;
         setData(val);
 
-        // Auto-populate Project and Name if path contains '/dataset/'
-        if (val && val.includes('/dataset/')) {
-            // Extract base path (content before /dataset/)
-            const parts = val.split('/dataset/');
-            const basePath = parts[0];
-
-            // Determine suffix based on mode
-            let suffix = 'runs/train';
-            if (mode === 'val') suffix = 'runs/val';
-            else if (mode === 'predict') suffix = 'runs/predict';
-
-            setProject(`${basePath}/${suffix}`);
-
-            // Extract filename for Name field (dataset + _ + filename)
-            const fileNameWithExt = val.split('/').pop();
-            const fileName = fileNameWithExt.replace('.yaml', '').replace('.yml', '');
-            setName(fileName);
+        const inferredFields = inferDataYamlRunFields(val, mode);
+        if (inferredFields) {
+            setProject(inferredFields.project);
+            setName(inferredFields.name);
         }
     };
 
@@ -301,19 +306,6 @@ export default function SlurmGeneratorTool() {
                         onChange: (e) => setWorkers(e.target.value),
                         placeholder: '4',
                         style: inputStyle
-                    })
-                ),
-                // Cache (Train only)
-                mode === 'train' && e('div', { style: groupStyle },
-                    e('label', { style: labelStyle }, '缓存数据 (Cache)'),
-                    e(OptionButtons, {
-                        options: [
-                            { value: true, label: 'True' },
-                            { value: false, label: 'False' }
-                        ],
-                        value: cache,
-                        onChange: setCache,
-                        ariaLabel: '缓存数据'
                     })
                 ),
                 // Name
@@ -572,6 +564,21 @@ export default function SlurmGeneratorTool() {
                     })
                 )
             ]))),
+
+            // Cache (Full Width) - Third row from the bottom in Train mode
+            mode === 'train' && e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
+                e('label', { style: labelStyle }, '缓存数据 (Cache)'),
+                e(OptionButtons, {
+                    options: [
+                        { value: 'disk', label: 'Disk' },
+                        { value: 'True', label: 'True' },
+                        { value: 'False', label: 'False' }
+                    ],
+                    value: cache,
+                    onChange: setCache,
+                    ariaLabel: '缓存数据'
+                })
+            ),
 
             // Project Path (Full Width) - For Train, Val, Predict
             (mode !== 'export' && mode !== 'subfp') && e('div', { style: { ...groupStyle, gridColumn: '1 / -1' } },
