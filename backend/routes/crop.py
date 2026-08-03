@@ -26,8 +26,19 @@ def create_crop_blueprint(task_manager):
                 overlap_x = data['overlap_x']
                 overlap_y = data['overlap_y']
                 overlap_ratio = data['overlap_ratio']
+                labeled_crop_mode = data['labeled_crop_mode']
+                minvis = data['minvis']
 
-                if crop_mode == 'fixed':
+                has_annotations = bool(annotations_dir and os.path.exists(annotations_dir))
+
+                if has_annotations:
+                    if labeled_crop_mode not in ('sliding', 'target_center'):
+                        raise ValidationError('Invalid labeled crop mode', code='ERR_INVALID_FIELD')
+                    if overlap_ratio < 0 or overlap_ratio > 1:
+                        raise ValidationError('Overlap ratio must be between 0 and 1', code='ERR_INVALID_FIELD')
+                    if minvis < 0 or minvis > 1:
+                        raise ValidationError('Min visible ratio must be between 0 and 1', code='ERR_INVALID_FIELD')
+                elif crop_mode == 'fixed':
                     if window_width <= 0 or window_height <= 0:
                         raise ValidationError('Window size must be positive', code='ERR_INVALID_FIELD')
                     if overlap_x < 0 or overlap_y < 0:
@@ -39,29 +50,29 @@ def create_crop_blueprint(task_manager):
                         raise ValidationError('Overlap ratio must be between 0 and 1', code='ERR_INVALID_FIELD')
 
                 cropper = ImageCropper()
-                if annotations_dir and os.path.exists(annotations_dir):
+                if has_annotations:
                     generator = DatasetGenerator()
 
-                    annotation_format = 'voc'
-                    if any(f.endswith('.xml') for f in os.listdir(annotations_dir)):
+                    annotation_files = os.listdir(annotations_dir)
+                    annotation_format = None
+                    if any(f.lower().endswith('.xml') for f in annotation_files):
                         annotation_format = 'voc'
-                    elif any(f.endswith('.txt') for f in os.listdir(annotations_dir)):
+                    elif any(f.lower().endswith('.txt') for f in annotation_files if f.lower() != 'classes.txt'):
                         annotation_format = 'yolo'
-                    elif any(f.endswith('.json') for f in os.listdir(annotations_dir)):
-                        annotation_format = 'json'
+                    if annotation_format is None:
+                        raise ValidationError('Only YOLO txt and VOC xml annotations are supported', code='ERR_INVALID_FIELD')
 
-                    stride_x = window_width - overlap_x
-                    stride_y = window_height - overlap_y
                     gen_config = {
                         'annotation_format': annotation_format,
                         'images_dir': input_path if mode == 'folder' else os.path.dirname(input_path),
+                        'input_image_path': input_path if mode == 'single' else None,
                         'annotations_dir': annotations_dir,
                         'output_dir': output_dir,
-                        'window_width': window_width,
-                        'window_height': window_height,
-                        'stride_x': stride_x,
-                        'stride_y': stride_y,
-                        'overlap_threshold': 0,
+                        'adaptive_window': True,
+                        'labeled_crop_mode': labeled_crop_mode,
+                        'overlap_ratio': overlap_ratio,
+                        'minvis': minvis,
+                        'preserve_annotation_format': True,
                     }
                     return generator.generate_dataset(gen_config, progress_callback=progress_callback)
 
@@ -117,6 +128,8 @@ def create_crop_blueprint(task_manager):
                         'overlap_x': 512,
                         'overlap_y': 512,
                         'overlap_ratio': 0.3,
+                        'labeled_crop_mode': 'sliding',
+                        'minvis': 0.3,
                     },
                     'coerce': {
                         'window_width': int,
@@ -124,6 +137,7 @@ def create_crop_blueprint(task_manager):
                         'overlap_x': int,
                         'overlap_y': int,
                         'overlap_ratio': float,
+                        'minvis': float,
                     },
                 },
                 start_message='Starting cropping...',

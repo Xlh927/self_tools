@@ -19,6 +19,9 @@ export default function CropperTool() {
     const [overlapX, setOverlapX] = useState(512);
     const [overlapY, setOverlapY] = useState(512);
     const [overlapRatio, setOverlapRatio] = useState(0.3); // For adaptive mode
+    const [labeledCropMode, setLabeledCropMode] = useState('sliding');
+    const [minvis, setMinvis] = useState(0.3);
+    const hasAnnotations = !!annotationsDir.trim();
 
     // Auto-infer output path
     useEffect(() => {
@@ -51,6 +54,8 @@ export default function CropperTool() {
             overlap_x: parseInt(overlapX, 10),
             overlap_y: parseInt(overlapY, 10),
             overlap_ratio: parseFloat(overlapRatio),
+            labeled_crop_mode: labeledCropMode,
+            minvis: parseFloat(minvis),
         }),
     });
 
@@ -72,7 +77,7 @@ export default function CropperTool() {
         ),
 
         // Crop Mode
-        e('div', { className: 'input-group' },
+        !hasAnnotations && e('div', { className: 'input-group' },
             e('label', { className: 'input-label' }, '裁剪模式'),
             e(OptionButtons, {
                 options: [
@@ -131,6 +136,33 @@ export default function CropperTool() {
             )
         ),
 
+        hasAnnotations && e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' }, '带标注切图模式'),
+            e(OptionButtons, {
+                options: [
+                    { value: 'sliding', label: '普通滑窗' },
+                    { value: 'target_center', label: '目标中心滑窗' }
+                ],
+                value: labeledCropMode,
+                onChange: setLabeledCropMode,
+                ariaLabel: '带标注切图模式'
+            }),
+            e('div', {
+                className: 'info-box',
+                style: {
+                    marginTop: 'var(--spacing-xs)',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-tertiary)',
+                    background: 'var(--color-success-bg)',
+                    borderColor: 'var(--color-success)',
+                    padding: 'var(--spacing-sm)',
+                    borderWidth: '1px'
+                }
+            }, labeledCropMode === 'sliding'
+                ? '使用图像高度作为方形边长，从左到右滑窗，保留背景图'
+                : '以目标框中心对齐窗口，只沿横向左右滑动')
+        ),
+
         // Output Directory
         e('div', { className: 'input-group' },
             e('label', { className: 'input-label' },
@@ -149,15 +181,15 @@ export default function CropperTool() {
         ),
 
         // Adaptive Mode Parameters
-        cropMode === 'adaptive' && e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
-            e('h4', { style: { marginTop: 0, color: 'var(--neon-green)' } }, '🎯 自适应参数'),
+        (cropMode === 'adaptive' || hasAnnotations) && e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
+            e('h4', { style: { marginTop: 0, color: 'var(--neon-green)' } }, hasAnnotations ? '带标注参数' : '🎯 自适应参数'),
             e('div', { className: 'input-group', style: { marginBottom: 0 } },
                 e('label', { className: 'input-label' }, '重叠比例'),
                 e('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' } },
                     e('input', {
                         type: 'range',
-                        min: 0.1,
-                        max: 0.5,
+                        min: hasAnnotations ? 0 : 0.1,
+                        max: hasAnnotations ? 1 : 0.5,
                         step: 0.05,
                         value: overlapRatio,
                         onChange: (ev) => setOverlapRatio(ev.target.value),
@@ -168,13 +200,32 @@ export default function CropperTool() {
                     )
                 )
             ),
+            hasAnnotations && e('div', { className: 'input-group', style: { marginTop: 'var(--spacing-sm)', marginBottom: 0 } },
+                e('label', { className: 'input-label' }, 'minvis'),
+                e('div', { style: { display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' } },
+                    e('input', {
+                        type: 'range',
+                        min: 0,
+                        max: 1,
+                        step: 0.05,
+                        value: minvis,
+                        onChange: (ev) => setMinvis(ev.target.value),
+                        style: { flex: 1 }
+                    }),
+                    e('span', { style: { minWidth: '50px', textAlign: 'right', fontWeight: 'bold', color: 'var(--neon-green)' } },
+                        `${Math.round(minvis * 100)}%`
+                    )
+                )
+            ),
             e('div', { style: { marginTop: 'var(--spacing-sm)', fontSize: '0.85rem', color: 'var(--text-tertiary)' } },
-                '边长 = 图像高度，重叠 = 边长 × 重叠比例'
+                hasAnnotations
+                    ? '边长 = 图像高度，minvis = 标注框可见面积 / 原始标注框面积'
+                    : '边长 = 图像高度，重叠 = 边长 × 重叠比例'
             )
         ),
 
         // Fixed Mode Parameters Grid
-        cropMode === 'fixed' && e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
+        !hasAnnotations && cropMode === 'fixed' && e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' } },
             // Window Size
             e('div', { className: 'glass-card', style: { padding: 'var(--spacing-md)' } },
                 e('h4', { style: { marginTop: 0, color: 'var(--neon-blue)' } }, '窗口大小'),
@@ -214,7 +265,7 @@ export default function CropperTool() {
         ),
 
         // Visual Preview
-        cropMode === 'fixed' && e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
+        !hasAnnotations && cropMode === 'fixed' && e('div', { className: 'glass-card', style: { background: 'rgba(0,0,0,0.2)', padding: 'var(--spacing-sm)' } },
             e('div', { style: { display: 'flex', justifyContent: 'space-around', fontSize: '0.9rem' } },
                 e('span', {}, `步长: ${windowWidth - overlapX} × ${windowHeight - overlapY} px`),
                 e('span', {}, `有效区域: ${(windowWidth - overlapX) * (windowHeight - overlapY)} px²`)

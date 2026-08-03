@@ -322,6 +322,164 @@ class DatasetGenerator:
         return (annotation.class_id, x_center, y_center, width, height)
 
     @staticmethod
+    def _clamp_window_start(start: int, image_size: int, window_size: int) -> int:
+        return max(0, min(start, max(0, image_size - window_size)))
+
+    @staticmethod
+    def _annotation_center(annotation: Annotation) -> Tuple[float, float]:
+        xmin, ymin, xmax, ymax = annotation.bbox
+        return ((xmin + xmax) / 2, (ymin + ymax) / 2)
+
+    def _clip_annotation_to_window(
+        self,
+        annotation: Annotation,
+        window: Tuple[int, int, int, int],
+        minvis: float,
+    ) -> Optional[Annotation]:
+        if self.calculate_overlap(annotation, window) < minvis:
+            return None
+
+        wx, wy, wx2, wy2 = window
+        xmin, ymin, xmax, ymax = annotation.bbox
+        clipped_xmin = max(wx, xmin)
+        clipped_ymin = max(wy, ymin)
+        clipped_xmax = min(wx2, xmax)
+        clipped_ymax = min(wy2, ymax)
+
+        if clipped_xmax <= clipped_xmin or clipped_ymax <= clipped_ymin:
+            return None
+
+        return Annotation(
+            class_id=annotation.class_id,
+            class_name=annotation.class_name,
+            bbox=(
+                clipped_xmin - wx,
+                clipped_ymin - wy,
+                clipped_xmax - wx,
+                clipped_ymax - wy,
+            ),
+        )
+
+    def _annotations_for_window(
+        self,
+        annotations: List[Annotation],
+        window: Tuple[int, int, int, int],
+        minvis: float,
+    ) -> List[Annotation]:
+        clipped = []
+        for ann in annotations:
+            clipped_ann = self._clip_annotation_to_window(ann, window, minvis)
+            if clipped_ann:
+                clipped.append(clipped_ann)
+        return clipped
+
+    def _generate_sliding_windows(self, img_width: int, img_height: int, side_length: int, stride: int) -> List[Tuple[int, int, int, int]]:
+        windows = []
+        cropped_regions = set()
+        for y in range(0, img_height, stride):
+            y_start = self._clamp_window_start(y, img_height, side_length)
+            for x in range(0, img_width, stride):
+                x_start = self._clamp_window_start(x, img_width, side_length)
+                window = (x_start, y_start, x_start + side_length, y_start + side_length)
+                if window in cropped_regions:
+                    continue
+                cropped_regions.add(window)
+                windows.append(window)
+        return windows
+
+    def _generate_target_center_windows(
+        self,
+        annotations: List[Annotation],
+        img_width: int,
+        img_height: int,
+        side_length: int,
+        stride: int,
+        minvis: float,
+    ) -> List[Tuple[int, int, int, int]]:
+        windows = []
+        cropped_regions = set()
+
+        def add_window(window: Tuple[int, int, int, int]) -> None:
+            if window not in cropped_regions:
+                cropped_regions.add(window)
+                windows.append(window)
+
+        for ann in annotations:
+            center_x, center_y = self._annotation_center(ann)
+            y_start = self._clamp_window_start(round(center_y - side_length / 2), img_height, side_length)
+            center_start = self._clamp_window_start(round(center_x - side_length / 2), img_width, side_length)
+            center_window = (center_start, y_start, center_start + side_length, y_start + side_length)
+
+            if self.calculate_overlap(ann, center_window) >= minvis:
+                add_window(center_window)
+            else:
+                continue
+
+            current_start = center_start
+            while current_start > 0:
+                next_start = self._clamp_window_start(current_start - stride, img_width, side_length)
+                if next_start == current_start:
+                    break
+                window = (next_start, y_start, next_start + side_length, y_start + side_length)
+                if self.calculate_overlap(ann, window) < minvis:
+                    break
+                add_window(window)
+                current_start = next_start
+
+            current_start = center_start
+            max_start = max(0, img_width - side_length)
+            while current_start < max_start:
+                next_start = self._clamp_window_start(current_start + stride, img_width, side_length)
+                if next_start == current_start:
+                    break
+                window = (next_start, y_start, next_start + side_length, y_start + side_length)
+                if self.calculate_overlap(ann, window) < minvis:
+                    break
+                add_window(window)
+                current_start = next_start
+
+        return windows
+
+    @staticmethod
+    def _write_yolo_annotation(label_path: str, annotations: List[Annotation], window_size: Tuple[int, int]) -> None:
+        window_w, window_h = window_size
+        with open(label_path, 'w') as f:
+            for ann in annotations:
+                xmin, ymin, xmax, ymax = ann.bbox
+                x_center = ((xmin + xmax) / 2) / window_w
+                y_center = ((ymin + ymax) / 2) / window_h
+                width = (xmax - xmin) / window_w
+                height = (ymax - ymin) / window_h
+                f.write(f'{ann.class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n')
+
+    @staticmethod
+    def _write_voc_annotation(
+        label_path: str,
+        image_filename: str,
+        annotations: List[Annotation],
+        window_size: Tuple[int, int],
+    ) -> None:
+        window_w, window_h = window_size
+        root = ET.Element('annotation')
+        ET.SubElement(root, 'filename').text = image_filename
+        size = ET.SubElement(root, 'size')
+        ET.SubElement(size, 'width').text = str(window_w)
+        ET.SubElement(size, 'height').text = str(window_h)
+        ET.SubElement(size, 'depth').text = '3'
+
+        for ann in annotations:
+            obj = ET.SubElement(root, 'object')
+            ET.SubElement(obj, 'name').text = ann.class_name
+            bndbox = ET.SubElement(obj, 'bndbox')
+            xmin, ymin, xmax, ymax = ann.bbox
+            ET.SubElement(bndbox, 'xmin').text = str(max(0, round(xmin)))
+            ET.SubElement(bndbox, 'ymin').text = str(max(0, round(ymin)))
+            ET.SubElement(bndbox, 'xmax').text = str(min(window_w, round(xmax)))
+            ET.SubElement(bndbox, 'ymax').text = str(min(window_h, round(ymax)))
+
+        ET.ElementTree(root).write(label_path, encoding='utf-8', xml_declaration=True)
+
+    @staticmethod
     def _process_single_image_task(
         img_file: Path,
         annotation_format: str,
@@ -333,6 +491,11 @@ class DatasetGenerator:
         window_height: int,
         stride_x: int,
         stride_y: int,
+        adaptive_window: bool,
+        labeled_crop_mode: str,
+        overlap_ratio: float,
+        minvis: float,
+        preserve_annotation_format: bool,
         overlap_threshold: float,
         output_images_dir: str,
         output_labels_dir: str,
@@ -391,16 +554,43 @@ class DatasetGenerator:
                 empty_crops_skipped = 0
                 annotations_extracted = 0
                 crop_idx = 0
+                cropped_regions = set()
 
-                for y in range(0, img_height, stride_y):
-                    for x in range(0, img_width, stride_x):
-                        x2 = min(x + window_width, img_width)
+                if adaptive_window:
+                    side_length = img_height
+                    stride = max(1, int(side_length * (1 - overlap_ratio)))
+                    if labeled_crop_mode == 'target_center':
+                        windows = generator._generate_target_center_windows(
+                            annotations,
+                            img_width,
+                            img_height,
+                            side_length,
+                            stride,
+                            minvis,
+                        )
+                    else:
+                        windows = generator._generate_sliding_windows(img_width, img_height, side_length, stride)
+                else:
+                    windows = []
+                    for y in range(0, img_height, stride_y):
                         y2 = min(y + window_height, img_height)
-
-                        x_start = max(0, x2 - window_width) if x2 == img_width else x
                         y_start = max(0, y2 - window_height) if y2 == img_height else y
-                        window = (x_start, y_start, x_start + window_width, y_start + window_height)
+                        for x in range(0, img_width, stride_x):
+                            x2 = min(x + window_width, img_width)
+                            x_start = max(0, x2 - window_width) if x2 == img_width else x
+                            window = (x_start, y_start, x_start + window_width, y_start + window_height)
+                            if window in cropped_regions:
+                                continue
+                            cropped_regions.add(window)
+                            windows.append(window)
 
+                for window in windows:
+                    window_width_current = window[2] - window[0]
+                    window_height_current = window[3] - window[1]
+
+                    if preserve_annotation_format:
+                        window_annotations = generator._annotations_for_window(annotations, window, minvis)
+                    else:
                         window_annotations = []
                         for ann in annotations:
                             overlap = generator.calculate_overlap(ann, window)
@@ -408,29 +598,51 @@ class DatasetGenerator:
                                 yolo_ann = generator.transform_annotation_to_window(
                                     ann,
                                     window,
-                                    (window_width, window_height),
+                                    (window_width_current, window_height_current),
                                 )
                                 if yolo_ann:
                                     window_annotations.append(yolo_ann)
-                                    annotations_extracted += 1
 
-                        if not window_annotations:
-                            empty_crops_skipped += 1
+                    annotations_extracted += len(window_annotations)
+
+                    if not window_annotations:
+                        empty_crops_skipped += 1
+                        if not (preserve_annotation_format and labeled_crop_mode == 'sliding'):
                             continue
 
-                        crop = img.crop((x_start, y_start, x_start + window_width, y_start + window_height))
-                        crop_name = f'{img_file.stem}_crop_{crop_idx}'
+                    crop = img.crop(window)
+                    crop_name = f'{img_file.stem}_crop_{crop_idx}'
+                    if preserve_annotation_format:
+                        crop_filename = f'{crop_name}{img_file.suffix}'
+                        crop_path = os.path.join(output_images_dir, crop_filename)
+                        crop.save(crop_path)
+                        if annotation_format == 'voc':
+                            label_path = os.path.join(output_labels_dir, f'{crop_name}.xml')
+                            generator._write_voc_annotation(
+                                label_path,
+                                crop_filename,
+                                window_annotations,
+                                (window_width_current, window_height_current),
+                            )
+                        else:
+                            label_path = os.path.join(output_labels_dir, f'{crop_name}.txt')
+                            generator._write_yolo_annotation(
+                                label_path,
+                                window_annotations,
+                                (window_width_current, window_height_current),
+                            )
+                    else:
                         crop_path = os.path.join(output_images_dir, f'{crop_name}.jpg')
                         crop.save(crop_path, 'JPEG', quality=95)
-
                         label_path = os.path.join(output_labels_dir, f'{crop_name}.txt')
                         with open(label_path, 'w') as f:
                             for class_id, xc, yc, w, h in window_annotations:
                                 f.write(f'{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n')
 
-                        total_crops += 1
+                    total_crops += 1
+                    if window_annotations:
                         crops_with_annotations += 1
-                        crop_idx += 1
+                    crop_idx += 1
 
             return {
                 'success': True,
@@ -477,11 +689,17 @@ class DatasetGenerator:
             images_dir = config['images_dir']
             annotations_dir = config['annotations_dir']
             output_dir = config['output_dir']
+            input_image_path = config.get('input_image_path')
             classes_filter = config.get('classes', [])
             window_width = config.get('window_width', 640)
             window_height = config.get('window_height', 640)
             stride_x = config.get('stride_x', 320)
             stride_y = config.get('stride_y', 320)
+            adaptive_window = config.get('adaptive_window', False)
+            labeled_crop_mode = config.get('labeled_crop_mode', 'sliding')
+            overlap_ratio = config.get('overlap_ratio', 0.3)
+            minvis = config.get('minvis', 0.0)
+            preserve_annotation_format = config.get('preserve_annotation_format', False)
             overlap_threshold = config.get('overlap_threshold', 100) / 100.0
             
             # Create output directories
@@ -496,6 +714,10 @@ class DatasetGenerator:
             for ext in image_extensions:
                 image_files.extend(Path(images_dir).glob(f'*{ext}'))
                 image_files.extend(Path(images_dir).glob(f'*{ext.upper()}'))
+
+            if input_image_path:
+                target_image = Path(input_image_path).resolve()
+                image_files = [img for img in image_files if img.resolve() == target_image]
             
             if not image_files:
                 return {
@@ -553,6 +775,11 @@ class DatasetGenerator:
                         window_height,
                         stride_x,
                         stride_y,
+                        adaptive_window,
+                        labeled_crop_mode,
+                        overlap_ratio,
+                        minvis,
+                        preserve_annotation_format,
                         overlap_threshold,
                         output_images_dir,
                         output_labels_dir,
@@ -589,6 +816,11 @@ class DatasetGenerator:
                             window_height,
                             stride_x,
                             stride_y,
+                            adaptive_window,
+                            labeled_crop_mode,
+                            overlap_ratio,
+                            minvis,
+                            preserve_annotation_format,
                             overlap_threshold,
                             output_images_dir,
                             output_labels_dir,
