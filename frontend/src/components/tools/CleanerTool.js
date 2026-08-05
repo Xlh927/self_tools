@@ -115,7 +115,7 @@ export default function CleanerTool() {
                     padding: '10px',
                     marginTop: '4px'
                 }
-            }, '⚠️ 注意：该工具会将无标注的图片从原目录移动到背景图目录。')
+            }, '⚠️ 注意：该工具会将无标注或空标签的图片从原目录移动到背景图目录。')
         ),
 
         // Task Controller
@@ -134,7 +134,7 @@ export default function CleanerTool() {
                 e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-sm)' } },
                     e('div', {}, `图片总数: ${task.result.total_count}`),
                     e('div', {}, `有标注图片: ${task.result.labeled_count}`),
-                    e('div', {}, `无标注图片: ${task.result.unlabeled_count}`),
+                    e('div', {}, `背景图片: ${task.result.background_count ?? task.result.unlabeled_count}`),
                     e('div', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, `已移动图片: ${task.result.moved_count}`),
                 ),
                 task.result.output_dir && e('p', { style: { fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '4px 8px', borderRadius: '4px' } }, `输出目录: ${task.result.output_dir}`),
