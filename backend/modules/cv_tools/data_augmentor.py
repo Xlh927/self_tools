@@ -60,10 +60,6 @@ class DataAugmentor:
             augmentor = DataAugmentor()
             generated_count = 0
             
-            # Copy original image and annotation
-            cv2.imwrite(str(images_output / img_file.name), image)
-            shutil.copy(annotation_file, annotations_output / annotation_file.name)
-            
             # Apply augmentations
             for aug_config in augmentations:
                 aug_name, _params = augmentor.normalize_augmentation_config(aug_config)
@@ -203,7 +199,7 @@ class DataAugmentor:
                 'success': True,
                 'processed': processed,
                 'generated': generated,
-                'total_images': processed + generated,
+                'total_images': generated,
                 'errors': errors
             }
             

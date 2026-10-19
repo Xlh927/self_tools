@@ -19,7 +19,43 @@ export default function ConverterTool() {
     const [scannedClasses, setScannedClasses] = useState([]);
     const [scanningClasses, setScanningClasses] = useState(false);
     const [showClassEditor, setShowClassEditor] = useState(false);
+    const [classFilter, setClassFilter] = useState({
+        view: '',
+        part: '',
+        fault: '',
+        targetIndex: 0,
+    });
     const defaultOutputFolder = conversionType === 'voc_to_yolo' ? 'labels' : 'xml';
+
+    const parseKeywords = (value) => value
+        .split(/[\s,，;；、]+/)
+        .map(keyword => keyword.trim().toLowerCase())
+        .filter(Boolean);
+
+    const getMatchedClasses = () => {
+        const groups = [
+            parseKeywords(classFilter.view),
+            parseKeywords(classFilter.part),
+            parseKeywords(classFilter.fault),
+        ].filter(group => group.length > 0);
+
+        if (groups.length === 0) {
+            return [];
+        }
+
+        return scannedClasses.filter(cls => {
+            const name = cls.name.toLowerCase();
+            return groups.every(group => group.some(keyword => name.includes(keyword)));
+        });
+    };
+
+    const matchedClasses = getMatchedClasses();
+    const matchedClassNames = new Set(matchedClasses.map(cls => cls.name));
+    const hasActiveFilter = [
+        classFilter.view,
+        classFilter.part,
+        classFilter.fault,
+    ].some(value => value.trim());
 
     useDatasetPathInference({
         imagesDir,
@@ -78,6 +114,34 @@ export default function ConverterTool() {
         setScannedClasses(prev => prev.map(cls =>
             cls.name === className ? { ...cls, enabled: !cls.enabled } : cls
         ));
+    };
+
+    const updateClassFilter = (field, value) => {
+        setClassFilter(prev => ({ ...prev, [field]: value }));
+    };
+
+    const applyFilterToClasses = ({ keepOnlyMatched = false } = {}) => {
+        const targetIndex = parseInt(classFilter.targetIndex, 10) || 0;
+        const names = new Set(matchedClasses.map(cls => cls.name));
+
+        setScannedClasses(prev => prev.map(cls => {
+            if (names.has(cls.name)) {
+                return { ...cls, enabled: true, index: targetIndex };
+            }
+            if (keepOnlyMatched) {
+                return { ...cls, enabled: false };
+            }
+            return cls;
+        }));
+    };
+
+    const clearClassFilter = () => {
+        setClassFilter(prev => ({
+            ...prev,
+            view: '',
+            part: '',
+            fault: '',
+        }));
     };
 
     const task = useToolTask({
@@ -161,6 +225,101 @@ export default function ConverterTool() {
                 '💡 提示: 勾选要转换的类别，可修改类别索引'
             ),
             e('div',
+                {
+                    style: {
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: 'var(--spacing-sm)',
+                        padding: 'var(--spacing-sm)',
+                        marginBottom: 'var(--spacing-sm)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid rgba(24, 144, 255, 0.22)',
+                        background: 'var(--color-info-bg)',
+                    }
+                },
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '视角关键词'),
+                    e('input', {
+                        type: 'text',
+                        className: 'input-field',
+                        placeholder: 'zxj, cebu, dibu',
+                        value: classFilter.view,
+                        onChange: (event) => updateClassFilter('view', event.target.value),
+                    })
+                ),
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '部件关键词'),
+                    e('input', {
+                        type: 'text',
+                        className: 'input-field',
+                        placeholder: 'luoshuan',
+                        value: classFilter.part,
+                        onChange: (event) => updateClassFilter('part', event.target.value),
+                    })
+                ),
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '故障型态关键词'),
+                    e('input', {
+                        type: 'text',
+                        className: 'input-field',
+                        placeholder: 'songtuo, diushi, yiwu',
+                        value: classFilter.fault,
+                        onChange: (event) => updateClassFilter('fault', event.target.value),
+                    })
+                ),
+                e('div', { className: 'input-group', style: { marginBottom: 0 } },
+                    e('label', { className: 'input-label' }, '目标类别 ID'),
+                    e('input', {
+                        type: 'number',
+                        min: 0,
+                        className: 'input-field',
+                        value: classFilter.targetIndex,
+                        onChange: (event) => updateClassFilter('targetIndex', event.target.value),
+                    })
+                ),
+                e('div',
+                    {
+                        style: {
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'end',
+                            gap: 'var(--spacing-sm)',
+                            gridColumn: '1 / -1',
+                        }
+                    },
+                    e('button', {
+                        type: 'button',
+                        className: 'btn btn-primary',
+                        disabled: !hasActiveFilter || matchedClasses.length === 0,
+                        onClick: () => applyFilterToClasses(),
+                    }, `应用到匹配类别 (${matchedClasses.length})`),
+                    e('button', {
+                        type: 'button',
+                        className: 'btn btn-secondary',
+                        disabled: !hasActiveFilter || matchedClasses.length === 0,
+                        onClick: () => applyFilterToClasses({ keepOnlyMatched: true }),
+                    }, '仅保留匹配类别'),
+                    e('button', {
+                        type: 'button',
+                        className: 'btn btn-ghost',
+                        disabled: !hasActiveFilter,
+                        onClick: clearClassFilter,
+                    }, '清空筛选'),
+                    e('span',
+                        {
+                            style: {
+                                color: 'var(--text-secondary)',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                            }
+                        },
+                        hasActiveFilter
+                            ? `当前命中 ${matchedClasses.length} / ${scannedClasses.length} 个类别`
+                            : '输入任意关键词后可批量指定类别 ID'
+                    )
+                )
+            ),
+            e('div',
                 { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--spacing-sm)' } },
                 ...scannedClasses.map(cls =>
                     e('div',
@@ -173,7 +332,9 @@ export default function ConverterTool() {
                                 padding: 'var(--spacing-sm)',
                                 background: cls.enabled ? 'rgba(67, 233, 123, 0.08)' : 'rgba(255, 255, 255, 0.02)',
                                 borderRadius: 'var(--radius-md)',
-                                border: cls.enabled ? '1px solid rgba(67, 233, 123, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                border: matchedClassNames.has(cls.name)
+                                    ? '2px solid var(--color-info)'
+                                    : (cls.enabled ? '1px solid rgba(67, 233, 123, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'),
                                 opacity: cls.enabled ? 1 : 0.5,
                                 transition: 'all 0.2s ease',
                             }

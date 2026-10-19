@@ -39,7 +39,7 @@ def main():
             "annotations_dir": str(ann_dir),
             "output_dir": str(out_dir),
             "annotation_format": "voc",
-            "augmentations": [],
+            "augmentations": ["hflip"],
         })
         if not result.get("success"):
             if "Permission denied" in str(result.get("error", "")):
@@ -47,10 +47,14 @@ def main():
                 return
             raise AssertionError(f"augment_dataset failed: {result}")
 
-        if not list((out_dir / "images").glob("*.jpg")):
-            raise AssertionError("no output images")
-        if not list((out_dir / "xmls").glob("*.xml")):
-            raise AssertionError("no output annotations")
+        output_images = sorted(path.name for path in (out_dir / "images").glob("*.jpg"))
+        output_annotations = sorted(path.name for path in (out_dir / "xmls").glob("*.xml"))
+        if output_images != ["img1_hflip.jpg"]:
+            raise AssertionError(f"unexpected output images: {output_images}")
+        if output_annotations != ["img1_hflip.xml"]:
+            raise AssertionError(f"unexpected output annotations: {output_annotations}")
+        if result.get("total_images") != 1:
+            raise AssertionError(f"unexpected total_images: {result}")
 
         image = np.zeros((60, 80, 3), dtype=np.uint8)
         annotations = [{"class_name": "cat", "bbox": [10, 12, 30, 42]}]

@@ -398,20 +398,38 @@ class DatasetGenerator:
     ) -> List[Tuple[int, int, int, int]]:
         windows = []
         cropped_regions = set()
+        window_targets = []
+        # Merge nearby crops from different targets, while preserving the
+        # requested stride and the left/center/right views of each target.
+        near_distance = min(stride / 2, side_length * 0.1)
 
-        def add_window(window: Tuple[int, int, int, int]) -> None:
-            if window not in cropped_regions:
-                cropped_regions.add(window)
-                windows.append(window)
+        def add_window(window: Tuple[int, int, int, int], source_index: int) -> None:
+            if window in cropped_regions:
+                return
+            cropped_regions.add(window)
+            visible_targets = set()
+            for index, target in enumerate(annotations):
+                overlap = self.calculate_overlap(target, window)
+                if overlap > 0 and overlap >= minvis:
+                    visible_targets.add(index)
+            for existing, (existing_source, existing_targets) in zip(windows, window_targets):
+                if existing_source == source_index:
+                    continue
+                if (abs(window[0] - existing[0]) < near_distance
+                        and abs(window[1] - existing[1]) < near_distance
+                        and visible_targets.issubset(existing_targets)):
+                    return
+            windows.append(window)
+            window_targets.append((source_index, visible_targets))
 
-        for ann in annotations:
+        for source_index, ann in enumerate(annotations):
             center_x, center_y = self._annotation_center(ann)
             y_start = self._clamp_window_start(round(center_y - side_length / 2), img_height, side_length)
             center_start = self._clamp_window_start(round(center_x - side_length / 2), img_width, side_length)
             center_window = (center_start, y_start, center_start + side_length, y_start + side_length)
 
             if self.calculate_overlap(ann, center_window) >= minvis:
-                add_window(center_window)
+                add_window(center_window, source_index)
             else:
                 continue
 
@@ -423,7 +441,7 @@ class DatasetGenerator:
                 window = (next_start, y_start, next_start + side_length, y_start + side_length)
                 if self.calculate_overlap(ann, window) < minvis:
                     break
-                add_window(window)
+                add_window(window, source_index)
                 current_start = next_start
 
             current_start = center_start
@@ -435,7 +453,7 @@ class DatasetGenerator:
                 window = (next_start, y_start, next_start + side_length, y_start + side_length)
                 if self.calculate_overlap(ann, window) < minvis:
                     break
-                add_window(window)
+                add_window(window, source_index)
                 current_start = next_start
 
         return windows
