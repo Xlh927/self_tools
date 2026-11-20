@@ -1,5 +1,6 @@
 import AugmentorTool from '../components/tools/AugmentorTool.js';
 import CleanerTool from '../components/tools/CleanerTool.js';
+import PairExtractorTool from '../components/tools/PairExtractorTool.js';
 import ConverterTool from '../components/tools/ConverterTool.js';
 import CropperTool from '../components/tools/CropperTool.js';
 import DeduplicatorTool from '../components/tools/DeduplicatorTool.js';
@@ -24,6 +25,7 @@ export const TOOL_COMPONENTS = {
     'grid-generator': GridGeneratorTool,
     'slurm-generator': SlurmGeneratorTool,
     cleaner: CleanerTool,
+    'pair-extractor': PairExtractorTool,
 };
 
 export function getToolComponentById(toolId) {

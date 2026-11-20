@@ -17,6 +17,8 @@ export default function DeduplicatorTool() {
 
     const [keepStrategy, setKeepStrategy] = useState('first');
     const [dryRun, setDryRun] = useState(true);
+    const [deleteXml, setDeleteXml] = useState(false);
+    const [xmlDir, setXmlDir] = useState('');
 
     const [removeResult, setRemoveResult] = useState(null);
     const [removing, setRemoving] = useState(false);
@@ -39,7 +41,8 @@ export default function DeduplicatorTool() {
     const report = scanTask.result;
 
     const handleRemoveDuplicates = async () => {
-        if (!confirm('确定要删除重复图片吗？此操作不可撤销！')) return;
+        const action = deleteXml ? '重复图片及对应 XML' : '重复图片';
+        if (!confirm(dryRun ? `将预览删除${action}，不会修改文件。是否继续？` : `确定要删除${action}吗？此操作不可撤销！`)) return;
 
         setRemoving(true);
         setRemoveResult(null);
@@ -61,6 +64,8 @@ export default function DeduplicatorTool() {
                 similarity_threshold: parseInt(similarityThreshold),
                 keep_strategy: keepStrategy,
                 dry_run: dryRun,
+                delete_xml: deleteXml,
+                xml_dir: xmlDir.trim() || null,
                 duplicates: duplicates,
             });
             setRemoveResult(data);
@@ -138,6 +143,19 @@ export default function DeduplicatorTool() {
             )
         ),
 
+        e('div', { className: 'input-group' },
+            e('label', { className: 'input-label' },
+                e('input', { type: 'checkbox', checked: deleteXml,
+                    onChange: (event) => setDeleteXml(event.target.checked) }),
+                ' 同步删除对应 XML'
+            ),
+            deleteXml && e('input', { type: 'text', className: 'input-field',
+                placeholder: 'XML 目录（可选，留空自动推断）', value: xmlDir,
+                onChange: (event) => setXmlDir(event.target.value) }),
+            deleteXml && e('small', { style: { color: 'var(--text-secondary)' } },
+                'images 目录自动对应同级 xml；其他目录查找图片旁的同名 XML。缺少或共用 XML 时跳过该图片。请先核对重复图片的标注是否一致。')
+        ),
+
         // Task Controller
         e(TaskController, {
             ...scanTask.taskControllerProps,
@@ -164,8 +182,8 @@ export default function DeduplicatorTool() {
             e('h3', { style: { color: 'var(--color-info)' } }, '📊 扫描报告'),
             e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' } },
                 e('div', {},
-                    e('span', { style: { color: 'var(--text-secondary)' } }, '扫描文件: '),
-                    e('span', { style: { fontWeight: 'bold' } }, report.total_files)
+                    e('span', { style: { color: 'var(--text-secondary)' } }, '重复组内图片: '),
+                    e('span', { style: { fontWeight: 'bold' } }, report.total_files_in_groups)
                 ),
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '重复组数: '),
@@ -173,11 +191,11 @@ export default function DeduplicatorTool() {
                 ),
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '重复文件: '),
-                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-danger)' } }, report.total_duplicates)
+                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-danger)' } }, report.total_duplicate_files)
                 ),
                 e('div', {},
                     e('span', { style: { color: 'var(--text-secondary)' } }, '节省空间: '),
-                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, report.wasted_size)
+                    e('span', { style: { fontWeight: 'bold', color: 'var(--color-success)' } }, `${report.potential_space_saved_mb} MB`)
                 )
             ),
 
@@ -266,11 +284,14 @@ export default function DeduplicatorTool() {
             e('h3', {}, removeResult.success ? (dryRun ? '✅ 测试完成' : '✅ 处理完成') : '❌ 操作失败'),
             removeResult.success && e('div', {},
                 e('div', { style: { display: 'flex', gap: '20px' } },
-                    e('div', {}, `已处理: ${removeResult.removed_count} 个文件`),
-                    e('div', { style: { color: 'var(--color-success)', fontWeight: 700 } }, `释放空间: ${removeResult.saved_space}`),
+                    e('div', {}, `${removeResult.dry_run ? '预计删除' : '已删除'}图片: ${removeResult.removed_count} 张，XML: ${removeResult.removed_xml_count || 0} 个`),
+                    e('div', { style: { color: 'var(--color-success)', fontWeight: 700 } }, `释放空间: ${removeResult.space_saved_mb} MB`),
                 ),
                 dryRun && e('p', { style: { color: 'var(--color-warning)', fontSize: '0.9rem', fontWeight: 600, marginTop: '8px' } }, '💡 这是测试运行，没有实际物理删除')
             ),
+            removeResult.error_count > 0 && e('div', { style: { color: 'var(--color-danger)' } },
+                `有 ${removeResult.error_count} 项未完整处理：`,
+                (removeResult.errors || []).map((item, index) => e('p', { key: index }, `${item.path}: ${item.error}${item.staged_xml ? `；XML 暂存于 ${item.staged_xml}` : ''}`))),
             e(ErrorText, { error: removeResult.error, errorCode: removeResult.error_code })
         )
     );

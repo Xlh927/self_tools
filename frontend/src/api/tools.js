@@ -40,6 +40,10 @@ export function removeDuplicates(payload) {
     return post('/api/remove-duplicates', payload);
 }
 
+export function extractPairs(payload) {
+    return post('/api/extract-pairs', payload);
+}
+
 export function cleanDataset(payload) {
     return post('/api/clean-dataset', payload);
 }

@@ -1,5 +1,12 @@
 export const TOOLS = [
     {
+        id: 'pair-extractor',
+        name: '图片/XML 配对提取',
+        icon: 'target',
+        description: '递归提取配对数据并统一命名',
+        gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    },
+    {
         id: 'converter',
         name: '数据集格式转换',
         icon: 'arrow-path',

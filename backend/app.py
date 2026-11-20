@@ -22,6 +22,7 @@ from routes.convert import create_convert_blueprint
 from routes.crop import create_crop_blueprint
 from routes.generate import create_generate_blueprint
 from routes.split import create_split_blueprint
+from routes.extract import create_extract_blueprint
 from routes.clean import create_clean_blueprint
 from routes.dedup import create_dedup_blueprint
 from routes.labels import create_labels_blueprint
@@ -60,6 +61,7 @@ app.register_blueprint(create_crop_blueprint(task_manager))
 app.register_blueprint(create_generate_blueprint(task_manager))
 app.register_blueprint(create_split_blueprint(task_manager))
 app.register_blueprint(create_clean_blueprint(task_manager))
+app.register_blueprint(create_extract_blueprint(task_manager))
 app.register_blueprint(create_dedup_blueprint(task_manager))
 app.register_blueprint(create_labels_blueprint(task_manager))
 app.register_blueprint(create_augment_blueprint(task_manager))

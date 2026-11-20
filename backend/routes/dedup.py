@@ -61,6 +61,8 @@ def create_dedup_blueprint(task_manager):
                     'similarity_threshold': 5,
                     'keep_strategy': 'first',
                     'dry_run': True,
+                    'delete_xml': False,
+                    'xml_dir': None,
                 },
                 coerce={'similarity_threshold': int},
             )
@@ -79,7 +81,10 @@ def create_dedup_blueprint(task_manager):
             result = deduplicator.remove_duplicates(
                 duplicates=duplicates,
                 keep_strategy=data.get('keep_strategy', 'first'),
-                dry_run=data.get('dry_run', True)
+                dry_run=data.get('dry_run', True),
+                delete_xml=data.get('delete_xml', False),
+                folder_path=data['folder_path'],
+                xml_dir=data.get('xml_dir'),
             )
             merged = {'success': True, **result}
             return success_response(merged, message='Duplicate removal done')

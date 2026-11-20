@@ -5,6 +5,8 @@ Detects and removes duplicate images using perceptual hashing algorithms.
 
 import os
 import hashlib
+import tempfile
+from pathlib import Path
 from PIL import Image
 import imagehash
 from collections import defaultdict
@@ -250,58 +252,103 @@ class ImageDeduplicator:
         
         return result
 
-    def remove_duplicates(self, 
-                         duplicates: Dict[str, List[str]], 
-                         keep_strategy: str = 'first',
-                         dry_run: bool = True) -> Dict[str, any]:
+    @staticmethod
+    def _xml_path(image_path, folder_path, xml_dir=None):
+        image = Path(image_path).resolve()
+        root = Path(folder_path).resolve()
+        relative = image.relative_to(root)
+        if xml_dir:
+            return (Path(xml_dir).resolve() / relative).with_suffix('.xml')
+        if root.name.lower() == 'images':
+            return (root.parent / 'xml' / relative).with_suffix('.xml')
+        return image.with_suffix('.xml')
+
+    def remove_duplicates(self, duplicates, keep_strategy='first', dry_run=True,
+                          delete_xml=False, folder_path=None, xml_dir=None):
+        """Remove duplicate images, optionally together with same-stem XML files.
+
+        An explicit XML root mirrors image-relative subdirectories. Otherwise an
+        images root maps to its sibling xml directory; mixed files map in place.
+        Missing/shared XML files cause that image to be skipped and reported.
         """
-        Remove duplicate images.
-        
-        Args:
-            duplicates: Dictionary of duplicate groups from find_duplicates()
-            keep_strategy: Strategy for keeping images ('first', 'last', 'smallest', 'largest')
-            dry_run: If True, only simulate removal without actually deleting files
-            
-        Returns:
-            Dictionary with statistics about removed files
-        """
-        removed_files = []
-        kept_files = []
+        if delete_xml and not folder_path:
+            raise ValueError('同步删除 XML 需要提供图片根目录')
+        if delete_xml and xml_dir and not Path(xml_dir).is_dir():
+            raise ValueError('XML 目录不存在或不是目录')
+        removed_files, kept_files, removed_xml_files, errors = [], [], [], []
         total_space_saved = 0
-        
-        for group_id, image_paths in duplicates.items():
-            if len(image_paths) <= 1:
-                continue
-            
-            # Determine which file to keep
-            keep_file = self._select_file_to_keep(image_paths, keep_strategy)
+        groups = [list(dict.fromkeys(paths)) for paths in duplicates.values() if len(set(paths)) > 1]
+        keep_files = [self._select_file_to_keep(paths, keep_strategy) for paths in groups]
+        candidates = {str(Path(p).resolve()) for paths, keep in zip(groups, keep_files)
+                      for p in paths if p != keep}
+        xml_users = defaultdict(set)
+        if delete_xml:
+            for parent, _, names in os.walk(folder_path):
+                for name in names:
+                    image = Path(parent) / name
+                    if image.suffix.lower() in self.supported_formats:
+                        xml_users[self._xml_path(image, folder_path, xml_dir)].add(str(image.resolve()))
+        handled = set()
+        for paths, keep_file in zip(groups, keep_files):
             kept_files.append(keep_file)
-            
-            # Remove the rest
-            for file_path in image_paths:
-                if file_path != keep_file:
-                    file_size = os.path.getsize(file_path)
-                    total_space_saved += file_size
-                    
+            for file_path in paths:
+                if file_path == keep_file or file_path in handled:
+                    continue
+                handled.add(file_path)
+                xml_path = None
+                staged_xml = None
+                try:
+                    image = Path(file_path).resolve()
+                    if folder_path:
+                        image.relative_to(Path(folder_path).resolve())
+                    if delete_xml:
+                        xml_path = self._xml_path(image, folder_path, xml_dir)
+                        if not xml_path.is_file():
+                            raise ValueError(f'缺少对应 XML，保留图片: {xml_path}')
+                        # Do not delete an XML still referenced by a retained image
+                        # (e.g. a.jpg and a.png sharing a.xml).
+                        if xml_users[xml_path] - candidates or len(xml_users[xml_path]) > 1:
+                            raise ValueError(f'多张图片共用 XML，保留图片: {xml_path}')
+                    size = image.stat().st_size + (xml_path.stat().st_size if xml_path else 0)
                     if not dry_run:
+                        if xml_path:
+                            # Stage XML beside itself so an image deletion failure
+                            # can restore it without leaving a broken pair.
+                            fd, staged_xml = tempfile.mkstemp(prefix='.dedup-', dir=str(xml_path.parent))
+                            os.close(fd)
+                            try:
+                                os.replace(xml_path, staged_xml)
+                            except Exception:
+                                os.unlink(staged_xml)
+                                staged_xml = None
+                                raise
                         try:
-                            os.remove(file_path)
-                            removed_files.append(file_path)
-                            print(f"🗑️  Deleted: {file_path}")
-                        except Exception as e:
-                            print(f"❌ Error deleting {file_path}: {str(e)}")
+                            os.remove(image)
+                        except Exception:
+                            if staged_xml:
+                                os.replace(staged_xml, xml_path)
+                                staged_xml = None
+                            raise
+                        removed_files.append(file_path)
+                        if staged_xml:
+                            os.remove(staged_xml)
+                            staged_xml = None
+                            removed_xml_files.append(str(xml_path))
                     else:
                         removed_files.append(file_path)
-                        print(f"[DRY RUN] Would delete: {file_path}")
-        
+                        if xml_path:
+                            removed_xml_files.append(str(xml_path))
+                    total_space_saved += size
+                except Exception as exc:
+                    errors.append({'path': file_path, 'error': str(exc), 'staged_xml': staged_xml})
         return {
-            'removed_count': len(removed_files),
-            'kept_count': len(kept_files),
-            'removed_files': removed_files,
-            'kept_files': kept_files,
+            'removed_count': len(removed_files), 'kept_count': len(kept_files),
+            'removed_files': removed_files, 'kept_files': kept_files,
+            'removed_xml_count': len(removed_xml_files), 'removed_xml_files': removed_xml_files,
+            'errors': errors, 'error_count': len(errors),
             'space_saved_bytes': total_space_saved,
             'space_saved_mb': round(total_space_saved / (1024 * 1024), 2),
-            'dry_run': dry_run
+            'dry_run': dry_run,
         }
 
     def _select_file_to_keep(self, file_paths: List[str], strategy: str) -> str:
